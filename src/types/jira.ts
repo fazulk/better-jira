@@ -1,0 +1,82 @@
+export interface JiraAdfMark {
+  type?: string
+  attrs?: Record<string, unknown>
+}
+
+export interface JiraAdfNode {
+  type?: string
+  text?: string
+  attrs?: Record<string, unknown>
+  marks?: JiraAdfMark[]
+  content?: JiraAdfNode[]
+}
+
+export interface JiraAdfDocument extends JiraAdfNode {
+  type: 'doc'
+  version: number
+  content: JiraAdfNode[]
+}
+
+export interface JiraTicket {
+  key: string
+  summary: string
+  status: string
+  statusCategory: string
+  createdAt?: string
+  updatedAt?: string
+  dueDate?: string
+  completedAt?: string
+  priority: string
+  issueType: string
+  assignee: string
+  assigneeAccountId?: string
+  description?: string
+  descriptionAdf?: JiraAdfDocument
+  self: string
+  parent?: {
+    key: string
+    summary: string
+    issueType: string
+  }
+}
+
+export interface JiraAssignableUser {
+  accountId: string
+  displayName: string
+}
+
+export interface JiraMessage {
+  id: string
+  author: string
+  createdAt: string
+  body: string
+}
+
+export interface JiraTransition {
+  id: string
+  name: string
+  statusCategory: string
+}
+
+export interface JiraPriority {
+  id: string
+  name: string
+}
+
+export type JiraCreateIssueType = string
+
+export type JiraCreateFieldValue = string | string[] | null
+
+export interface CreateJiraTicketInput {
+  issueType: JiraCreateIssueType
+  parentKey?: string | null
+  fields: Record<string, JiraCreateFieldValue>
+}
+
+export type StatusGroup = 'new' | 'indeterminate' | 'done'
+
+export function getStatusGroup(statusCategory: string): StatusGroup {
+  if (statusCategory === 'done') return 'done'
+  if (statusCategory === 'new') return 'new'
+  return 'indeterminate'
+}

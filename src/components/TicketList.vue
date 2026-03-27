@@ -103,9 +103,9 @@ const selectedKey = computed<string | null>({
   },
   set(key) {
     if (key) {
-      router.push({ name: 'ticket', params: { key } })
+      router.push(`/tickets/${key}`)
     } else {
-      router.push({ name: 'tickets' })
+      router.push('/tickets')
     }
   },
 })

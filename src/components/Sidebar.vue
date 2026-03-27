@@ -37,7 +37,7 @@ const sortOptions = [
   { value: 'assignee', label: 'Assignee' },
   { value: 'type', label: 'Type' },
   { value: 'createdAt', label: 'Created date' },
-  { value: 'updatedAt', label: 'Updated date' },
+  { value: 'updatedAt', label: 'Modified date' },
   { value: 'dueDate', label: 'Due date' },
   { value: 'completedAt', label: 'Completed date' },
 ] as const
@@ -49,7 +49,7 @@ const groupOptions = [
   { value: 'assignee', label: 'Assignee' },
   { value: 'type', label: 'Type' },
   { value: 'createdAt', label: 'Created date' },
-  { value: 'updatedAt', label: 'Updated date' },
+  { value: 'updatedAt', label: 'Modified date' },
   { value: 'dueDate', label: 'Due date' },
   { value: 'completedAt', label: 'Completed date' },
   { value: 'none', label: 'None' },
@@ -60,6 +60,7 @@ type GroupOption = (typeof groupOptions)[number]['value']
 
 const sortBy = useLocalStorage<SortOption>('jira2.sidebar.sortBy', 'key')
 const groupBy = useLocalStorage<GroupOption>('jira2.sidebar.groupBy', 'hierarchy')
+const sortReversed = useLocalStorage<boolean>('jira2.sidebar.sortReversed', false)
 
 function isSortOption(value: unknown): value is SortOption {
   return sortOptions.some(option => option.value === value)
@@ -75,6 +76,10 @@ if (!isSortOption(sortBy.value)) {
 
 if (!isGroupOption(groupBy.value)) {
   groupBy.value = 'hierarchy'
+}
+
+if (typeof sortReversed.value !== 'boolean') {
+  sortReversed.value = false
 }
 
 // --- Fuzzy search ---
@@ -275,6 +280,10 @@ function compareText(left: string | undefined, right: string | undefined): numbe
   return (left || '').localeCompare(right || '', undefined, { sensitivity: 'base' })
 }
 
+function applySortDirection(value: number): number {
+  return sortReversed.value ? -value : value
+}
+
 function getPriorityRank(priority: string): number {
   const normalized = priority.trim().toLowerCase()
   return normalized in priorityOrder ? priorityOrder[normalized] : Number.MAX_SAFE_INTEGER
@@ -318,7 +327,8 @@ function compareTicketDates(left: JiraTicket, right: JiraTicket, option: DateFie
     ? leftTimestamp - rightTimestamp
     : rightTimestamp - leftTimestamp
 
-  return timestampCompare || compareText(left.key, right.key)
+  const compare = timestampCompare || compareText(left.key, right.key)
+  return sortReversed.value ? -compare : compare
 }
 
 function getGroupDescriptor(ticket: JiraTicket, option: GroupOption): GroupDescriptor {
@@ -366,20 +376,20 @@ function getGroupDescriptor(ticket: JiraTicket, option: GroupOption): GroupDescr
 function compareTickets(left: JiraTicket, right: JiraTicket): number {
   switch (sortBy.value) {
     case 'summary':
-      return compareText(left.summary, right.summary) || compareText(left.key, right.key)
+      return applySortDirection(compareText(left.summary, right.summary) || compareText(left.key, right.key))
     case 'status': {
       const categoryCompare = statusGroupOrder[getStatusGroup(left.statusCategory)] - statusGroupOrder[getStatusGroup(right.statusCategory)]
-      return categoryCompare || compareText(left.status, right.status) || compareText(left.key, right.key)
+      return applySortDirection(categoryCompare || compareText(left.status, right.status) || compareText(left.key, right.key))
     }
     case 'priority':
-      return getPriorityRank(left.priority) - getPriorityRank(right.priority) || compareText(left.priority, right.priority) || compareText(left.key, right.key)
+      return applySortDirection(getPriorityRank(left.priority) - getPriorityRank(right.priority) || compareText(left.priority, right.priority) || compareText(left.key, right.key))
     case 'assignee': {
       const leftAssignee = left.assignee === 'Unassigned' ? 'zzz-unassigned' : left.assignee
       const rightAssignee = right.assignee === 'Unassigned' ? 'zzz-unassigned' : right.assignee
-      return compareText(leftAssignee, rightAssignee) || compareText(left.key, right.key)
+      return applySortDirection(compareText(leftAssignee, rightAssignee) || compareText(left.key, right.key))
     }
     case 'type':
-      return compareText(left.issueType, right.issueType) || compareText(left.key, right.key)
+      return applySortDirection(compareText(left.issueType, right.issueType) || compareText(left.key, right.key))
     case 'createdAt':
     case 'updatedAt':
     case 'dueDate':
@@ -387,8 +397,8 @@ function compareTickets(left: JiraTicket, right: JiraTicket): number {
       return compareTicketDates(left, right, sortBy.value)
     case 'key':
     default:
-      return compareText(left.key, right.key)
-  }
+      return applySortDirection(compareText(left.key, right.key))
+    }
 }
 
 function sortTickets(tickets: JiraTicket[]): JiraTicket[] {
@@ -406,11 +416,13 @@ function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
 
 function compareGroupLabels(left: GroupDescriptor, right: GroupDescriptor, option: GroupOption): number {
   if (isDateOption(option)) {
-    return left.sortValue - right.sortValue || compareText(left.label, right.label)
+    if (left.id.endsWith('-none')) return 1
+    if (right.id.endsWith('-none')) return -1
+    return applySortDirection(left.sortValue - right.sortValue || compareText(left.label, right.label))
   }
 
   if (option === 'priority') {
-    return left.sortValue - right.sortValue || compareText(left.label, right.label)
+    return applySortDirection(left.sortValue - right.sortValue || compareText(left.label, right.label))
   }
 
   if (option === 'status') {
@@ -418,15 +430,15 @@ function compareGroupLabels(left: GroupDescriptor, right: GroupDescriptor, optio
     const rightTicket = props.tickets.find(ticket => ticket.status === right.label)
     const leftRank = leftTicket ? statusGroupOrder[getStatusGroup(leftTicket.statusCategory)] : Number.MAX_SAFE_INTEGER
     const rightRank = rightTicket ? statusGroupOrder[getStatusGroup(rightTicket.statusCategory)] : Number.MAX_SAFE_INTEGER
-    return leftRank - rightRank || compareText(left.label, right.label)
+    return applySortDirection(leftRank - rightRank || compareText(left.label, right.label))
   }
 
   if (option === 'assignee') {
-    if (left.label === 'Unassigned' && right.label !== 'Unassigned') return 1
-    if (right.label === 'Unassigned' && left.label !== 'Unassigned') return -1
+    if (left.label === 'Unassigned' && right.label !== 'Unassigned') return applySortDirection(1)
+    if (right.label === 'Unassigned' && left.label !== 'Unassigned') return applySortDirection(-1)
   }
 
-  return compareText(left.label, right.label)
+  return applySortDirection(compareText(left.label, right.label))
 }
 
 const tree = computed<TreeNode[]>(() => {
@@ -767,8 +779,30 @@ function isDirectMatch(key: string): boolean {
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <label class="space-y-1">
-          <span class="px-0.5 text-[9px] uppercase tracking-[0.12em] text-slate-600 font-medium">Sort</span>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between gap-2 px-0.5">
+            <span class="text-[9px] uppercase tracking-[0.12em] text-slate-600 font-medium">Sort</span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9px] font-medium transition-all"
+              :class="sortReversed
+                ? 'border-indigo-500/20 bg-indigo-500/[0.1] text-indigo-300'
+                : 'border-white/[0.06] bg-white/[0.03] text-slate-500 hover:text-slate-300 hover:border-white/[0.1]'"
+              :title="sortReversed ? 'Restore normal sort' : 'Reverse sort'"
+              @click="sortReversed = !sortReversed"
+            >
+              <svg
+                class="h-3 w-3 transition-transform"
+                :class="sortReversed ? 'rotate-180' : ''"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V8m0 0 3 3m-3-3-3 3m10-3v8m0 0 3-3m-3 3-3-3" />
+              </svg>
+              {{ sortReversed ? 'Reversed' : 'Normal' }}
+            </button>
+          </div>
           <select
             v-model="sortBy"
             class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-2.5 py-1.5 text-[10px] text-slate-300 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
@@ -777,7 +811,7 @@ function isDirectMatch(key: string): boolean {
               {{ option.label }}
             </option>
           </select>
-        </label>
+        </div>
 
         <label class="space-y-1">
           <span class="px-0.5 text-[9px] uppercase tracking-[0.12em] text-slate-600 font-medium">Group by</span>

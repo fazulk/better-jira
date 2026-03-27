@@ -85,19 +85,22 @@ const avatarColors = [
   'bg-sky-500/20 text-sky-300 border-sky-500/20',
 ]
 
-const avatarColor = computed(() => {
-  if (!ticket.value?.assignee || ticket.value.assignee === 'Unassigned') return 'bg-slate-500/15 text-slate-400 border-slate-500/15'
-  const hash = ticket.value.assignee.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+function getAssigneeAvatarColor(name: string | undefined) {
+  if (!name || name === 'Unassigned') return 'bg-slate-500/15 text-slate-400 border-slate-500/15'
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   return avatarColors[hash % avatarColors.length]
-})
+}
 
-const initials = computed(() => {
-  const name = ticket.value?.assignee
+function getAssigneeInitials(name: string | undefined) {
   if (!name || name === 'Unassigned') return '?'
   const parts = name.split(/\s+/)
   if (parts.length >= 2) return parts[0][0] + parts[1][0]
   return name.slice(0, 2)
-})
+}
+
+const avatarColor = computed(() => getAssigneeAvatarColor(ticket.value?.assignee))
+
+const initials = computed(() => getAssigneeInitials(ticket.value?.assignee))
 
 const childTickets = computed<JiraTicket[]>(() => {
   const key = ticketKey.value
@@ -1089,9 +1092,26 @@ async function submitMessage() {
             >
               {{ child.issueType }}
             </span>
-            <span class="text-sm text-slate-400 group-hover:text-slate-300 transition-colors truncate font-body">{{ child.summary }}</span>
+            <span class="min-w-0 flex-1 text-sm text-slate-400 group-hover:text-slate-300 transition-colors truncate font-body">
+              {{ child.summary }}
+            </span>
+            <span class="ml-2 flex min-w-0 max-w-[12rem] items-center gap-1.5 text-[11px] text-slate-500">
+              <span
+                v-if="child.assignee && child.assignee !== 'Unassigned'"
+                class="avatar-placeholder"
+                :class="getAssigneeAvatarColor(child.assignee)"
+              >
+                {{ getAssigneeInitials(child.assignee) }}
+              </span>
+              <span
+                class="min-w-0 truncate"
+                :class="child.assignee && child.assignee !== 'Unassigned' ? 'text-slate-500' : 'text-slate-600 italic'"
+              >
+                {{ child.assignee || 'Unassigned' }}
+              </span>
+            </span>
             <span
-              class="ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+              class="ml-3 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
               :class="childStatusClass(child.statusCategory)"
             >
               {{ child.status }}

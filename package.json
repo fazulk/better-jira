@@ -4,29 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bun run dev:server\" \"bun run dev:client\"",
-    "dev:client": "bunx vite",
-    "dev:server": "bun --watch server/index.ts",
+    "dev": "bun --watch server/index.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "start": "NODE_ENV=production bun server/index.ts",
+    "preview": "bun run start"
   },
   "dependencies": {
     "@tanstack/query-persist-client-core": "^5.95.2",
     "@tanstack/query-sync-storage-persister": "^5.95.2",
     "@tanstack/vue-query": "^5.66.0",
     "@vueuse/core": "^14.2.1",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
     "vue": "^3.5.0",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
-    "concurrently": "^9.1.0",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

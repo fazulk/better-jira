@@ -6,13 +6,11 @@ import Sidebar from './Sidebar.vue'
 import TicketDetail from './TicketDetail.vue'
 import CreateTicketModal from './CreateTicketModal.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useLocalStorage } from '@vueuse/core'
 const { tickets, refreshing, refresh } = useJiraTickets()
 const queryClient = useQueryClient()
 const route = useRoute()
-const router = useRouter()
 const sidebarCollapsed = useLocalStorage('jira2.sidebar.collapsed', false)
 const defaultSidebarWidth = 288
 const minSidebarWidth = 220
@@ -103,10 +101,11 @@ const selectedKey = computed<string | null>({
   },
   set(key) {
     if (key) {
-      router.push({ name: 'ticket', params: { key } })
-    } else {
-      router.push({ name: 'tickets' })
+      void navigateTo(`/tickets/${key}`)
+      return
     }
+
+    void navigateTo('/tickets')
   },
 })
 

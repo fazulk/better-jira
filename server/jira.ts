@@ -28,6 +28,14 @@ function getJiraConfig() {
   }
 }
 
+function isJiraAuthenticationFailure(res: Response): boolean {
+  return res.headers.get('x-seraph-loginreason') === 'AUTHENTICATED_FAILED'
+}
+
+function createJiraAuthenticationError(): Error {
+  return new Error('Jira authentication failed. Update your Jira email or API token in Settings.')
+}
+
 async function jiraFetch(
   path: string,
   options?: {
@@ -53,6 +61,10 @@ async function jiraFetch(
     },
     body: options?.body ? JSON.stringify(options.body) : undefined,
   })
+
+  if (isJiraAuthenticationFailure(res)) {
+    throw createJiraAuthenticationError()
+  }
 
   if (!res.ok) {
     const body = await res.text()

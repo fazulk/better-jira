@@ -14,6 +14,14 @@ Install Bun first: [bun.sh/docs/installation](https://bun.sh/docs/installation)
 bun install
 ```
 
+### Development
+
+```bash
+bun run dev
+```
+
+## Build for your OS
+
 Install for your system below, then go to `release/` directory and run the app.
 
 ### macOS

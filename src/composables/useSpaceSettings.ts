@@ -17,10 +17,10 @@ import {
 } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
+import { jiraSpaceDirectoryQueryKey, resetAvailableSpacesBootstrap } from '@/composables/useAvailableSpaces'
 
 const APP_SETTINGS_QUERY_KEY = ['app-settings'] as const
 const TICKETS_QUERY_KEY = ['tickets'] as const
-const JIRA_SPACE_DIRECTORY_QUERY_KEY = ['jira-space-directory'] as const
 
 interface SpaceMutationInput {
   key: string
@@ -181,11 +181,12 @@ export function useSpaceSettings() {
     try {
       const persistedSettings = await jiraConnectionMutation.mutateAsync(input)
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
-      await queryClient.invalidateQueries({
-        queryKey: TICKETS_QUERY_KEY,
+      resetAvailableSpacesBootstrap()
+      queryClient.removeQueries({
+        queryKey: jiraSpaceDirectoryQueryKey,
       })
       await queryClient.invalidateQueries({
-        queryKey: JIRA_SPACE_DIRECTORY_QUERY_KEY,
+        queryKey: TICKETS_QUERY_KEY,
       })
       await queryClient.invalidateQueries({
         queryKey: jiraCurrentUserQueryKey,

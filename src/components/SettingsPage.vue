@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { fetchAvailableSpaces } from '@/api/settings'
 import type { AiInstructionPresetDraft } from '@/composables/useAiInstructionPresets'
+import { useAvailableSpaces } from '@/composables/useAvailableSpaces'
 import { useAiInstructionPresets } from '@/composables/useAiInstructionPresets'
 import { useAiSettings } from '@/composables/useAiSettings'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
@@ -29,13 +28,16 @@ const {
   isSaving: isSavingSpaceSettings,
   addOrEnableSpace,
   disableSpace,
+  updateJiraCredentials,
   updateAiCredentials,
 } = useSpaceSettings()
-const availableSpacesQuery = useQuery({
-  queryKey: ['jira-space-directory'],
-  queryFn: fetchAvailableSpaces,
-  enabled: hasJiraCredentialsConfigured,
-})
+const {
+  availableSpaces,
+  errorMessage: availableSpacesErrorMessage,
+  isLoading: isLoadingAvailableSpaces,
+  isRefreshing: isRefreshingAvailableSpaces,
+  refreshAvailableSpaces,
+} = useAvailableSpaces(hasJiraCredentialsConfigured)
 
 const newPreset = ref<AiInstructionPresetDraft>({
   label: '',
@@ -43,11 +45,14 @@ const newPreset = ref<AiInstructionPresetDraft>({
 })
 const newSpaceKey = ref('')
 const cerebrasApiKey = ref('')
+const jiraApiToken = ref('')
 const spaceSearchQuery = ref('')
 const spaceFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
 const aiFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+const jiraFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
 let spaceFeedbackTimeout: ReturnType<typeof setTimeout> | null = null
 let aiFeedbackTimeout: ReturnType<typeof setTimeout> | null = null
+let jiraFeedbackTimeout: ReturnType<typeof setTimeout> | null = null
 
 const editingPresetId = ref<string | null>(null)
 const editingPreset = ref<AiInstructionPresetDraft>({
@@ -147,6 +152,13 @@ function clearAiFeedbackTimeout(): void {
   }
 }
 
+function clearJiraFeedbackTimeout(): void {
+  if (jiraFeedbackTimeout) {
+    clearTimeout(jiraFeedbackTimeout)
+    jiraFeedbackTimeout = null
+  }
+}
+
 function setSpaceFeedback(kind: 'success' | 'error', message: string): void {
   clearSpaceFeedbackTimeout()
   spaceFeedback.value = { kind, message }
@@ -165,12 +177,15 @@ function setAiFeedback(kind: 'success' | 'error', message: string): void {
   }, 3000)
 }
 
-const availableSpaces = computed(() => availableSpacesQuery.data.value ?? [])
-const isLoadingAvailableSpaces = computed(() => availableSpacesQuery.isLoading.value)
-const availableSpacesErrorMessage = computed(() => {
-  const error = availableSpacesQuery.error.value
-  return error instanceof Error ? error.message : null
-})
+function setJiraFeedback(kind: 'success' | 'error', message: string): void {
+  clearJiraFeedbackTimeout()
+  jiraFeedback.value = { kind, message }
+  jiraFeedbackTimeout = setTimeout(() => {
+    jiraFeedback.value = null
+    jiraFeedbackTimeout = null
+  }, 3000)
+}
+
 const jiraConnectionSummary = computed(() => {
   if (!hasJiraCredentialsConfigured.value) {
     return 'Jira setup is incomplete. The startup modal will ask for the missing values.'
@@ -307,9 +322,38 @@ async function saveCerebrasApiKey(): Promise<void> {
   }
 }
 
+async function saveJiraApiToken(): Promise<void> {
+  if (!jiraApiToken.value.trim()) {
+    setJiraFeedback('error', 'Enter a Jira API token to save it.')
+    return
+  }
+
+  try {
+    await updateJiraCredentials({
+      apiToken: jiraApiToken.value.trim(),
+    })
+    jiraApiToken.value = ''
+    setJiraFeedback('success', 'Saved Jira API token.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save Jira API token.'
+    setJiraFeedback('error', message)
+  }
+}
+
+async function refreshSpacesDirectory(): Promise<void> {
+  try {
+    await refreshAvailableSpaces()
+    setSpaceFeedback('success', 'Refreshed Jira spaces.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to refresh Jira spaces.'
+    setSpaceFeedback('error', message)
+  }
+}
+
 onBeforeUnmount(() => {
   clearSpaceFeedbackTimeout()
   clearAiFeedbackTimeout()
+  clearJiraFeedbackTimeout()
 })
 </script>
 
@@ -423,6 +467,43 @@ onBeforeUnmount(() => {
             <p class="mt-2 text-xs text-slate-500">
               Saved Jira credentials live in <code>.data/settings.json</code>. This screen shows the configured URL and email; the API token stays hidden.
             </p>
+            <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <div class="w-full space-y-2">
+                <input
+                  v-model="jiraApiToken"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Paste a new Jira API token"
+                  class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                  @keydown.enter.prevent="saveJiraApiToken"
+                >
+                <a
+                  href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex text-xs text-sky-300 transition hover:text-sky-200"
+                >
+                  Create a Jira API token
+                </a>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg border border-sky-400/20 bg-sky-400/15 px-4 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-300/35 hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+                :disabled="isSavingSpaceSettings || !jiraApiToken.trim()"
+                @click="saveJiraApiToken"
+              >
+                Update API key
+              </button>
+            </div>
+            <p
+              v-if="jiraFeedback"
+              class="mt-3 rounded-lg px-3 py-2 text-xs"
+              :class="jiraFeedback.kind === 'success'
+                ? 'border border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                : 'border border-rose-400/20 bg-rose-500/10 text-rose-200'"
+            >
+              {{ jiraFeedback.message }}
+            </p>
           </div>
 
           <div class="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
@@ -434,9 +515,19 @@ onBeforeUnmount(() => {
                   Complete Jira setup first to browse remote spaces.
                 </p>
               </div>
-              <p class="text-right text-[11px] uppercase tracking-[0.14em] text-slate-500">
-                {{ spaces.length }} saved
-              </p>
+              <div class="flex items-start gap-3">
+                <button
+                  type="button"
+                  class="rounded-lg border border-white/[0.08] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="!hasJiraCredentialsConfigured || isRefreshingAvailableSpaces"
+                  @click="refreshSpacesDirectory"
+                >
+                  {{ isRefreshingAvailableSpaces ? 'Refreshing…' : 'Refresh spaces' }}
+                </button>
+                <p class="text-right text-[11px] uppercase tracking-[0.14em] text-slate-500">
+                  {{ spaces.length }} saved
+                </p>
+              </div>
             </div>
 
             <label class="block">

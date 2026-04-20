@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey 
 import { fetchTickets, refreshCache, type TicketsPayload } from '@/api/jira'
 import { fetchLocalTickets } from '@/api/localTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { useToast } from '@/composables/useToast'
 import type { JiraTicket } from '@/types/jira'
 import { buildEnabledSpaceSearchQuery } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
@@ -57,6 +58,7 @@ function mergeJiraAndLocalTickets(jiraTickets: JiraTicket[], localTickets: JiraT
 export function useJiraTickets() {
   const queryClient = useQueryClient()
   const { enabledSpaces, hasJiraCredentialsConfigured } = useSpaceSettings()
+  const { showError } = useToast()
   const error = ref<string | null>(null)
   const lastUpdated = ref<Date | null>(null)
   const refreshingFromSSE = ref(false)
@@ -87,7 +89,9 @@ export function useJiraTickets() {
 
   watch(ticketsQuery.error, (err) => {
     if (!err) return
-    error.value = err instanceof Error ? err.message : 'Failed to load tickets'
+    const message = err instanceof Error ? err.message : 'Failed to load tickets'
+    error.value = message
+    showError(message)
   }, { immediate: true })
 
   const tickets = computed(() => ticketsQuery.data.value ?? [])
@@ -154,7 +158,9 @@ export function useJiraTickets() {
       applyTicketsPayload(payload)
     },
     onError: (err: unknown) => {
-      error.value = err instanceof Error ? err.message : 'Refresh failed'
+      const message = err instanceof Error ? err.message : 'Refresh failed'
+      error.value = message
+      showError(message)
       stopRefreshing()
     },
   })
@@ -192,7 +198,9 @@ export function useJiraTickets() {
   }
 
   function applySseError(message?: string) {
-    error.value = message || 'Refresh failed'
+    const nextMessage = message || 'Refresh failed'
+    error.value = nextMessage
+    showError(nextMessage)
     stopRefreshing()
   }
 

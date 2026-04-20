@@ -22,10 +22,30 @@ export interface TicketsPayload {
   updatedAt?: number | string
 }
 
+async function readErrorMessage(res: Response, fallbackMessage: string): Promise<string> {
+  const body = await res.text().catch(() => '')
+  if (!body) {
+    return fallbackMessage
+  }
+
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown }
+    if (typeof parsed.error === 'string' && parsed.error.trim().length > 0) {
+      return `${fallbackMessage} - ${parsed.error}`
+    }
+  } catch {
+    // Fall back to the raw response body when JSON parsing fails.
+  }
+
+  return `${fallbackMessage} - ${body}`
+}
+
 export async function fetchTickets(jql?: string): Promise<JiraTicket[]> {
   const params = jql ? `?jql=${encodeURIComponent(jql)}` : ''
   const res = await fetch(`${BASE}/tickets${params}`)
-  if (!res.ok) throw new Error(`Failed to fetch tickets: ${res.statusText}`)
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res, `Failed to fetch tickets: ${res.status} ${res.statusText}`))
+  }
   return res.json()
 }
 
@@ -277,8 +297,7 @@ export async function updateTicketGithubPrLink(key: string, githubPrUrl: string 
 export async function refreshCache(): Promise<TicketsPayload> {
   const res = await fetch(`${BASE}/refresh`, { method: 'POST' })
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`Failed to refresh cache: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
+    throw new Error(await readErrorMessage(res, `Failed to refresh cache: ${res.status} ${res.statusText}`))
   }
   return res.json()
 }

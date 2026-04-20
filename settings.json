@@ -1,0 +1,23 @@
+{
+  "spaces": [
+    {
+      "key": "LOCAL",
+      "name": "Local",
+      "enabled": true
+    },
+    {
+      "key": "SMP",
+      "name": "SDMP",
+      "enabled": true
+    }
+  ],
+  "filterSpaceKeys": [],
+  "jira": {
+    "baseUrl": "https://lifemd.atlassian.net",
+    "email": "jeff.f@lifemd.com",
+    "apiToken": "ATATT3xFfGF0JFJEKNIsHnRNyxma1LgckXs2qaPJKuRV16Js17pv7MgjTtsoq7guT6Onve0HVx0YFLbKQRF4ZzJZ_3hqztKqsF_3db8hOhxKwHK0-pCPh5zULlVypn0680COSiVMS83RDC7-zjwzvN40eXW84JuwTFqfqvniS0CRF_9rHUkz0jM=88F3FF8D"
+  },
+  "ai": {
+    "cerebrasApiKey": ""
+  }
+}

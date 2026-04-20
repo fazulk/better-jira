@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="10" x2="54" y1="6" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f2447" />
+      <stop offset=".55" stop-color="#18407b" />
+      <stop offset="1" stop-color="#0b1830" />
+    </linearGradient>
+    <radialGradient id="bgGlowA" cx="18" cy="16" r="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38d7ff" stop-opacity=".4" />
+      <stop offset="1" stop-color="#38d7ff" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bgGlowB" cx="48" cy="50" r="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2cf2a4" stop-opacity=".3" />
+      <stop offset="1" stop-color="#2cf2a4" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="card" x1="18" x2="44" y1="18" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" />
+      <stop offset="1" stop-color="#dfeafb" />
+    </linearGradient>
+    <linearGradient id="check" x1="18" x2="31" y1="30" y2="39" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2af59f" />
+      <stop offset="1" stop-color="#0aa56c" />
+    </linearGradient>
+    <linearGradient id="diamondBase" x1="40" x2="53" y1="13" y2="26" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7ad3ff" />
+      <stop offset="1" stop-color="#2268ff" />
+    </linearGradient>
+    <linearGradient id="diamondFacetTop" x1="42" x2="52" y1="14" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8fe5ff" />
+      <stop offset="1" stop-color="#4690ff" />
+    </linearGradient>
+    <linearGradient id="diamondFacetBottom" x1="41" x2="51" y1="21" y2="31" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2358d8" />
+      <stop offset="1" stop-color="#12358f" />
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#031020" flood-opacity=".35" />
+    </filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.2" />
+    </filter>
+    <clipPath id="diamondClip">
+      <rect x="40" y="14" width="12" height="12" rx="1.2" transform="rotate(45 46 20)" />
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <rect width="64" height="64" rx="14" fill="url(#bgGlowA)" />
+  <rect width="64" height="64" rx="14" fill="url(#bgGlowB)" />
+  <path d="M15 16c0-2.2 1.8-4 4-4h17.5l10.5 10.4V44c0 2.2-1.8 4-4 4H19c-2.2 0-4-1.8-4-4Z" fill="#6db6ff" opacity=".18" filter="url(#softGlow)" />
+  <path d="M16 15c0-2.2 1.8-4 4-4h16.7L47 21.3V43c0 2.2-1.8 4-4 4H20c-2.2 0-4-1.8-4-4Z" fill="url(#card)" filter="url(#shadow)" />
+  <path d="M36.7 11 47 21.3h-7.8c-1.4 0-2.5-1.1-2.5-2.5Z" fill="#c4dbf8" />
+  <path d="M21.2 31.8 25 35.5 31.2 28.3" fill="none" stroke="#54ffc0" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".35" stroke-width="5.2" filter="url(#softGlow)" />
+  <path d="M21.2 31.8 25 35.5 31.2 28.3" fill="none" stroke="url(#check)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.6" />
+  <rect x="34" y="28.2" width="8.5" height="2.4" rx="1.2" fill="#87a3c7" />
+  <rect x="34" y="33.2" width="6.5" height="2.4" rx="1.2" fill="#87a3c7" opacity=".92" />
+  <rect x="21" y="39" width="21.5" height="2.4" rx="1.2" fill="#c0d1e8" />
+  <rect x="40" y="14" width="12" height="12" rx="1.2" transform="rotate(45 46 20)" fill="url(#diamondBase)" filter="url(#shadow)" />
+  <g clip-path="url(#diamondClip)">
+    <polygon points="46,13.4 52.6,20 46,22.1 39.4,20" fill="url(#diamondFacetTop)" />
+    <polygon points="39.4,20 46,22.1 46,28.6 39.4,20" fill="#1a49bc" />
+    <polygon points="52.6,20 46,22.1 46,28.6 52.6,20" fill="url(#diamondFacetBottom)" />
+    <polygon points="46,17.1 48.9,20 46,22.9 43.1,20" fill="#9fd7ff" />
+  </g>
+  <rect x="40" y="14" width="12" height="12" rx="1.2" transform="rotate(45 46 20)" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width=".5" />
+</svg>

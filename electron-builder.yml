@@ -1,0 +1,36 @@
+appId: com.jefff.betterjira
+productName: BetterJira
+artifactName: BetterJira-${version}-${arch}.${ext}
+directories:
+  output: dist
+  buildResources: electron/resources
+# Electron boot code plus Nuxt's built `.output` are self-contained once the
+# staged app dependencies are installed for Nitro's production server runtime.
+files:
+  - dist-electron/**/*
+  - .output/**/*
+  - env.local
+  - package.json
+npmRebuild: false
+buildDependenciesFromSource: false
+nodeGypRebuild: false
+# asar is disabled deliberately: electron-builder 25.1.8 + identity:null writes an
+# ElectronAsarIntegrity hash to Info.plist that doesn't match the packaged asar,
+# which makes Electron 40 reject the bundle and exit silently (no log, no crash).
+# Turning asar off skips the integrity check entirely. Single-user personal tool,
+# so unpacked JS in the .app is fine.
+asar: false
+mac:
+  category: public.app-category.developer-tools
+  identity: null
+  icon: icon.icns
+linux:
+  category: Development
+  icon: icon-1024.png
+  executableName: betterjira
+  desktop:
+    entry:
+      StartupWMClass: BetterJira
+win:
+  icon: icon.ico
+  signAndEditExecutable: false

@@ -35,8 +35,6 @@ const {
   availableSpaces,
   errorMessage: availableSpacesErrorMessage,
   isLoading: isLoadingAvailableSpaces,
-  isRefreshing: isRefreshingAvailableSpaces,
-  refreshAvailableSpaces,
 } = useAvailableSpaces(hasJiraCredentialsConfigured)
 
 const newPreset = ref<AiInstructionPresetDraft>({
@@ -340,16 +338,6 @@ async function saveJiraApiToken(): Promise<void> {
   }
 }
 
-async function refreshSpacesDirectory(): Promise<void> {
-  try {
-    await refreshAvailableSpaces()
-    setSpaceFeedback('success', 'Refreshed Jira spaces.')
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to refresh Jira spaces.'
-    setSpaceFeedback('error', message)
-  }
-}
-
 onBeforeUnmount(() => {
   clearSpaceFeedbackTimeout()
   clearAiFeedbackTimeout()
@@ -515,19 +503,9 @@ onBeforeUnmount(() => {
                   Complete Jira setup first to browse remote spaces.
                 </p>
               </div>
-              <div class="flex items-start gap-3">
-                <button
-                  type="button"
-                  class="rounded-lg border border-white/[0.08] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="!hasJiraCredentialsConfigured || isRefreshingAvailableSpaces"
-                  @click="refreshSpacesDirectory"
-                >
-                  {{ isRefreshingAvailableSpaces ? 'Refreshing…' : 'Refresh spaces' }}
-                </button>
-                <p class="text-right text-[11px] uppercase tracking-[0.14em] text-slate-500">
-                  {{ spaces.length }} saved
-                </p>
-              </div>
+              <p class="text-right text-[11px] uppercase tracking-[0.14em] text-slate-500">
+                {{ spaces.length }} saved
+              </p>
             </div>
 
             <label class="block">

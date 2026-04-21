@@ -9,7 +9,6 @@ import { isLocalTicketKey } from '~/shared/localTickets'
 import Sidebar from './Sidebar.vue'
 import TicketDetail from './TicketDetail.vue'
 import CreateTicketModal from './CreateTicketModal.vue'
-import SettingsPage from './SettingsPage.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useLocalStorage } from '@vueuse/core'
@@ -139,8 +138,6 @@ const selectedKey = computed<string | null>({
   },
 })
 
-const isSettingsRoute = computed(() => route.path === '/settings')
-
 const selectedTicket = computed(() => (
   selectedKey.value ? tickets.value.find(ticket => ticket.key === selectedKey.value) ?? null : null
 ))
@@ -170,21 +167,12 @@ function openTicket(ticketKey: string) {
 }
 
 function closeTicket() {
-  if (isSettingsRoute.value) {
-    void navigateTo('/')
-    return
-  }
-
   if (selectedKey.value === null) return
   selectedKey.value = null
 }
 
 function openSettings() {
   void navigateTo('/settings')
-}
-
-function closeSettings() {
-  void navigateTo('/')
 }
 
 function openGlobalCreate(issueType = 'Task') {
@@ -304,11 +292,7 @@ async function handleRefresh() {
           </div>
         </div>
 
-        <div v-if="isSettingsRoute" class="animate-fade-in">
-          <SettingsPage @close="closeSettings" />
-        </div>
-
-        <div v-else-if="selectedKey" class="animate-fade-in">
+        <div v-if="selectedKey" class="animate-fade-in">
           <TicketDetail
             :ticket-key="selectedKey"
             mode="inline"

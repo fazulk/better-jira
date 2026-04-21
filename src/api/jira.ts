@@ -20,6 +20,16 @@ const BASE = '/api'
 export interface TicketsPayload {
   tickets: JiraTicket[]
   updatedAt?: number | string
+  mode?: 'full' | 'incremental'
+}
+
+export interface RefreshTicketsInput {
+  updatedSince?: string
+}
+
+export interface FetchTicketsInput {
+  jql?: string
+  updatedSince?: string
 }
 
 async function readErrorMessage(res: Response, fallbackMessage: string): Promise<string> {
@@ -40,9 +50,17 @@ async function readErrorMessage(res: Response, fallbackMessage: string): Promise
   return `${fallbackMessage} - ${body}`
 }
 
-export async function fetchTickets(jql?: string): Promise<JiraTicket[]> {
-  const params = jql ? `?jql=${encodeURIComponent(jql)}` : ''
-  const res = await fetch(`${BASE}/tickets${params}`)
+export async function fetchTickets(input: FetchTicketsInput = {}): Promise<JiraTicket[]> {
+  const params = new URLSearchParams()
+  if (input.jql) {
+    params.set('jql', input.jql)
+  }
+  if (input.updatedSince) {
+    params.set('updatedSince', input.updatedSince)
+  }
+
+  const query = params.size > 0 ? `?${params.toString()}` : ''
+  const res = await fetch(`${BASE}/tickets${query}`)
   if (!res.ok) {
     throw new Error(await readErrorMessage(res, `Failed to fetch tickets: ${res.status} ${res.statusText}`))
   }
@@ -294,8 +312,14 @@ export async function updateTicketGithubPrLink(key: string, githubPrUrl: string 
   return res.json()
 }
 
-export async function refreshCache(): Promise<TicketsPayload> {
-  const res = await fetch(`${BASE}/refresh`, { method: 'POST' })
+export async function refreshCache(input: RefreshTicketsInput = {}): Promise<TicketsPayload> {
+  const res = await fetch(`${BASE}/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
   if (!res.ok) {
     throw new Error(await readErrorMessage(res, `Failed to refresh cache: ${res.status} ${res.statusText}`))
   }

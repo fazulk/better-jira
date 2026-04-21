@@ -371,3 +371,12 @@ export function buildEnabledSpaceSearchQuery(spaceKeys: readonly string[]): stri
 
   return `project in (${projectKeys}) ORDER BY updated DESC`
 }
+
+export function buildUpdatedSinceSearchQuery(baseQuery: string, updatedSince: Date): string {
+  const queryWithoutOrder = baseQuery.replace(/\s+ORDER\s+BY\s+updated\s+DESC\s*$/i, '').trim()
+  const elapsedMs = Math.max(0, Date.now() - updatedSince.getTime())
+  const elapsedMinutes = Math.ceil(elapsedMs / 60_000)
+  const overlapWindowMinutes = Math.max(1, elapsedMinutes + 1)
+  const updatedSinceClause = `updated >= "-${overlapWindowMinutes}m"`
+  return `${queryWithoutOrder} AND ${updatedSinceClause} ORDER BY updated DESC`
+}

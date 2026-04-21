@@ -55,6 +55,49 @@ function mergeJiraAndLocalTickets(jiraTickets: JiraTicket[], localTickets: JiraT
   })
 }
 
+export function getLatestRemoteUpdatedAt(tickets: JiraTicket[]): string | undefined {
+  let latestTimestamp = -1
+  let latestUpdatedAt: string | undefined
+
+  for (const ticket of tickets) {
+    if (ticket.spaceKey === LOCAL_SPACE_KEY || !ticket.updatedAt) {
+      continue
+    }
+
+    const parsedTimestamp = Date.parse(ticket.updatedAt)
+    if (Number.isNaN(parsedTimestamp) || parsedTimestamp <= latestTimestamp) {
+      continue
+    }
+
+    latestTimestamp = parsedTimestamp
+    latestUpdatedAt = ticket.updatedAt
+  }
+
+  return latestUpdatedAt
+}
+
+export function applyTicketsPayloadToQueryCache(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+  payload: TicketsPayload,
+  includeLocalTickets: boolean,
+): void {
+  if (!Array.isArray(payload.tickets)) {
+    return
+  }
+
+  const current = queryClient.getQueryData<JiraTicket[]>(queryKey) ?? []
+  const localTickets = includeLocalTickets
+    ? current.filter(ticket => ticket.spaceKey === LOCAL_SPACE_KEY)
+    : []
+  const currentRemoteTickets = current.filter(ticket => ticket.spaceKey !== LOCAL_SPACE_KEY)
+  const nextRemoteTickets = payload.mode === 'incremental'
+    ? mergeJiraAndLocalTickets(currentRemoteTickets, payload.tickets)
+    : payload.tickets
+
+  queryClient.setQueryData(queryKey, mergeJiraAndLocalTickets(nextRemoteTickets, localTickets))
+}
+
 export function useJiraTickets() {
   const queryClient = useQueryClient()
   const { enabledSpaces, hasJiraCredentialsConfigured } = useSpaceSettings()
@@ -69,6 +112,7 @@ export function useJiraTickets() {
 
   const ticketsQuery = useQuery({
     queryKey: activeTicketsQueryKey,
+    refetchOnMount: false,
     queryFn: async () => {
       const localTickets = enabledSpaceKeys.value.includes(LOCAL_SPACE_KEY) ? await fetchLocalTickets() : []
       if (!hasJiraCredentialsConfigured.value) {
@@ -76,7 +120,7 @@ export function useJiraTickets() {
       }
 
       const jql = buildEnabledSpaceSearchQuery(enabledSpaceKeys.value)
-      const jiraTickets = jql ? await fetchTickets(jql) : []
+      const jiraTickets = jql ? await fetchTickets({ jql }) : []
       return mergeJiraAndLocalTickets(jiraTickets, localTickets)
     },
   })
@@ -137,7 +181,7 @@ export function useJiraTickets() {
             }
 
             const jql = buildEnabledSpaceSearchQuery(enabledSpaceKeys.value)
-            const jiraTickets = jql ? await fetchTickets(jql) : []
+            const jiraTickets = jql ? await fetchTickets({ jql }) : []
             return mergeJiraAndLocalTickets(jiraTickets, localTickets)
           },
         })
@@ -177,22 +221,20 @@ export function useJiraTickets() {
     }
 
     try {
-      await refreshMutation.mutateAsync()
+      const updatedSince = getLatestRemoteUpdatedAt(queryClient.getQueryData<JiraTicket[]>(activeTicketsQueryKey.value) ?? [])
+      await refreshMutation.mutateAsync(updatedSince ? { updatedSince } : {})
     } catch {
       // handled by onError in mutation
     }
   }
 
   function applyTicketsPayload(payload: TicketsPayload) {
-    if (!Array.isArray(payload.tickets)) return
-
-    const current = queryClient.getQueryData<JiraTicket[]>(activeTicketsQueryKey.value) ?? []
-    const localTickets = enabledSpaceKeys.value.includes(LOCAL_SPACE_KEY)
-      ? current.filter(ticket => ticket.spaceKey === LOCAL_SPACE_KEY)
-      : []
-
-    const merged = mergeJiraAndLocalTickets(payload.tickets, localTickets)
-    queryClient.setQueryData(activeTicketsQueryKey.value, merged)
+    applyTicketsPayloadToQueryCache(
+      queryClient,
+      activeTicketsQueryKey.value,
+      payload,
+      enabledSpaceKeys.value.includes(LOCAL_SPACE_KEY),
+    )
     lastUpdated.value = payload.updatedAt ? new Date(payload.updatedAt) : new Date()
     stopRefreshing()
   }

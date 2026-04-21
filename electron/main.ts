@@ -171,6 +171,14 @@ function createWindow(url: string): BrowserWindow {
 
   void window.loadURL(url);
 
+  window.on("focus", () => {
+    logLine("[window] focus");
+  });
+
+  window.on("blur", () => {
+    logLine("[window] blur");
+  });
+
   window.on("close", (event) => {
     if (isQuitting) {
       return;

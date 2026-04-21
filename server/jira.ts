@@ -12,7 +12,11 @@ import {
   type JiraAdfDocument,
   type JiraAdfNode,
 } from '../shared/jiraAdf'
-import { buildEnabledSpaceSearchQuery, type JiraSpaceDirectoryEntry } from '../shared/settings'
+import {
+  buildEnabledSpaceSearchQuery,
+  buildUpdatedSinceSearchQuery,
+  type JiraSpaceDirectoryEntry,
+} from '../shared/settings'
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -36,6 +40,51 @@ function createJiraAuthenticationError(): Error {
   return new Error('Jira authentication failed. Update your Jira email or API token in Settings.')
 }
 
+function serializeJiraLogPayload(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return '[unserializable]'
+  }
+}
+
+function formatJiraRequestTarget(url: URL): string {
+  return url.pathname.replace(/^\/rest\/api\/3/, '') || '/'
+}
+
+function formatJiraLogLines(
+  prefix: string,
+  method: string,
+  target: string,
+  details: string[],
+): string {
+  return [`[jira] ${prefix} ${method} ${target}`, ...details.map(detail => `  ${detail}`)].join('\n')
+}
+
+function collectJiraRequestDetails(
+  params?: Record<string, string>,
+  body?: unknown,
+): string[] {
+  const details: string[] = []
+
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      details.push(`param ${key}: ${value}`)
+    }
+  }
+
+  const serializedBody = serializeJiraLogPayload(body)
+  if (serializedBody) {
+    details.push(`body: ${serializedBody}`)
+  }
+
+  return details
+}
+
 async function jiraFetch(
   path: string,
   options?: {
@@ -52,15 +101,37 @@ async function jiraFetch(
     }
   }
 
-  const res = await fetch(url.toString(), {
-    method: options?.method ?? 'GET',
-    headers: {
-      'Authorization': jiraConfig.authHeader,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: options?.body ? JSON.stringify(options.body) : undefined,
-  })
+  const method = options?.method ?? 'GET'
+  const requestUrl = url.toString()
+  const requestTarget = formatJiraRequestTarget(url)
+  const startedAt = Date.now()
+  const requestDetails = collectJiraRequestDetails(options?.params, options?.body)
+
+  console.log(formatJiraLogLines('->', method, requestTarget, requestDetails))
+
+  let res: Response
+  try {
+    res = await fetch(requestUrl, {
+      method,
+      headers: {
+        'Authorization': jiraConfig.authHeader,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: options?.body ? JSON.stringify(options.body) : undefined,
+    })
+  } catch (error: unknown) {
+    const durationMs = Date.now() - startedAt
+    const message = error instanceof Error ? error.message : 'Unknown Jira fetch error'
+    console.error(formatJiraLogLines('xx', method, `${requestTarget} (${durationMs}ms)`, [
+      `error: ${message}`,
+      ...requestDetails,
+    ]))
+    throw error
+  }
+
+  const durationMs = Date.now() - startedAt
+  console.log(`[jira] <- ${res.status} ${method} ${requestTarget} (${durationMs}ms)`)
 
   if (isJiraAuthenticationFailure(res)) {
     throw createJiraAuthenticationError()
@@ -1079,6 +1150,19 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
   return issues.filter(isJiraApiIssue).map((issue) => mapIssue(issue, false, sprintFieldId))
 }
 
+function getIncrementalRefreshQuery(updatedSince?: Date): string | null {
+  const query = buildDefaultSearchQuery()
+  if (!query) {
+    return null
+  }
+
+  if (!updatedSince) {
+    return query
+  }
+
+  return buildUpdatedSinceSearchQuery(query, updatedSince)
+}
+
 export async function getTicket(key: string): Promise<JiraTicket> {
   const sprintFieldId = await resolveSprintFieldId()
   const fields = [
@@ -1394,11 +1478,22 @@ export async function updateTicketStatus(key: string, transitionId: string): Pro
   return updatedTicket
 }
 
-export async function forceRefreshTickets(): Promise<{ tickets: JiraTicket[]; updatedAt: number }> {
+export interface RefreshTicketsResult {
+  tickets: JiraTicket[]
+  updatedAt: number
+  mode: 'full' | 'incremental'
+}
+
+export async function forceRefreshTickets(updatedSince?: Date): Promise<RefreshTicketsResult> {
   broadcast('refreshing', { status: 'started' })
   try {
-    const tickets = await searchTickets()
-    const payload = { tickets, updatedAt: Date.now() }
+    const query = getIncrementalRefreshQuery(updatedSince)
+    const tickets = query ? await searchTickets(query) : []
+    const payload: RefreshTicketsResult = {
+      tickets,
+      updatedAt: Date.now(),
+      mode: updatedSince ? 'incremental' : 'full',
+    }
     broadcast('tickets', payload)
     return payload
   } catch (err: unknown) {

@@ -1,7 +1,7 @@
 import { defineEventHandler, getMethod, getQuery, getRequestURL, readBody } from 'h3'
 import { isJiraAdfDocument, type JiraAdfDocument } from '../../shared/jiraAdf'
 import { isAiProvider } from '../../shared/ai'
-import { normalizeAppSettingsUpdate } from '../../shared/settings'
+import { buildUpdatedSinceSearchQuery, normalizeAppSettingsUpdate } from '../../shared/settings'
 import {
   addTicketMessage,
   createIssue,
@@ -59,6 +59,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isCreateIssueType(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function parseRefreshUpdatedSince(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return undefined
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
 function parseCreateFields(value: unknown): Record<string, string | string[] | JiraAdfDocument | null> {
@@ -152,7 +161,11 @@ export default defineEventHandler(async (event) => {
     if (segments.length === 1 && segments[0] === 'tickets' && method === 'GET') {
       const query = getQuery(event)
       const jql = getStringQueryValue(query.jql)
-      const tickets = await searchTickets(jql)
+      const updatedSince = parseRefreshUpdatedSince(getStringQueryValue(query.updatedSince))
+      const searchQuery = jql && updatedSince
+        ? buildUpdatedSinceSearchQuery(jql, updatedSince)
+        : jql
+      const tickets = await searchTickets(searchQuery)
       return Response.json(tickets, { headers: API_HEADERS })
     }
 
@@ -558,7 +571,9 @@ export default defineEventHandler(async (event) => {
     }
 
     if (segments.length === 1 && segments[0] === 'refresh' && method === 'POST') {
-      const payload = await forceRefreshTickets()
+      const body = await readBody<unknown>(event)
+      const updatedSince = isRecord(body) ? parseRefreshUpdatedSince(body.updatedSince) : undefined
+      const payload = await forceRefreshTickets(updatedSince)
       return Response.json(payload, { headers: API_HEADERS })
     }
 

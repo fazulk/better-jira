@@ -211,6 +211,7 @@ export interface JiraMessage {
   author: string
   createdAt: string
   body: string
+  parentMessageId?: string | null
 }
 
 export type JiraCreateIssueType = string
@@ -246,10 +247,16 @@ interface JiraApiComment {
   author?: JiraApiUser
   created?: string
   body?: JiraAdfNode | string | null
+  properties?: JiraApiEntityProperty[]
 }
 
 interface JiraApiCommentsResponse {
   comments?: JiraApiComment[]
+}
+
+interface JiraApiEntityProperty {
+  key?: string
+  value?: unknown
 }
 
 interface JiraApiTransition {
@@ -1198,12 +1205,106 @@ function mapComment(comment: JiraApiComment): JiraMessage {
     author: comment.author?.displayName ?? 'Unknown',
     createdAt: comment.created ?? '',
     body: extractDescription(comment.body).trim(),
+    parentMessageId: extractParentMessageId(comment),
   }
+}
+
+function normalizeJiraCommentId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const nextValue = value.trim()
+  return /^\d+$/.test(nextValue) ? nextValue : null
+}
+
+function extractParentCommentIdFromValue(
+  value: unknown,
+  path: string[] = [],
+  visited = new Set<unknown>(),
+): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value !== 'object') {
+    return null
+  }
+
+  if (visited.has(value)) {
+    return null
+  }
+
+  visited.add(value)
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedId = extractParentCommentIdFromValue(item, path, visited)
+      if (nestedId) {
+        return nestedId
+      }
+    }
+    return null
+  }
+
+  if (!isRecord(value)) {
+    return null
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase()
+    const nextPath = [...path, normalizedKey]
+    const pathHintsParent = nextPath.some((segment) => segment.includes('parent'))
+    const pathHintsComment = nextPath.some((segment) => (
+      segment.includes('comment')
+      || segment.includes('thread')
+      || segment === 'id'
+    ))
+
+    if (pathHintsParent && pathHintsComment) {
+      const directId = normalizeJiraCommentId(nestedValue)
+      if (directId) {
+        return directId
+      }
+
+      if (isRecord(nestedValue)) {
+        const nestedId = normalizeJiraCommentId(nestedValue.id)
+        if (nestedId) {
+          return nestedId
+        }
+      }
+    }
+
+    const nestedId = extractParentCommentIdFromValue(nestedValue, nextPath, visited)
+    if (nestedId) {
+      return nestedId
+    }
+  }
+
+  return null
+}
+
+function extractParentMessageId(comment: JiraApiComment): string | null {
+  if (!Array.isArray(comment.properties)) {
+    return null
+  }
+
+  for (const property of comment.properties) {
+    const parentMessageId = extractParentCommentIdFromValue(property.value, [
+      typeof property.key === 'string' ? property.key.toLowerCase() : 'property',
+    ])
+    if (parentMessageId) {
+      return parentMessageId
+    }
+  }
+
+  return null
 }
 
 export async function getTicketMessages(key: string): Promise<JiraMessage[]> {
   const data = await jiraFetch(`/issue/${key}/comment`, {
     params: {
+      expand: 'properties',
       orderBy: '-created',
     },
   })

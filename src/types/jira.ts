@@ -38,6 +38,7 @@ export interface JiraMessage {
   author: string
   createdAt: string
   body: string
+  parentMessageId?: string | null
 }
 
 export interface JiraTransition {

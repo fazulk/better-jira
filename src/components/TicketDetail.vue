@@ -29,7 +29,7 @@ import JiraAdfRenderer from '@/components/JiraAdfRenderer.vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
 import TicketDescriptionActions from '@/components/TicketDescriptionActions.vue'
 import AiDescriptionModal from '@/components/AiDescriptionModal.vue'
-import type { JiraAdfDocument, JiraTicket } from '@/types/jira'
+import type { JiraAdfDocument, JiraMessage, JiraTicket } from '@/types/jira'
 import { adfToPlainText, coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
 import {
   getLocalStatusIdFromDisplayName,
@@ -315,6 +315,95 @@ const ticketDateFields = computed(() => [
 ])
 
 const messages = computed(() => messagesQuery.data.value ?? [])
+
+interface ThreadedMessageItem {
+  message: JiraMessage
+  parentMessage: JiraMessage | null
+  depth: number
+}
+
+interface MessageThreadNode {
+  message: JiraMessage
+  parentMessage: JiraMessage | null
+  children: MessageThreadNode[]
+  createdAtMs: number
+  sourceIndex: number
+}
+
+function getMessageCreatedAtMs(message: JiraMessage): number {
+  const createdAtMs = Date.parse(message.createdAt)
+  return Number.isNaN(createdAtMs) ? Number.MIN_SAFE_INTEGER : createdAtMs
+}
+
+function flattenMessageThread(
+  node: MessageThreadNode,
+  depth: number,
+  items: ThreadedMessageItem[],
+): number {
+  items.push({
+    message: node.message,
+    parentMessage: node.parentMessage,
+    depth,
+  })
+
+  let latestActivityMs = node.createdAtMs
+  const sortedChildren = [...node.children].sort((left, right) => (
+    left.createdAtMs - right.createdAtMs || left.sourceIndex - right.sourceIndex
+  ))
+
+  for (const child of sortedChildren) {
+    latestActivityMs = Math.max(latestActivityMs, flattenMessageThread(child, depth + 1, items))
+  }
+
+  return latestActivityMs
+}
+
+const threadedMessages = computed<ThreadedMessageItem[]>(() => {
+  const nodes: MessageThreadNode[] = messages.value.map((message, sourceIndex) => ({
+    message,
+    parentMessage: null,
+    children: [],
+    createdAtMs: getMessageCreatedAtMs(message),
+    sourceIndex,
+  }))
+
+  const nodesById = new Map(nodes.map((node) => [node.message.id, node]))
+  const roots: MessageThreadNode[] = []
+  const sortedNodes = [...nodes].sort((left, right) => (
+    left.createdAtMs - right.createdAtMs || left.sourceIndex - right.sourceIndex
+  ))
+
+  for (const node of sortedNodes) {
+    const parentMessageId = node.message.parentMessageId
+    const parentNode = parentMessageId ? nodesById.get(parentMessageId) ?? null : null
+
+    if (!parentNode || parentNode === node) {
+      roots.push(node)
+      continue
+    }
+
+    node.parentMessage = parentNode.message
+    parentNode.children.push(node)
+  }
+
+  const flattenedThreads = roots.map((root) => {
+    const items: ThreadedMessageItem[] = []
+    const latestActivityMs = flattenMessageThread(root, 0, items)
+
+    return {
+      items,
+      latestActivityMs,
+      sourceIndex: root.sourceIndex,
+    }
+  })
+
+  flattenedThreads.sort((left, right) => (
+    right.latestActivityMs - left.latestActivityMs || left.sourceIndex - right.sourceIndex
+  ))
+
+  return flattenedThreads.flatMap((thread) => thread.items)
+})
+
 const descriptionHasUnsupportedContent = computed(() => {
   const descriptionAdf = ticket.value?.descriptionAdf
   return !!descriptionAdf && !isSupportedEditorAdf(descriptionAdf)
@@ -385,6 +474,12 @@ function getRelativeTime(date: Date): string {
 
   if (label === 'just now') return label
   return isFuture ? `in ${label}` : `${label} ago`
+}
+
+function messageIndentStyle(depth: number): { marginLeft: string } {
+  return {
+    marginLeft: `${Math.min(depth, 6) * 24}px`,
+  }
 }
 
 async function copyTicketKey() {
@@ -1515,16 +1610,33 @@ async function submitMessage() {
         </div>
         <div v-else-if="messages.length" class="space-y-3">
           <article
-            v-for="message in messages"
-            :key="message.id"
-            class="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4"
+            v-for="threadedMessage in threadedMessages"
+            :key="threadedMessage.message.id"
+            :style="messageIndentStyle(threadedMessage.depth)"
+            :class="[
+              'rounded-xl border p-4 transition-colors',
+              threadedMessage.depth
+                ? 'border-indigo-500/20 bg-indigo-500/[0.04]'
+                : 'border-white/[0.06] bg-white/[0.03]',
+            ]"
           >
+            <div
+              v-if="threadedMessage.parentMessage"
+              class="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-indigo-300/80"
+            >
+              <span class="inline-flex h-5 items-center rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2">
+                Reply
+              </span>
+              <span class="truncate normal-case tracking-normal text-slate-500">
+                {{ threadedMessage.parentMessage.author }}
+              </span>
+            </div>
             <div class="mb-2 flex items-center justify-between gap-3">
-              <span class="text-sm font-medium text-slate-200">{{ message.author }}</span>
-              <span class="text-[11px] text-slate-600">{{ formatDateParts(message.createdAt)?.date }}<template v-if="formatDateParts(message.createdAt)?.time"> · {{ formatDateParts(message.createdAt)?.time }}</template></span>
+              <span class="text-sm font-medium text-slate-200">{{ threadedMessage.message.author }}</span>
+              <span class="text-[11px] text-slate-600">{{ formatDateParts(threadedMessage.message.createdAt)?.date }}<template v-if="formatDateParts(threadedMessage.message.createdAt)?.time"> · {{ formatDateParts(threadedMessage.message.createdAt)?.time }}</template></span>
             </div>
             <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-400 font-body">
-              {{ message.body || 'No message body' }}
+              {{ threadedMessage.message.body || 'No message body' }}
             </div>
           </article>
         </div>

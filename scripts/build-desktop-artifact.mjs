@@ -77,6 +77,7 @@ function parseArgs(argv) {
     skipBuild: undefined,
     keepStage: undefined,
     verbose: undefined,
+    open: undefined,
   };
   const flagNameMap = {
     "--platform": "platform",
@@ -86,6 +87,7 @@ function parseArgs(argv) {
     "--skip-build": "skipBuild",
     "--keep-stage": "keepStage",
     "--verbose": "verbose",
+    "--open": "open",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -99,7 +101,7 @@ function parseArgs(argv) {
     if (!key) {
       fail(`Unknown flag: ${flagName}`);
     }
-    if (["skipBuild", "keepStage", "verbose"].includes(key)) {
+    if (["skipBuild", "keepStage", "verbose", "open"].includes(key)) {
       if (inlineValue !== undefined) {
         flags[key] = parseBoolean(inlineValue, flagName);
         continue;
@@ -173,6 +175,11 @@ function resolveOptions(cliOptions) {
       cliOptions.verbose ??
       (env.BETTER_JIRA_DESKTOP_VERBOSE
         ? parseBoolean(env.BETTER_JIRA_DESKTOP_VERBOSE, "BETTER_JIRA_DESKTOP_VERBOSE")
+        : false),
+    open:
+      cliOptions.open ??
+      (env.BETTER_JIRA_DESKTOP_OPEN
+        ? parseBoolean(env.BETTER_JIRA_DESKTOP_OPEN, "BETTER_JIRA_DESKTOP_OPEN")
         : false),
   };
 }
@@ -546,6 +553,22 @@ async function buildPlatformArtifact(stageAppDir, options) {
   return copyArtifacts(sourceFiles, distDir, options.outputDir);
 }
 
+async function openArtifacts(artifactPaths, verbose) {
+  if (process.platform !== "darwin") {
+    fail("--open is only supported on macOS.");
+  }
+
+  for (const artifactPath of artifactPaths) {
+    log(`[desktop-artifact] Opening ${artifactPath}...`);
+    await runCommand("open", [artifactPath], {
+      cwd: repoDir,
+      env: process.env,
+      verbose,
+      shell: false,
+    });
+  }
+}
+
 async function main() {
   const options = resolveOptions(parseArgs(process.argv.slice(2)));
   const rootPackageJson = await loadRootPackageJson();
@@ -565,6 +588,10 @@ async function main() {
     log("[desktop-artifact] Done. Artifacts:");
     for (const artifactPath of copiedArtifacts) {
       log(`  ${artifactPath}`);
+    }
+
+    if (options.open) {
+      await openArtifacts(copiedArtifacts, options.verbose);
     }
 
     if (options.keepStage) {

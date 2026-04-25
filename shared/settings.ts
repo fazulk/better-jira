@@ -16,6 +16,22 @@ export interface AiConnectionSettings {
   hasCerebrasApiKey: boolean
 }
 
+export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
+export type SidebarGroupBy = Exclude<SidebarSortBy, 'key'> | 'hierarchy' | 'none'
+export type SidebarTicketScope = 'currentSprint' | 'all'
+
+export interface SidebarSettings {
+  pinnedTicketKeys: string[]
+  filterTypeKeys: string[]
+  filterStatuses: string[]
+  filterAssignees: string[]
+  showCompletedTickets: boolean
+  ticketScope: SidebarTicketScope
+  sortBy: SidebarSortBy
+  groupBy: SidebarGroupBy
+  sortReversed: boolean
+}
+
 export interface UpdateJiraConnectionInput {
   baseUrl?: string
   email?: string
@@ -26,9 +42,22 @@ export interface UpdateAiConnectionInput {
   cerebrasApiKey?: string
 }
 
+export interface UpdateSidebarSettingsInput {
+  pinnedTicketKeys?: string[]
+  filterTypeKeys?: string[]
+  filterStatuses?: string[]
+  filterAssignees?: string[]
+  showCompletedTickets?: boolean
+  ticketScope?: SidebarTicketScope
+  sortBy?: SidebarSortBy
+  groupBy?: SidebarGroupBy
+  sortReversed?: boolean
+}
+
 export interface AppSettings {
   spaces: AppSpaceSetting[]
   filterSpaceKeys: string[]
+  sidebar: SidebarSettings
   jira: JiraConnectionSettings
   ai: AiConnectionSettings
 }
@@ -36,6 +65,7 @@ export interface AppSettings {
 export interface UpdateAppSettingsInput {
   spaces?: AppSpaceSetting[]
   filterSpaceKeys?: string[]
+  sidebar?: UpdateSidebarSettingsInput
   jira?: UpdateJiraConnectionInput
   ai?: UpdateAiConnectionInput
 }
@@ -85,6 +115,77 @@ function normalizeSpaceKeyList(value: unknown): string[] {
   }
 
   return [...normalizedValues]
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    if (typeof value !== 'string') {
+      return []
+    }
+
+    const normalizedValue = value.trim()
+    return normalizedValue.length > 0 ? [normalizedValue] : []
+  }
+
+  const normalizedValues = new Set<string>()
+
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      continue
+    }
+
+    const normalizedEntry = entry.trim()
+    if (normalizedEntry.length > 0) {
+      normalizedValues.add(normalizedEntry)
+    }
+  }
+
+  return [...normalizedValues]
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function normalizeSidebarSortBy(value: unknown): SidebarSortBy {
+  switch (value) {
+    case 'summary':
+    case 'status':
+    case 'priority':
+    case 'assignee':
+    case 'type':
+    case 'createdAt':
+    case 'updatedAt':
+    case 'dueDate':
+    case 'completedAt':
+      return value
+    case 'key':
+    default:
+      return 'key'
+  }
+}
+
+function normalizeSidebarGroupBy(value: unknown): SidebarGroupBy {
+  switch (value) {
+    case 'summary':
+    case 'status':
+    case 'priority':
+    case 'assignee':
+    case 'type':
+    case 'createdAt':
+    case 'updatedAt':
+    case 'dueDate':
+    case 'completedAt':
+    case 'none':
+      return value
+    case 'hierarchy':
+    default:
+      return 'hierarchy'
+  }
+}
+
+function normalizeSidebarTicketScope(value: unknown): SidebarTicketScope {
+  return value === 'currentSprint' ? 'currentSprint' : 'all'
 }
 
 function normalizeSpaceSetting(value: unknown): AppSpaceSetting | null {
@@ -263,10 +364,108 @@ function normalizeAiConnectionUpdate(value: unknown): UpdateAiConnectionInput | 
   return Object.keys(nextAi).length > 0 ? nextAi : undefined
 }
 
+function getDefaultSidebarSettings(): SidebarSettings {
+  return {
+    pinnedTicketKeys: [],
+    filterTypeKeys: [],
+    filterStatuses: [],
+    filterAssignees: [],
+    showCompletedTickets: false,
+    ticketScope: 'all',
+    sortBy: 'key',
+    groupBy: 'hierarchy',
+    sortReversed: false,
+  }
+}
+
+function normalizeSidebarSettings(value: unknown): SidebarSettings {
+  const defaults = getDefaultSidebarSettings()
+
+  if (typeof value !== 'object' || value === null) {
+    return defaults
+  }
+
+  const recordValue: Record<string, unknown> = value
+
+  return {
+    pinnedTicketKeys: normalizeStringList(recordValue.pinnedTicketKeys),
+    filterTypeKeys: normalizeStringList(recordValue.filterTypeKeys),
+    filterStatuses: normalizeStringList(recordValue.filterStatuses),
+    filterAssignees: normalizeStringList(recordValue.filterAssignees),
+    showCompletedTickets: normalizeBoolean(recordValue.showCompletedTickets, defaults.showCompletedTickets),
+    ticketScope: normalizeSidebarTicketScope(recordValue.ticketScope),
+    sortBy: normalizeSidebarSortBy(recordValue.sortBy),
+    groupBy: normalizeSidebarGroupBy(recordValue.groupBy),
+    sortReversed: normalizeBoolean(recordValue.sortReversed, defaults.sortReversed),
+  }
+}
+
+function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSettingsInput | undefined {
+  if (typeof value !== 'object' || value === null) {
+    return undefined
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const nextSidebar: UpdateSidebarSettingsInput = {}
+
+  if ('pinnedTicketKeys' in recordValue) {
+    nextSidebar.pinnedTicketKeys = normalizeStringList(recordValue.pinnedTicketKeys)
+  }
+
+  if ('filterTypeKeys' in recordValue) {
+    nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
+  }
+
+  if ('filterStatuses' in recordValue) {
+    nextSidebar.filterStatuses = normalizeStringList(recordValue.filterStatuses)
+  }
+
+  if ('filterAssignees' in recordValue) {
+    nextSidebar.filterAssignees = normalizeStringList(recordValue.filterAssignees)
+  }
+
+  if ('showCompletedTickets' in recordValue) {
+    nextSidebar.showCompletedTickets = normalizeBoolean(recordValue.showCompletedTickets, false)
+  }
+
+  if ('ticketScope' in recordValue) {
+    nextSidebar.ticketScope = normalizeSidebarTicketScope(recordValue.ticketScope)
+  }
+
+  if ('sortBy' in recordValue) {
+    nextSidebar.sortBy = normalizeSidebarSortBy(recordValue.sortBy)
+  }
+
+  if ('groupBy' in recordValue) {
+    nextSidebar.groupBy = normalizeSidebarGroupBy(recordValue.groupBy)
+  }
+
+  if ('sortReversed' in recordValue) {
+    nextSidebar.sortReversed = normalizeBoolean(recordValue.sortReversed, false)
+  }
+
+  return Object.keys(nextSidebar).length > 0 ? nextSidebar : undefined
+}
+
+function reconcileSidebarSettings(sidebar: SidebarSettings): SidebarSettings {
+  return {
+    pinnedTicketKeys: normalizeStringList(sidebar.pinnedTicketKeys),
+    filterTypeKeys: normalizeStringList(sidebar.filterTypeKeys),
+    filterStatuses: normalizeStringList(sidebar.filterStatuses),
+    filterAssignees: normalizeStringList(sidebar.filterAssignees),
+    showCompletedTickets: sidebar.showCompletedTickets,
+    ticketScope: normalizeSidebarTicketScope(sidebar.ticketScope),
+    sortBy: normalizeSidebarSortBy(sidebar.sortBy),
+    groupBy: normalizeSidebarGroupBy(sidebar.groupBy),
+    sortReversed: sidebar.sortReversed,
+  }
+}
+
 export function getDefaultAppSettings(): AppSettings {
   return {
     spaces: [],
     filterSpaceKeys: [],
+    sidebar: getDefaultSidebarSettings(),
     jira: {
       baseUrl: '',
       email: '',
@@ -288,6 +487,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   return reconcileAppSettings({
     spaces: normalizeSpacesFromRecord(recordValue),
     filterSpaceKeys: normalizeSpaceKeyList(recordValue.filterSpaceKeys),
+    sidebar: normalizeSidebarSettings(recordValue.sidebar),
     jira: normalizeJiraConnectionSettings(recordValue.jira),
     ai: normalizeAiConnectionSettings(recordValue.ai),
   })
@@ -308,6 +508,11 @@ export function normalizeAppSettingsUpdate(value: unknown): UpdateAppSettingsInp
 
   if ('filterSpaceKeys' in recordValue) {
     nextSettings.filterSpaceKeys = normalizeSpaceKeyList(recordValue.filterSpaceKeys)
+  }
+
+  const nextSidebar = normalizeSidebarSettingsUpdate(recordValue.sidebar)
+  if (nextSidebar) {
+    nextSettings.sidebar = nextSidebar
   }
 
   const nextJira = normalizeJiraConnectionUpdate(recordValue.jira)
@@ -334,6 +539,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
   return {
     spaces,
     filterSpaceKeys: settings.filterSpaceKeys.filter((spaceKey) => enabledSpaceKeys.has(spaceKey)),
+    sidebar: reconcileSidebarSettings(settings.sidebar),
     jira: {
       baseUrl: settings.jira.baseUrl.trim(),
       email: settings.jira.email.trim(),

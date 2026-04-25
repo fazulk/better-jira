@@ -30,12 +30,13 @@ const preSearchExpandedNodes = ref<Set<string> | null>(null)
 const searchQuery = ref('')
 const showFilters = ref(false)
 const showParentContext = useLocalStorage('jira2.sidebar.showParentContext', true)
-const showCompletedTickets = useLocalStorage('jira2.sidebar.showCompleted', false)
-const storedFilterTypes = useLocalStorage<string[] | string | null>('jira2.sidebar.filterType', [])
-const storedFilterStatuses = useLocalStorage<string[] | string | null>('jira2.sidebar.filterStatus', [])
-const filterAssignees = useLocalStorage<string[]>('jira2.sidebar.filterAssignees', [])
 const { pinnedKeys, pinnedKeySet, togglePinnedTicket } = usePinnedTickets()
-const { settings: appSettings, enabledSpaces, setFilterSpaceKeys } = useSpaceSettings()
+const {
+  settings: appSettings,
+  enabledSpaces,
+  setFilterSpaceKeys,
+  setSidebarSettings,
+} = useSpaceSettings()
 
 const sortOptions = [
   { value: 'key', label: 'Key' },
@@ -66,39 +67,6 @@ const groupOptions = [
 type SortOption = (typeof sortOptions)[number]['value']
 type GroupOption = (typeof groupOptions)[number]['value']
 type TicketScope = 'currentSprint' | 'all'
-
-const sortBy = useLocalStorage<SortOption>('jira2.sidebar.sortBy', 'key')
-const groupBy = useLocalStorage<GroupOption>('jira2.sidebar.groupBy', 'hierarchy')
-const sortReversed = useLocalStorage<boolean>('jira2.sidebar.sortReversed', false)
-const ticketScope = useLocalStorage<TicketScope>('jira2.sidebar.ticketScope', 'all')
-
-function isSortOption(value: unknown): value is SortOption {
-  return sortOptions.some(option => option.value === value)
-}
-
-function isGroupOption(value: unknown): value is GroupOption {
-  return groupOptions.some(option => option.value === value)
-}
-
-function isTicketScope(value: unknown): value is TicketScope {
-  return value === 'currentSprint' || value === 'all'
-}
-
-if (!isSortOption(sortBy.value)) {
-  sortBy.value = 'key'
-}
-
-if (!isGroupOption(groupBy.value)) {
-  groupBy.value = 'hierarchy'
-}
-
-if (typeof sortReversed.value !== 'boolean') {
-  sortReversed.value = false
-}
-
-if (!isTicketScope(ticketScope.value)) {
-  ticketScope.value = 'all'
-}
 
 // --- Fuzzy search ---
 function fuzzyMatch(text: string, query: string): { match: boolean; score: number } {
@@ -208,15 +176,67 @@ const filterSpaces = computed<string[]>({
   },
 })
 const filterTypes = computed<string[]>({
-  get: () => normalizeStoredStringList(storedFilterTypes.value, issueTypes.value),
+  get: () => normalizeStoredStringList(appSettings.value.sidebar.filterTypeKeys, issueTypes.value),
   set: (value) => {
-    storedFilterTypes.value = value
+    void setSidebarSettings({
+      filterTypeKeys: value,
+    })
   },
 })
 const filterStatuses = computed<string[]>({
-  get: () => normalizeStoredStringList(storedFilterStatuses.value, statuses.value),
+  get: () => normalizeStoredStringList(appSettings.value.sidebar.filterStatuses, statuses.value),
   set: (value) => {
-    storedFilterStatuses.value = value
+    void setSidebarSettings({
+      filterStatuses: value,
+    })
+  },
+})
+const filterAssignees = computed<string[]>({
+  get: () => normalizeStoredStringList(appSettings.value.sidebar.filterAssignees, assignees.value),
+  set: (value) => {
+    void setSidebarSettings({
+      filterAssignees: value,
+    })
+  },
+})
+const showCompletedTickets = computed<boolean>({
+  get: () => appSettings.value.sidebar.showCompletedTickets,
+  set: (value) => {
+    void setSidebarSettings({
+      showCompletedTickets: value,
+    })
+  },
+})
+const sortBy = computed<SortOption>({
+  get: () => appSettings.value.sidebar.sortBy,
+  set: (value) => {
+    void setSidebarSettings({
+      sortBy: value,
+    })
+  },
+})
+const groupBy = computed<GroupOption>({
+  get: () => appSettings.value.sidebar.groupBy,
+  set: (value) => {
+    void setSidebarSettings({
+      groupBy: value,
+    })
+  },
+})
+const sortReversed = computed<boolean>({
+  get: () => appSettings.value.sidebar.sortReversed,
+  set: (value) => {
+    void setSidebarSettings({
+      sortReversed: value,
+    })
+  },
+})
+const ticketScope = computed<TicketScope>({
+  get: () => appSettings.value.sidebar.ticketScope,
+  set: (value) => {
+    void setSidebarSettings({
+      ticketScope: value,
+    })
   },
 })
 
@@ -281,6 +301,8 @@ function reconcileFiltersWithOptions() {
 }
 
 function reconcilePinnedKeysWithTickets() {
+  if (props.tickets.length === 0) return
+
   const availableKeys = new Set(props.tickets.map(ticket => ticket.key))
   const nextPinnedKeys = pinnedKeys.value.filter(key => availableKeys.has(key))
 

@@ -1,7 +1,5 @@
 import { computed } from 'vue'
-import { useLocalStorage } from '@vueuse/core'
-
-const PINNED_TICKETS_STORAGE_KEY = 'jira2.sidebar.pinnedTickets'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
 
 function normalizeStoredStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -12,12 +10,13 @@ function normalizeStoredStringList(value: unknown): string[] {
 }
 
 export function usePinnedTickets() {
-  const storedPinnedKeys = useLocalStorage<string[] | string | null>(PINNED_TICKETS_STORAGE_KEY, [])
-
+  const { settings, setSidebarSettings } = useSpaceSettings()
   const pinnedKeys = computed<string[]>({
-    get: () => normalizeStoredStringList(storedPinnedKeys.value),
+    get: () => normalizeStoredStringList(settings.value.sidebar.pinnedTicketKeys),
     set: (value) => {
-      storedPinnedKeys.value = value
+      void setSidebarSettings({
+        pinnedTicketKeys: value,
+      })
     },
   })
 

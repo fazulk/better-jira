@@ -14,6 +14,7 @@ import {
   type AppSpaceSetting,
   type UpdateAiConnectionInput,
   type UpdateJiraConnectionInput,
+  type UpdateSidebarSettingsInput,
 } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
@@ -92,6 +93,15 @@ export function useSpaceSettings() {
       filterSpaceKeys: filterSpaceKeys
         .map(normalizeSpaceKey)
         .filter((spaceKey) => enabledSpaceKeySet.has(spaceKey)),
+    }, false)
+  }
+
+  async function setSidebarSettings(sidebarSettings: UpdateSidebarSettingsInput): Promise<void> {
+    await updateSettings({
+      sidebar: {
+        ...settings.value.sidebar,
+        ...sidebarSettings,
+      },
     }, false)
   }
 
@@ -234,6 +244,7 @@ export function useSpaceSettings() {
       || aiConnectionMutation.isPending.value
     )),
     setFilterSpaceKeys,
+    setSidebarSettings,
     addOrEnableSpace,
     disableSpace,
     deleteSpace,

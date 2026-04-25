@@ -24,6 +24,7 @@ interface StoredAiSettings {
 interface StoredAppSettings {
   spaces: AppSettings['spaces']
   filterSpaceKeys: AppSettings['filterSpaceKeys']
+  sidebar: AppSettings['sidebar']
   jira: StoredJiraSettings
   ai: StoredAiSettings
 }
@@ -87,6 +88,7 @@ function normalizeStoredSettings(value: unknown): StoredAppSettings {
   return {
     spaces: normalizedAppSettings.spaces,
     filterSpaceKeys: normalizedAppSettings.filterSpaceKeys,
+    sidebar: normalizedAppSettings.sidebar,
     jira: normalizeStoredJiraSettings(recordValue.jira),
     ai: normalizeStoredAiSettings(recordValue.ai),
   }
@@ -96,6 +98,7 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
   return reconcileAppSettings({
     spaces: settings.spaces,
     filterSpaceKeys: settings.filterSpaceKeys,
+    sidebar: settings.sidebar,
     jira: {
       baseUrl: settings.jira.baseUrl,
       email: settings.jira.email,
@@ -143,6 +146,10 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
   const nextSettings = reconcileAppSettings({
     spaces: input.spaces ?? currentSettings.spaces,
     filterSpaceKeys: input.filterSpaceKeys ?? currentSettings.filterSpaceKeys,
+    sidebar: {
+      ...currentSettings.sidebar,
+      ...input.sidebar,
+    },
     jira: {
       baseUrl: input.jira?.baseUrl ?? currentSettings.jira.baseUrl,
       email: input.jira?.email ?? currentSettings.jira.email,
@@ -155,6 +162,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
   const storedSettings: StoredAppSettings = {
     spaces: nextSettings.spaces,
     filterSpaceKeys: nextSettings.filterSpaceKeys,
+    sidebar: nextSettings.sidebar,
     jira: {
       baseUrl: input.jira?.baseUrl ?? currentSettings.jira.baseUrl,
       email: input.jira?.email ?? currentSettings.jira.email,

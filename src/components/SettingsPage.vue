@@ -87,7 +87,7 @@ interface ResolvedSpaceItem {
 }
 
 function startEditing(presetId: string): void {
-  const preset = allInstructionPresets.value.find((item) => item.id === presetId && item.source === 'local')
+  const preset = allInstructionPresets.value.find((item) => item.id === presetId)
   if (!preset) return
 
   editingPresetId.value = preset.id
@@ -692,15 +692,7 @@ onBeforeUnmount(() => {
 
             <div v-else class="flex items-start justify-between gap-4">
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <p class="text-sm text-slate-200">{{ preset.label }}</p>
-                  <span
-                    v-if="preset.source === 'server'"
-                    class="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-500"
-                  >
-                    Server
-                  </span>
-                </div>
+                <p class="text-sm text-slate-200">{{ preset.label }}</p>
                 <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ preset.text }}</p>
               </div>
 
@@ -719,7 +711,7 @@ onBeforeUnmount(() => {
                   />
                 </button>
 
-                <div v-if="preset.source === 'local'" class="flex items-center gap-2">
+                <div class="flex items-center gap-2">
                   <button
                     type="button"
                     class="rounded-xl border border-white/[0.08] px-3 py-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"

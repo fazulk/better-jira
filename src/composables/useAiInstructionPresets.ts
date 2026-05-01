@@ -6,7 +6,7 @@ export interface AiInstructionPreset {
   label: string
   text: string
   enabled: boolean
-  source: 'server' | 'local'
+  source: 'local'
 }
 
 export interface AiInstructionPresetDraft {
@@ -14,18 +14,7 @@ export interface AiInstructionPresetDraft {
   text: string
 }
 
-const SERVER_ENABLED_KEY = 'jira2.settings.aiInstructionServerEnabledIds'
 const LOCAL_PRESETS_KEY = 'jira2.settings.aiInstructionLocalPresets'
-
-const serverInstructionPresets: AiInstructionPreset[] = [
-  {
-    id: 'write-detailed-spec',
-    label: 'Write a detailed spec',
-    text: 'Write a detailed technical specification for this ticket, including background context, requirements, and implementation notes.',
-    enabled: true,
-    source: 'server',
-  },
-]
 
 function createLocalPresetId(): string {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -33,20 +22,6 @@ function createLocalPresetId(): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function parseStringArray(value: string): string[] {
-  if (!value) return serverInstructionPresets.map((preset) => preset.id)
-
-  try {
-    const parsedValue: unknown = JSON.parse(value)
-    if (!Array.isArray(parsedValue)) return serverInstructionPresets.map((preset) => preset.id)
-
-    return parsedValue.filter((item): item is string => typeof item === 'string')
-  }
-  catch {
-    return serverInstructionPresets.map((preset) => preset.id)
-  }
 }
 
 function parseLocalPresets(value: string): AiInstructionPreset[] {
@@ -78,17 +53,6 @@ function parseLocalPresets(value: string): AiInstructionPreset[] {
 }
 
 export function useAiInstructionPresets() {
-  const enabledServerPresetIds = useLocalStorage<string[]>(
-    SERVER_ENABLED_KEY,
-    serverInstructionPresets.map((preset) => preset.id),
-    {
-      serializer: {
-        read: parseStringArray,
-        write: (value: string[]): string => JSON.stringify(Array.from(new Set(value))),
-      },
-    },
-  )
-
   const localInstructionPresets = useLocalStorage<AiInstructionPreset[]>(
     LOCAL_PRESETS_KEY,
     [],
@@ -107,16 +71,7 @@ export function useAiInstructionPresets() {
     },
   )
 
-  const serverPresets = computed<AiInstructionPreset[]>(() => {
-    const enabledPresetIds = new Set(enabledServerPresetIds.value)
-    return serverInstructionPresets.map((preset) => ({
-      ...preset,
-      enabled: enabledPresetIds.has(preset.id),
-    }))
-  })
-
   const allInstructionPresets = computed<AiInstructionPreset[]>(() => [
-    ...serverPresets.value,
     ...localInstructionPresets.value,
   ])
 
@@ -125,17 +80,6 @@ export function useAiInstructionPresets() {
   )
 
   function togglePresetEnabled(presetId: string): void {
-    const serverPreset = serverInstructionPresets.find((preset) => preset.id === presetId)
-    if (serverPreset) {
-      if (enabledServerPresetIds.value.includes(presetId)) {
-        enabledServerPresetIds.value = enabledServerPresetIds.value.filter((id) => id !== presetId)
-        return
-      }
-
-      enabledServerPresetIds.value = [...enabledServerPresetIds.value, presetId]
-      return
-    }
-
     localInstructionPresets.value = localInstructionPresets.value.map((preset) => (
       preset.id === presetId
         ? { ...preset, enabled: !preset.enabled }

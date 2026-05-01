@@ -21,7 +21,7 @@ import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
 import { jiraSpaceDirectoryQueryKey, resetAvailableSpacesBootstrap } from '@/composables/useAvailableSpaces'
 
-const APP_SETTINGS_QUERY_KEY = ['app-settings'] as const
+export const APP_SETTINGS_QUERY_KEY = ['app-settings'] as const
 const TICKETS_QUERY_KEY = ['tickets'] as const
 
 interface SpaceMutationInput {
@@ -222,6 +222,8 @@ export function useSpaceSettings() {
         hasCerebrasApiKey: input.cerebrasApiKey === undefined
           ? previousSettings.ai.hasCerebrasApiKey
           : input.cerebrasApiKey.length > 0,
+        provider: input.provider ?? previousSettings.ai.provider,
+        model: input.model ?? previousSettings.ai.model,
       },
     })
 

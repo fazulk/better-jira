@@ -126,14 +126,19 @@ function isHtmlSelectElement(target: EventTarget | null): target is HTMLSelectEl
   return target instanceof HTMLSelectElement
 }
 
-function handleProviderChange(event: Event): void {
+async function handleProviderChange(event: Event): Promise<void> {
   if (!isHtmlSelectElement(event.target)) {
     return
   }
 
   const provider = event.target.value
   if (isAiProvider(provider) && providers.value.includes(provider)) {
-    setProvider(provider)
+    try {
+      await setProvider(provider)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save AI provider.'
+      setAiFeedback('error', message)
+    }
   }
 }
 
@@ -143,12 +148,17 @@ function getProviderStatusClass(status: AiProviderAvailability): string {
     : 'border-white/[0.06] bg-white/[0.02] text-slate-500'
 }
 
-function handleModelChange(event: Event): void {
+async function handleModelChange(event: Event): Promise<void> {
   if (!isHtmlSelectElement(event.target)) {
     return
   }
 
-  setModel(event.target.value)
+  try {
+    await setModel(event.target.value)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save AI model.'
+    setAiFeedback('error', message)
+  }
 }
 
 function clearSpaceFeedbackTimeout(): void {
@@ -382,7 +392,7 @@ onBeforeUnmount(() => {
       <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
         <div class="mb-4">
           <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">AI Provider</h2>
-          <p class="mt-2 text-xs text-slate-500">Choose the default model used by the AI description assistant. Codex and Claude Code are detected from local CLI installs and run with low reasoning/effort for faster description generation.</p>
+          <p class="mt-2 text-xs text-slate-500">Choose the default model used by the AI description assistant. Your selection is saved in <code>.data/settings.json</code> so it survives restarts and app updates. Codex and Claude Code are detected from local CLI installs and run with low reasoning/effort for faster description generation.</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">

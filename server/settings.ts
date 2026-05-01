@@ -19,6 +19,8 @@ interface StoredJiraSettings {
 
 interface StoredAiSettings {
   cerebrasApiKey: string
+  provider: AppSettings['ai']['provider']
+  model: string
 }
 
 interface StoredAppSettings {
@@ -44,6 +46,8 @@ function createDefaultStoredSettings(): StoredAppSettings {
     },
     ai: {
       cerebrasApiKey: '',
+      provider: getDefaultAppSettings().ai.provider,
+      model: getDefaultAppSettings().ai.model,
     },
   }
 }
@@ -64,15 +68,16 @@ function normalizeStoredJiraSettings(value: unknown): StoredJiraSettings {
 
 function normalizeStoredAiSettings(value: unknown): StoredAiSettings {
   if (typeof value !== 'object' || value === null) {
-    return {
-      cerebrasApiKey: '',
-    }
+    return createDefaultStoredSettings().ai
   }
 
   const recordValue: Record<string, unknown> = value
+  const normalizedAiSettings = normalizeAppSettings({ ai: recordValue }).ai
 
   return {
     cerebrasApiKey: typeof recordValue.cerebrasApiKey === 'string' ? recordValue.cerebrasApiKey.trim() : '',
+    provider: normalizedAiSettings.provider,
+    model: normalizedAiSettings.model,
   }
 }
 
@@ -108,6 +113,8 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
     },
     ai: {
       hasCerebrasApiKey: settings.ai.cerebrasApiKey.length > 0,
+      provider: settings.ai.provider,
+      model: settings.ai.model,
     },
     aiInstructionPresets: settings.aiInstructionPresets,
   })
@@ -160,6 +167,8 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     },
     ai: {
       hasCerebrasApiKey: (input.ai?.cerebrasApiKey ?? currentSettings.ai.cerebrasApiKey).length > 0,
+      provider: input.ai?.provider ?? currentSettings.ai.provider,
+      model: input.ai?.model ?? currentSettings.ai.model,
     },
     aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
   })
@@ -174,6 +183,8 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     },
     ai: {
       cerebrasApiKey: input.ai?.cerebrasApiKey ?? currentSettings.ai.cerebrasApiKey,
+      provider: nextSettings.ai.provider,
+      model: nextSettings.ai.model,
     },
     aiInstructionPresets: nextSettings.aiInstructionPresets,
   }

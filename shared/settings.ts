@@ -1,3 +1,11 @@
+import {
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  getDefaultModelForProvider,
+  isAiProvider,
+  normalizeAiSettings,
+  type AiProvider,
+} from './ai'
 import { LOCAL_SPACE_KEY, LOCAL_SPACE_NAME } from './localTickets'
 
 export interface AppSpaceSetting {
@@ -14,6 +22,8 @@ export interface JiraConnectionSettings {
 
 export interface AiConnectionSettings {
   hasCerebrasApiKey: boolean
+  provider: AiProvider
+  model: string
 }
 
 export interface AiInstructionPresetSetting {
@@ -47,6 +57,8 @@ export interface UpdateJiraConnectionInput {
 
 export interface UpdateAiConnectionInput {
   cerebrasApiKey?: string
+  provider?: AiProvider
+  model?: string
 }
 
 export interface UpdateSidebarSettingsInput {
@@ -351,14 +363,19 @@ function normalizeAiConnectionSettings(value: unknown): AiConnectionSettings {
   if (typeof value !== 'object' || value === null) {
     return {
       hasCerebrasApiKey: false,
+      provider: DEFAULT_AI_PROVIDER,
+      model: getDefaultModelForProvider(DEFAULT_AI_PROVIDER),
     }
   }
 
   const recordValue: Record<string, unknown> = value
   const cerebrasApiKey = normalizeAiValue(recordValue.cerebrasApiKey)
+  const aiSettings = normalizeAiSettings(recordValue.provider, recordValue.model)
 
   return {
     hasCerebrasApiKey: recordValue.hasCerebrasApiKey === true || cerebrasApiKey.length > 0,
+    provider: aiSettings.provider,
+    model: aiSettings.model,
   }
 }
 
@@ -372,6 +389,14 @@ function normalizeAiConnectionUpdate(value: unknown): UpdateAiConnectionInput | 
 
   if ('cerebrasApiKey' in recordValue) {
     nextAi.cerebrasApiKey = normalizeAiValue(recordValue.cerebrasApiKey)
+  }
+
+  if ('provider' in recordValue && isAiProvider(recordValue.provider)) {
+    nextAi.provider = recordValue.provider
+  }
+
+  if ('model' in recordValue && typeof recordValue.model === 'string') {
+    nextAi.model = normalizeAiValue(recordValue.model)
   }
 
   return Object.keys(nextAi).length > 0 ? nextAi : undefined
@@ -517,6 +542,21 @@ function reconcileAiInstructionPresets(presets: AiInstructionPresetSetting[]): A
   return normalizeAiInstructionPresetSettings(presets)
 }
 
+function normalizeAiSettingsForApp(settings: AiConnectionSettings): AiConnectionSettings {
+  const aiSettings = normalizeAiSettings(
+    settings.provider,
+    settings.model,
+    DEFAULT_AI_PROVIDER,
+    AI_PROVIDERS,
+  )
+
+  return {
+    hasCerebrasApiKey: settings.hasCerebrasApiKey,
+    provider: aiSettings.provider,
+    model: aiSettings.model,
+  }
+}
+
 export function getDefaultAppSettings(): AppSettings {
   return {
     spaces: [],
@@ -529,6 +569,8 @@ export function getDefaultAppSettings(): AppSettings {
     },
     ai: {
       hasCerebrasApiKey: false,
+      provider: DEFAULT_AI_PROVIDER,
+      model: getDefaultModelForProvider(DEFAULT_AI_PROVIDER),
     },
     aiInstructionPresets: [],
   }
@@ -607,9 +649,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
       email: settings.jira.email.trim(),
       hasApiToken: settings.jira.hasApiToken,
     },
-    ai: {
-      hasCerebrasApiKey: settings.ai.hasCerebrasApiKey,
-    },
+    ai: normalizeAiSettingsForApp(settings.ai),
     aiInstructionPresets: reconcileAiInstructionPresets(settings.aiInstructionPresets),
   }
 }

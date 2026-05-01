@@ -1,3 +1,4 @@
+import type { AiProviderAvailabilityResponse } from '~/shared/ai'
 import type {
   AppSettings,
   JiraSpaceDirectoryEntry,
@@ -8,6 +9,7 @@ import type {
 
 const SETTINGS_BASE = '/api/settings'
 const SPACES_BASE = '/api/spaces'
+const AI_PROVIDERS_BASE = '/api/ai/providers'
 
 export async function fetchAppSettings(): Promise<AppSettings> {
   const response = await fetch(SETTINGS_BASE)
@@ -55,6 +57,17 @@ export async function fetchAvailableSpaces(): Promise<JiraSpaceDirectoryEntry[]>
   if (!response.ok) {
     const body = await response.text().catch(() => '')
     throw new Error(`Failed to fetch spaces: ${response.status} ${response.statusText}${body ? ` - ${body}` : ''}`)
+  }
+
+  return response.json()
+}
+
+export async function fetchAiProviderAvailability(): Promise<AiProviderAvailabilityResponse> {
+  const response = await fetch(AI_PROVIDERS_BASE)
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    throw new Error(`Failed to fetch AI providers: ${response.status} ${response.statusText}${body ? ` - ${body}` : ''}`)
   }
 
   return response.json()

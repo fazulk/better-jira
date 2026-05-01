@@ -1,6 +1,6 @@
 import { defineEventHandler, getMethod, getQuery, getRequestURL, readBody } from 'h3'
 import { isJiraAdfDocument, type JiraAdfDocument } from '../../shared/jiraAdf'
-import { isAiProvider } from '../../shared/ai'
+import { AI_PROVIDERS, isAiProvider } from '../../shared/ai'
 import { buildUpdatedSinceSearchQuery, normalizeAppSettingsUpdate } from '../../shared/settings'
 import {
   addTicketMessage,
@@ -23,6 +23,7 @@ import {
   updateTicketStatus,
   updateTicketTitle,
 } from '../jira'
+import { getAiProviderAvailability } from '../ai/catalog'
 import { generateTicketDescription } from '../ai/generateDescription'
 import { addClient, removeClient } from '../events'
 import { MissingJiraCredentialsError } from '../jiraCredentials'
@@ -177,6 +178,10 @@ export default defineEventHandler(async (event) => {
       const body = await readBody<unknown>(event)
       const settings = updateAppSettings(normalizeAppSettingsUpdate(body))
       return Response.json(settings, { headers: API_HEADERS })
+    }
+
+    if (segments.length === 2 && segments[0] === 'ai' && segments[1] === 'providers' && method === 'GET') {
+      return Response.json({ providers: getAiProviderAvailability() }, { headers: API_HEADERS })
     }
 
     if (segments.length === 1 && segments[0] === 'spaces' && method === 'GET') {
@@ -368,7 +373,7 @@ export default defineEventHandler(async (event) => {
           : null
 
         if (!provider) {
-          return badRequestResponse('provider must be one of: openai, anthropic, cerebras.')
+          return badRequestResponse(`provider must be one of: ${AI_PROVIDERS.join(', ')}.`)
         }
 
         const model = isRecord(body) && typeof body.model === 'string'
@@ -491,7 +496,7 @@ export default defineEventHandler(async (event) => {
           : null
 
         if (!provider) {
-          return badRequestResponse('provider must be one of: openai, anthropic, cerebras.')
+          return badRequestResponse(`provider must be one of: ${AI_PROVIDERS.join(', ')}.`)
         }
 
         const model = isRecord(body) && typeof body.model === 'string'

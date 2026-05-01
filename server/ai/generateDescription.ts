@@ -15,6 +15,7 @@ import {
 import { generateWithAnthropic } from './providers/anthropic'
 import { generateWithCerebras } from './providers/cerebras'
 import { generateWithOpenAi } from './providers/openai'
+import { generateWithClaude, generateWithCodex } from './providers/localCli'
 
 interface GenerateDescriptionInput {
   instruction: string
@@ -27,7 +28,8 @@ function buildUserPrompt(input: GenerateDescriptionInput): string {
   const currentDescription = adfToPlainText(input.currentDescriptionAdf).trim()
 
   return [
-    'Format the result for Jira',
+    'Format the result for Jira.',
+    'Return only the improved description text; do not include a preamble, analysis, code fences, or follow-up questions.',
     '',
     'Current description:',
     currentDescription || '(No current description.)',
@@ -64,6 +66,10 @@ export async function generateTicketDescription(
       descriptionText = await generateWithOpenAi(apiKey, prompt)
     } else if (input.provider === 'anthropic') {
       descriptionText = await generateWithAnthropic(apiKey, prompt)
+    } else if (input.provider === 'codex') {
+      descriptionText = await generateWithCodex(prompt)
+    } else if (input.provider === 'claude') {
+      descriptionText = await generateWithClaude(prompt)
     } else {
       descriptionText = await generateWithCerebras(apiKey, prompt)
     }

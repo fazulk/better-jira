@@ -5,7 +5,7 @@ import { useAvailableSpaces } from '@/composables/useAvailableSpaces'
 import { useAiInstructionPresets } from '@/composables/useAiInstructionPresets'
 import { useAiSettings } from '@/composables/useAiSettings'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
-import { getProviderLabel } from '~/shared/ai'
+import { getProviderLabel, isAiProvider, type AiProviderAvailability } from '~/shared/ai'
 import type { AppSpaceSetting, JiraSpaceDirectoryEntry } from '~/shared/settings'
 
 const emit = defineEmits<{
@@ -19,7 +19,16 @@ const {
   togglePresetEnabled,
   updateLocalPreset,
 } = useAiInstructionPresets()
-const { providers, settings: aiSettings, availableModels, setProvider, setModel } = useAiSettings()
+const {
+  providers,
+  providerAvailability,
+  isLoadingProviders,
+  providerAvailabilityError,
+  settings: aiSettings,
+  availableModels,
+  setProvider,
+  setModel,
+} = useAiSettings()
 const {
   aiConnection,
   spaces,
@@ -123,9 +132,15 @@ function handleProviderChange(event: Event): void {
   }
 
   const provider = event.target.value
-  if (providers.includes(provider)) {
+  if (isAiProvider(provider) && providers.value.includes(provider)) {
     setProvider(provider)
   }
+}
+
+function getProviderStatusClass(status: AiProviderAvailability): string {
+  return status.available
+    ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+    : 'border-white/[0.06] bg-white/[0.02] text-slate-500'
 }
 
 function handleModelChange(event: Event): void {
@@ -367,7 +382,7 @@ onBeforeUnmount(() => {
       <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
         <div class="mb-4">
           <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">AI Provider</h2>
-          <p class="mt-2 text-xs text-slate-500">Choose the default model used by the AI description assistant. OpenAI and Anthropic still use server environment variables, and Cerebras can also be stored locally in <code>.data/settings.json</code>.</p>
+          <p class="mt-2 text-xs text-slate-500">Choose the default model used by the AI description assistant. Codex and Claude Code are detected from local CLI installs and run with low reasoning/effort for faster description generation.</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -405,6 +420,23 @@ onBeforeUnmount(() => {
             </select>
           </label>
         </div>
+
+        <div class="mt-4 grid gap-2 md:grid-cols-2">
+          <div
+            v-for="providerStatus in providerAvailability"
+            :key="providerStatus.provider"
+            class="rounded-lg border px-3 py-2 text-xs"
+            :class="getProviderStatusClass(providerStatus)"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <span class="font-medium text-slate-200">{{ getProviderLabel(providerStatus.provider) }}</span>
+              <span class="text-[10px] uppercase tracking-[0.16em]">{{ providerStatus.available ? 'Available' : 'Unavailable' }}</span>
+            </div>
+            <p class="mt-1 text-[11px] leading-relaxed opacity-80">{{ providerStatus.detail }}</p>
+          </div>
+        </div>
+        <p v-if="isLoadingProviders" class="mt-3 text-xs text-slate-500">Checking local AI providers…</p>
+        <p v-else-if="providerAvailabilityError" class="mt-3 text-xs text-rose-300">Unable to refresh local AI provider detection.</p>
 
         <div class="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
           <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Local Cerebras key</p>

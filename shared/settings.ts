@@ -16,6 +16,13 @@ export interface AiConnectionSettings {
   hasCerebrasApiKey: boolean
 }
 
+export interface AiInstructionPresetSetting {
+  id: string
+  label: string
+  text: string
+  enabled: boolean
+}
+
 export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
 export type SidebarGroupBy = Exclude<SidebarSortBy, 'key'> | 'hierarchy' | 'none'
 export type SidebarTicketScope = 'currentSprint' | 'all'
@@ -60,6 +67,7 @@ export interface AppSettings {
   sidebar: SidebarSettings
   jira: JiraConnectionSettings
   ai: AiConnectionSettings
+  aiInstructionPresets: AiInstructionPresetSetting[]
 }
 
 export interface UpdateAppSettingsInput {
@@ -68,6 +76,7 @@ export interface UpdateAppSettingsInput {
   sidebar?: UpdateSidebarSettingsInput
   jira?: UpdateJiraConnectionInput
   ai?: UpdateAiConnectionInput
+  aiInstructionPresets?: AiInstructionPresetSetting[]
 }
 
 export interface JiraSpaceDirectoryEntry {
@@ -97,6 +106,10 @@ function normalizeJiraValue(value: unknown): string {
 }
 
 function normalizeAiValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeAiInstructionValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
@@ -400,6 +413,45 @@ function normalizeSidebarSettings(value: unknown): SidebarSettings {
   }
 }
 
+function normalizeAiInstructionPresetSetting(value: unknown): AiInstructionPresetSetting | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const id = normalizeAiInstructionValue(recordValue.id)
+  const label = normalizeAiInstructionValue(recordValue.label)
+  const text = normalizeAiInstructionValue(recordValue.text)
+
+  if (!id || !label || !text) {
+    return null
+  }
+
+  return {
+    id,
+    label,
+    text,
+    enabled: recordValue.enabled !== false,
+  }
+}
+
+function normalizeAiInstructionPresetSettings(value: unknown): AiInstructionPresetSetting[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const presetsById = new Map<string, AiInstructionPresetSetting>()
+
+  for (const entry of value) {
+    const preset = normalizeAiInstructionPresetSetting(entry)
+    if (preset && !presetsById.has(preset.id)) {
+      presetsById.set(preset.id, preset)
+    }
+  }
+
+  return [...presetsById.values()]
+}
+
 function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSettingsInput | undefined {
   if (typeof value !== 'object' || value === null) {
     return undefined
@@ -461,6 +513,10 @@ function reconcileSidebarSettings(sidebar: SidebarSettings): SidebarSettings {
   }
 }
 
+function reconcileAiInstructionPresets(presets: AiInstructionPresetSetting[]): AiInstructionPresetSetting[] {
+  return normalizeAiInstructionPresetSettings(presets)
+}
+
 export function getDefaultAppSettings(): AppSettings {
   return {
     spaces: [],
@@ -474,6 +530,7 @@ export function getDefaultAppSettings(): AppSettings {
     ai: {
       hasCerebrasApiKey: false,
     },
+    aiInstructionPresets: [],
   }
 }
 
@@ -490,6 +547,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     sidebar: normalizeSidebarSettings(recordValue.sidebar),
     jira: normalizeJiraConnectionSettings(recordValue.jira),
     ai: normalizeAiConnectionSettings(recordValue.ai),
+    aiInstructionPresets: normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets),
   })
 }
 
@@ -525,6 +583,10 @@ export function normalizeAppSettingsUpdate(value: unknown): UpdateAppSettingsInp
     nextSettings.ai = nextAi
   }
 
+  if ('aiInstructionPresets' in recordValue) {
+    nextSettings.aiInstructionPresets = normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets)
+  }
+
   return nextSettings
 }
 
@@ -548,6 +610,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
     ai: {
       hasCerebrasApiKey: settings.ai.hasCerebrasApiKey,
     },
+    aiInstructionPresets: reconcileAiInstructionPresets(settings.aiInstructionPresets),
   }
 }
 

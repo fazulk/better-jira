@@ -10,6 +10,7 @@ import {
   getDefaultAppSettings,
   hasConfiguredJiraCredentials,
   reconcileAppSettings,
+  type AiInstructionPresetSetting,
   type AppSettings,
   type AppSpaceSetting,
   type UpdateAiConnectionInput,
@@ -102,6 +103,12 @@ export function useSpaceSettings() {
         ...settings.value.sidebar,
         ...sidebarSettings,
       },
+    }, false)
+  }
+
+  async function setAiInstructionPresets(aiInstructionPresets: AiInstructionPresetSetting[]): Promise<void> {
+    await updateSettings({
+      aiInstructionPresets,
     }, false)
   }
 
@@ -245,6 +252,7 @@ export function useSpaceSettings() {
     )),
     setFilterSpaceKeys,
     setSidebarSettings,
+    setAiInstructionPresets,
     addOrEnableSpace,
     disableSpace,
     deleteSpace,

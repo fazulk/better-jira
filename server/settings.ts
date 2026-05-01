@@ -27,6 +27,7 @@ interface StoredAppSettings {
   sidebar: AppSettings['sidebar']
   jira: StoredJiraSettings
   ai: StoredAiSettings
+  aiInstructionPresets: AppSettings['aiInstructionPresets']
 }
 
 function ensureSettingsDirectoryExists(): void {
@@ -91,6 +92,7 @@ function normalizeStoredSettings(value: unknown): StoredAppSettings {
     sidebar: normalizedAppSettings.sidebar,
     jira: normalizeStoredJiraSettings(recordValue.jira),
     ai: normalizeStoredAiSettings(recordValue.ai),
+    aiInstructionPresets: normalizedAppSettings.aiInstructionPresets,
   }
 }
 
@@ -107,6 +109,7 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
     ai: {
       hasCerebrasApiKey: settings.ai.cerebrasApiKey.length > 0,
     },
+    aiInstructionPresets: settings.aiInstructionPresets,
   })
 }
 
@@ -158,6 +161,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     ai: {
       hasCerebrasApiKey: (input.ai?.cerebrasApiKey ?? currentSettings.ai.cerebrasApiKey).length > 0,
     },
+    aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
   })
   const storedSettings: StoredAppSettings = {
     spaces: nextSettings.spaces,
@@ -171,6 +175,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     ai: {
       cerebrasApiKey: input.ai?.cerebrasApiKey ?? currentSettings.ai.cerebrasApiKey,
     },
+    aiInstructionPresets: nextSettings.aiInstructionPresets,
   }
 
   writeSettingsFile(storedSettings)

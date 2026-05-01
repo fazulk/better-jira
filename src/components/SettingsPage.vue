@@ -649,7 +649,7 @@ onBeforeUnmount(() => {
       <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
         <div class="mb-4">
           <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">AI Instructions</h2>
-          <p class="mt-2 text-xs text-slate-500">Manage the prompt chips shown in the AI description assistant.</p>
+          <p class="mt-2 text-xs text-slate-500">Manage the prompt chips shown in the AI description assistant. Custom instructions are saved locally in <code>.data/settings.json</code>.</p>
         </div>
 
         <div class="space-y-3">

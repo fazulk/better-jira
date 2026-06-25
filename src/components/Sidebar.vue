@@ -265,7 +265,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
 </script>
 
 <template>
-  <aside class="flex h-screen w-full flex-col overflow-hidden border-r border-white/[0.06] bg-[#090a0c] text-[13px] text-[#b9bbc3]">
+  <aside class="flex h-screen w-full flex-col overflow-hidden bg-[#090a0c] text-[13px] text-[#b9bbc3]">
     <div class="flex h-11 shrink-0 items-center gap-2 px-3">
       <button
         type="button"

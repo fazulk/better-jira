@@ -4942,7 +4942,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="selectedKey" class="min-h-0 flex-1 overflow-y-auto">
+        <div v-if="selectedKey" class="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           <TicketDetail
             :ticket-key="selectedKey"
             mode="inline"

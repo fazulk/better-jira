@@ -105,5 +105,6 @@ onUnmounted(() => {
 <template>
   <NuxtPage />
   <JiraSetupModal :open="showJiraSetupModal" />
+  <LabelColorMenu />
   <AppToastContainer />
 </template>

@@ -33,6 +33,8 @@ const priorityClasses: Record<string, string> = {
   lowest: 'text-[#8f9198]',
 }
 
+const MAX_VISIBLE_LABELS = 3
+
 const statusClass = computed(() => {
   const group = getStatusGroup(props.ticket.statusCategory)
   if (group === 'done') {
@@ -73,6 +75,9 @@ const visibleLabels = computed(() => {
   }
   return labels
 })
+const displayedLabels = computed(() => visibleLabels.value.slice(0, MAX_VISIBLE_LABELS))
+const hiddenLabelCount = computed(() => Math.max(0, visibleLabels.value.length - displayedLabels.value.length))
+const hiddenLabelSummary = computed(() => visibleLabels.value.slice(MAX_VISIBLE_LABELS).join(', '))
 const parentContext = computed(() => {
   const parent = props.ticket.parent
   if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
@@ -144,8 +149,13 @@ function formatDate(value: string | undefined): string {
     </span>
 
     <span v-if="showLabels !== false && visibleLabels.length > 0" class="hidden max-w-[28rem] flex-wrap items-center justify-end gap-1 md:flex">
-      <span v-for="label in visibleLabels" :key="label" class="rounded-full border border-white/[0.08] px-2 py-0.5 text-[11px] text-[#c7c9d0]">
-        {{ label }}
+      <LabelPill v-for="label in displayedLabels" :key="label" :label="label" dense show-dot />
+      <span
+        v-if="hiddenLabelCount > 0"
+        class="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.025] px-2 py-1 text-[11px] font-medium leading-[1.25] text-slate-400"
+        :title="hiddenLabelSummary"
+      >
+        +{{ hiddenLabelCount }}
       </span>
     </span>
 

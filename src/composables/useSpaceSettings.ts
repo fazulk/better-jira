@@ -16,6 +16,7 @@ import {
   type UpdateAiConnectionInput,
   type UpdateJiraConnectionInput,
   type UpdateSidebarSettingsInput,
+  type LabelColors,
 } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
@@ -109,6 +110,12 @@ export function useSpaceSettings() {
   async function setAiInstructionPresets(aiInstructionPresets: AiInstructionPresetSetting[]): Promise<void> {
     await updateSettings({
       aiInstructionPresets,
+    }, false)
+  }
+
+  async function setLabelColors(labelColors: LabelColors): Promise<void> {
+    await updateSettings({
+      labelColors,
     }, false)
   }
 
@@ -255,6 +262,7 @@ export function useSpaceSettings() {
     setFilterSpaceKeys,
     setSidebarSettings,
     setAiInstructionPresets,
+    setLabelColors,
     addOrEnableSpace,
     disableSpace,
     deleteSpace,

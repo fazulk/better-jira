@@ -46,6 +46,8 @@ export interface FavoriteView {
   filters: FavoriteViewFilter[]
 }
 
+export type LabelColors = Record<string, string>
+
 export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
 export type SidebarGroupBy = Exclude<SidebarSortBy, 'key'> | 'hierarchy' | 'none'
 export type SidebarTicketScope = 'currentSprint' | 'all'
@@ -95,6 +97,7 @@ export interface AppSettings {
   jira: JiraConnectionSettings
   ai: AiConnectionSettings
   aiInstructionPresets: AiInstructionPresetSetting[]
+  labelColors: LabelColors
 }
 
 export interface UpdateAppSettingsInput {
@@ -104,6 +107,7 @@ export interface UpdateAppSettingsInput {
   jira?: UpdateJiraConnectionInput
   ai?: UpdateAiConnectionInput
   aiInstructionPresets?: AiInstructionPresetSetting[]
+  labelColors?: LabelColors
 }
 
 export interface JiraSpaceDirectoryEntry {
@@ -138,6 +142,39 @@ function normalizeAiValue(value: unknown): string {
 
 function normalizeAiInstructionValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeLabelColorKey(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function normalizeLabelColorValue(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const normalizedValue = value.trim().toLowerCase()
+  return /^#[0-9a-f]{6}$/.test(normalizedValue) ? normalizedValue : null
+}
+
+function normalizeLabelColors(value: unknown): LabelColors {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const normalizedColors: LabelColors = {}
+
+  for (const [label, color] of Object.entries(recordValue)) {
+    const normalizedLabel = normalizeLabelColorKey(label)
+    const normalizedColor = normalizeLabelColorValue(color)
+
+    if (normalizedLabel && normalizedColor) {
+      normalizedColors[normalizedLabel] = normalizedColor
+    }
+  }
+
+  return normalizedColors
 }
 
 function normalizeSpaceKeyList(value: unknown): string[] {
@@ -654,6 +691,7 @@ export function getDefaultAppSettings(): AppSettings {
       model: getDefaultModelForProvider(DEFAULT_AI_PROVIDER),
     },
     aiInstructionPresets: [],
+    labelColors: {},
   }
 }
 
@@ -671,6 +709,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     jira: normalizeJiraConnectionSettings(recordValue.jira),
     ai: normalizeAiConnectionSettings(recordValue.ai),
     aiInstructionPresets: normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets),
+    labelColors: normalizeLabelColors(recordValue.labelColors),
   })
 }
 
@@ -710,6 +749,10 @@ export function normalizeAppSettingsUpdate(value: unknown): UpdateAppSettingsInp
     nextSettings.aiInstructionPresets = normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets)
   }
 
+  if ('labelColors' in recordValue) {
+    nextSettings.labelColors = normalizeLabelColors(recordValue.labelColors)
+  }
+
   return nextSettings
 }
 
@@ -732,6 +775,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
     },
     ai: normalizeAiSettingsForApp(settings.ai),
     aiInstructionPresets: reconcileAiInstructionPresets(settings.aiInstructionPresets),
+    labelColors: normalizeLabelColors(settings.labelColors),
   }
 }
 

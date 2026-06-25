@@ -1755,14 +1755,12 @@ async function submitMessage() {
               </button>
 
               <div v-show="!collapsedSections.labels" class="flex flex-wrap items-center gap-2">
-                <span
+                <LabelPill
                   v-for="label in detailLabels"
                   :key="label"
-                  class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 py-1 text-xs font-medium text-slate-300"
-                >
-                  <span class="h-2 w-2 shrink-0 rounded-full bg-rose-400"></span>
-                  <span class="truncate">{{ label }}</span>
-                </span>
+                  :label="label"
+                  show-dot
+                />
                 <span v-if="detailLabels.length === 0" class="text-sm text-slate-600">No labels</span>
                 <button
                   type="button"

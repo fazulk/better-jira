@@ -30,6 +30,7 @@ interface StoredAppSettings {
   jira: StoredJiraSettings
   ai: StoredAiSettings
   aiInstructionPresets: AppSettings['aiInstructionPresets']
+  labelColors: AppSettings['labelColors']
 }
 
 function ensureSettingsDirectoryExists(): void {
@@ -98,6 +99,7 @@ function normalizeStoredSettings(value: unknown): StoredAppSettings {
     jira: normalizeStoredJiraSettings(recordValue.jira),
     ai: normalizeStoredAiSettings(recordValue.ai),
     aiInstructionPresets: normalizedAppSettings.aiInstructionPresets,
+    labelColors: normalizedAppSettings.labelColors,
   }
 }
 
@@ -117,6 +119,7 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
       model: settings.ai.model,
     },
     aiInstructionPresets: settings.aiInstructionPresets,
+    labelColors: settings.labelColors,
   })
 }
 
@@ -171,6 +174,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
       model: input.ai?.model ?? currentSettings.ai.model,
     },
     aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
+    labelColors: input.labelColors ?? currentSettings.labelColors,
   })
   const storedSettings: StoredAppSettings = {
     spaces: nextSettings.spaces,
@@ -187,6 +191,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
       model: nextSettings.ai.model,
     },
     aiInstructionPresets: nextSettings.aiInstructionPresets,
+    labelColors: nextSettings.labelColors,
   }
 
   writeSettingsFile(storedSettings)

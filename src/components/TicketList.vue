@@ -4279,11 +4279,12 @@ onBeforeUnmount(() => {
         @leave-space="handleLeaveSpace"
       />
 
-      <button
+      <div
         v-if="!sidebarCollapsed"
-        type="button"
-        class="absolute top-0 right-0 z-10 h-full w-2 -mr-1 cursor-col-resize touch-none bg-transparent after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-white/[0.06] hover:after:bg-white/[0.16] focus:outline-none"
-        :class="isResizingSidebar ? 'after:bg-white/[0.22]' : ''"
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="0"
+        class="absolute top-0 -right-4 z-10 h-full w-4 cursor-col-resize touch-none bg-transparent focus:outline-none [cursor:col-resize]"
         aria-label="Resize sidebar"
         @pointerdown="startSidebarResize"
       />

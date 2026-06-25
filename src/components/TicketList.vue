@@ -54,7 +54,7 @@ type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
 
 const listGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.grouping', 'none')
 const listSubGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.subGrouping', 'none')
-const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'status')
+const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'manual')
 const projectGrouping = useLocalStorage<ProjectGroupingFieldId>('jira2.linear.projectGrouping', 'none')
 const projectOrdering = useLocalStorage<ProjectOrderingFieldId>('jira2.linear.projectOrdering', 'manual')
 const projectClosedRange = useLocalStorage<ProjectClosedRange>('jira2.linear.projectClosedRange', 'all')
@@ -62,7 +62,7 @@ const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.grou
 const listOrderingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.orderingDirection', 'asc')
 const issueGroupOrders = useLocalStorage<IssueGroupConfigMap>('jira2.linear.issueGroupOrders', {})
 const hiddenIssueGroupIds = useLocalStorage<IssueGroupConfigMap>('jira2.linear.hiddenIssueGroupIds', {})
-const completedRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.completedRange', 'hidden')
+const completedRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.completedRange', 'all')
 const showSubIssueContext = useLocalStorage('jira2.linear.showSubIssueContext', true)
 const showSubIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showSubIssuesRange', 'all')
 const showTriageIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showTriageIssuesRange', 'all')
@@ -187,6 +187,7 @@ type FilterFieldId =
   | 'status'
   | 'statusType'
   | 'assignee'
+  | 'reporter'
   | 'priority'
   | 'labels'
   | 'suggestedLabel'
@@ -202,6 +203,7 @@ const filterFieldIds = new Set<string>([
   'status',
   'statusType',
   'assignee',
+  'reporter',
   'priority',
   'labels',
   'suggestedLabel',
@@ -223,6 +225,7 @@ type FilterEntryId =
   | 'status'
   | 'statusType'
   | 'assignee'
+  | 'reporter'
   | 'priority'
   | 'labels'
   | 'suggestedLabel'
@@ -417,10 +420,10 @@ function getDefaultViewDisplay(): CustomViewDisplay {
   return {
     grouping: 'none',
     subGrouping: 'none',
-    ordering: 'status',
+    ordering: 'manual',
     groupingDirection: 'asc',
     orderingDirection: 'asc',
-    completedRange: 'hidden',
+    completedRange: 'all',
     showSubIssueContext: true,
     showSubIssuesRange: 'all',
     showTriageIssuesRange: 'all',
@@ -431,6 +434,14 @@ function getDefaultViewDisplay(): CustomViewDisplay {
     collapsedIssueSectionIds: [],
     visibleIssueRowFields: ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created'],
     visibleProjectRowFields: ['health', 'priority', 'lead', 'targetDate', 'issues', 'status'],
+  }
+}
+
+function getLegacyImplicitViewDisplay(): CustomViewDisplay {
+  return {
+    ...getDefaultViewDisplay(),
+    ordering: 'status',
+    completedRange: 'hidden',
   }
 }
 
@@ -614,6 +625,25 @@ function issueGroupConfigMapsMatch(left: IssueGroupConfigMap, right: IssueGroupC
   return true
 }
 
+function viewDisplayMatches(left: CustomViewDisplay, right: CustomViewDisplay): boolean {
+  return left.grouping === right.grouping
+    && left.subGrouping === right.subGrouping
+    && left.ordering === right.ordering
+    && left.groupingDirection === right.groupingDirection
+    && left.orderingDirection === right.orderingDirection
+    && left.completedRange === right.completedRange
+    && left.showSubIssueContext === right.showSubIssueContext
+    && left.showSubIssuesRange === right.showSubIssuesRange
+    && left.showTriageIssuesRange === right.showTriageIssuesRange
+    && left.orderCompletedByRecency === right.orderCompletedByRecency
+    && left.showEmptyGroups === right.showEmptyGroups
+    && issueGroupConfigMapsMatch(normalizeIssueGroupConfigMap(left.issueGroupOrders), normalizeIssueGroupConfigMap(right.issueGroupOrders))
+    && issueGroupConfigMapsMatch(normalizeIssueGroupConfigMap(left.hiddenIssueGroupIds), normalizeIssueGroupConfigMap(right.hiddenIssueGroupIds))
+    && stringArraysMatch(left.collapsedIssueSectionIds, right.collapsedIssueSectionIds)
+    && stringSetsMatch(left.visibleIssueRowFields, right.visibleIssueRowFields)
+    && stringSetsMatch(left.visibleProjectRowFields, right.visibleProjectRowFields)
+}
+
 function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
   const defaults = getDefaultViewDisplay()
 
@@ -682,6 +712,7 @@ function normalizeFilterFieldId(value: string): FilterFieldId | null {
     case 'status':
     case 'statusType':
     case 'assignee':
+    case 'reporter':
     case 'priority':
     case 'labels':
     case 'suggestedLabel':
@@ -733,6 +764,86 @@ function clausesToCustomViewFilters(filters: readonly ViewFilterClause[]): Custo
     value: filter.value,
     valueLabel: filter.valueLabel,
   }))
+}
+
+function createViewFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string): ViewFilterClause {
+  return {
+    id: `default:${fieldId}:${value}`,
+    fieldId,
+    fieldLabel: getFilterFieldLabel(fieldId),
+    value,
+    valueLabel,
+  }
+}
+
+function hasSavedViewFilterOverride(viewId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(savedViewFilters.value, viewId)
+}
+
+function hasSavedViewDisplayOverride(viewId: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(savedViewDisplays.value, viewId)) {
+    return false
+  }
+
+  const display = savedViewDisplays.value[viewId]
+  if (!display) {
+    return false
+  }
+
+  return !viewDisplayMatches(copyViewDisplay(display), getLegacyImplicitViewDisplay())
+}
+
+function getDefaultFiltersForView(viewId: string): ViewFilterClause[] {
+  if (viewEditorDraft.value?.id === viewId) {
+    return customViewFiltersToClauses(viewEditorDraft.value.filters)
+  }
+
+  const customView = getCustomView(viewId)
+  if (customView) {
+    return customViewFiltersToClauses(customView.filters)
+  }
+
+  if (viewId === 'my-issues') {
+    return [createViewFilterClause('assignee', 'current-user', 'Current user')]
+  }
+
+  if (viewId === 'my-created') {
+    return [createViewFilterClause('reporter', 'current-user', 'Current user')]
+  }
+
+
+  const [scope, , section] = viewId.split(':')
+  if (scope !== 'team') {
+    return []
+  }
+
+  if (section === 'triage') {
+    return [createViewFilterClause('statusType', 'triage', 'Triage')]
+  }
+
+  if (section === 'backlog') {
+    return [createViewFilterClause('statusType', 'backlog', 'Backlog')]
+  }
+
+
+  if (section === 'active' || !section) {
+    return [createViewFilterClause('statusType', 'active', 'Active')]
+  }
+
+  return []
+}
+
+function getDefaultDisplayForView(viewId: string): CustomViewDisplay {
+  if (viewEditorDraft.value?.id === viewId) {
+    return copyViewDisplay(viewEditorDraft.value.display)
+  }
+
+  const customView = getCustomView(viewId)
+  if (customView) {
+    return copyViewDisplay(customView.display)
+  }
+
+  return getDefaultViewDisplay()
 }
 
 function copyCustomView(view: CustomView): CustomView {
@@ -844,6 +955,7 @@ const filterMenuEntries: FilterMenuEntry[] = [
   { id: 'status', label: 'Status', icon: '◌', hasSubmenu: true },
   { id: 'statusType', label: 'Status type', icon: '◐', hasSubmenu: true },
   { id: 'assignee', label: 'Assignee', icon: '♙', hasSubmenu: true },
+  { id: 'reporter', label: 'Creator', icon: '♙', hasSubmenu: true },
   { id: 'priority', label: 'Priority', icon: '▥', hasSubmenu: true },
   { id: 'labels', label: 'Labels', icon: '▭', hasSubmenu: true },
   { id: 'suggestedLabel', label: 'Suggested label', icon: '▰', hasSubmenu: true },
@@ -902,25 +1014,8 @@ const projectTicketKeySet = computed(() => {
   return keys
 })
 const issueTickets = computed(() => enabledTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)))
-const activeTickets = computed(() => issueTickets.value.filter(isActiveIssueTicket))
 const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
 const currentUserName = computed(() => jiraMeQuery.data.value?.displayName.trim() ?? '')
-const assignedMyIssueTickets = computed(() => {
-  const name = currentUserName.value.toLowerCase()
-  if (!name) return activeTickets.value
-
-  return activeTickets.value.filter(ticket => ticket.assignee.trim().toLowerCase() === name)
-})
-const createdMyIssueTickets = computed(() => {
-  const name = currentUserName.value.toLowerCase()
-  const localCreatedTickets = issueTickets.value.filter(ticket => isLocalTicketKey(ticket.key))
-  if (!name) return localCreatedTickets
-
-  return issueTickets.value.filter(ticket => (
-    ticket.reporter?.trim().toLowerCase() === name
-    || isLocalTicketKey(ticket.key)
-  ))
-})
 const selectedTicket = computed(() => (
   selectedKey.value ? tickets.value.find(ticket => ticket.key === selectedKey.value) ?? null : null
 ))
@@ -1058,10 +1153,6 @@ const isIssueDisplayView = computed(() => (
   && !isSavedViewDisplayView.value
   && currentView.value !== 'inbox'
 ))
-const readyQaTickets = computed(() => (
-  issueTickets.value.filter(ticket => ticket.status.toLowerCase().includes('ready for qa'))
-))
-
 const currentTeamTickets = computed(() => {
   const key = currentTeamKey.value
   if (!key) return []
@@ -1166,32 +1257,20 @@ const scopedTickets = computed(() => {
   }
 
   if (activeBaseViewId.value === 'ready-qa') {
-    return readyQaTickets.value
+    return issueTickets.value
   }
 
   if (activeBaseViewId.value === 'my-created') {
-    return createdMyIssueTickets.value
+    return issueTickets.value
   }
 
   if (activeBaseViewId.value === 'my-issues') {
-    return assignedMyIssueTickets.value
+    return issueTickets.value
   }
 
   if (currentTeamKey.value) {
     const teamTickets = currentTeamTickets.value
-    if (currentTeamSection.value === 'triage') {
-      return teamTickets.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new')
-    }
-    if (currentTeamSection.value === 'backlog') {
-      return teamTickets.filter(isBacklogIssueTicket)
-    }
-    if (currentTeamSection.value === 'ready-qa') {
-      return teamTickets.filter(ticket => ticket.status.toLowerCase().includes('ready for qa'))
-    }
-    if (currentTeamSection.value === 'all') {
-      return teamTickets
-    }
-    return teamTickets.filter(isActiveIssueTicket)
+    return teamTickets
   }
 
   return issueTickets.value
@@ -1201,15 +1280,19 @@ const normalizedIssueSearch = computed(() => issueSearch.value.trim().toLowerCas
 const normalizedFilterSearch = computed(() => filterSearchQuery.value.trim().toLowerCase())
 const normalizedFilterFieldSearch = computed(() => filterFieldSearchQuery.value.trim().toLowerCase())
 const currentViewFilters = computed(() => {
-  if (activeCustomView.value) {
-    return customViewFiltersToClauses(activeCustomView.value.filters)
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
+    return customViewFiltersToClauses(viewEditorDraft.value.filters)
   }
 
-  return savedViewFilters.value[currentView.value] ?? []
+  if (hasSavedViewFilterOverride(currentView.value)) {
+    return savedViewFilters.value[currentView.value] ?? []
+  }
+
+  return getDefaultFiltersForView(currentView.value)
 })
 const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0)
 const hasModifiedDisplayOptions = computed(() => {
-  const defaults = getDefaultViewDisplay()
+  const defaults = getDefaultDisplayForView(currentView.value)
 
   if (isProjectDisplayView.value) {
     return projectGrouping.value !== 'none'
@@ -1264,6 +1347,7 @@ const activeValueFilterFieldId = computed<FilterFieldId>(() => {
   if (activeFilterEntryId.value === 'status') return 'status'
   if (activeFilterEntryId.value === 'statusType') return 'statusType'
   if (activeFilterEntryId.value === 'assignee') return 'assignee'
+  if (activeFilterEntryId.value === 'reporter') return 'reporter'
   if (activeFilterEntryId.value === 'priority') return 'priority'
   if (activeFilterEntryId.value === 'labels') return 'labels'
   if (activeFilterEntryId.value === 'suggestedLabel') return 'suggestedLabel'
@@ -1288,13 +1372,11 @@ function resolveDisplayForView(viewId: string): CustomViewDisplay {
     return copyViewDisplay(viewEditorDraft.value.display)
   }
 
-  const customView = getCustomView(viewId)
-  if (customView) {
-    return copyViewDisplay(customView.display)
+  if (hasSavedViewDisplayOverride(viewId)) {
+    return copyViewDisplay(savedViewDisplays.value[viewId] ?? getDefaultDisplayForView(viewId))
   }
 
-  const savedDisplay = savedViewDisplays.value[viewId]
-  return savedDisplay ? copyViewDisplay(savedDisplay) : captureDisplay()
+  return getDefaultDisplayForView(viewId)
 }
 
 function persistDisplayForView(viewId: string, display: CustomViewDisplay): void {
@@ -1306,19 +1388,19 @@ function persistDisplayForView(viewId: string, display: CustomViewDisplay): void
     return
   }
 
-  const customView = getCustomView(viewId)
-  if (customView) {
-    upsertCustomView({
-      ...customView,
-      filters: customView.filters.map(filter => ({ ...filter })),
-      display: copyViewDisplay(display),
-    })
+  const normalizedDisplay = copyViewDisplay(display)
+  const defaultDisplay = getDefaultDisplayForView(viewId)
+  const nextDisplays = { ...savedViewDisplays.value }
+
+  if (viewDisplayMatches(normalizedDisplay, defaultDisplay)) {
+    delete nextDisplays[viewId]
+    savedViewDisplays.value = nextDisplays
     return
   }
 
   savedViewDisplays.value = {
-    ...savedViewDisplays.value,
-    [viewId]: copyViewDisplay(display),
+    ...nextDisplays,
+    [viewId]: normalizedDisplay,
   }
 }
 
@@ -1332,7 +1414,7 @@ watch(currentView, (nextViewId, previousViewId) => {
   }
 
   applyDisplay(resolveDisplayForView(nextViewId))
-})
+}, { immediate: true })
 
 watch(visibleFilterMenuEntries, entries => {
   const firstEntry = entries[0]
@@ -1775,7 +1857,7 @@ function getCustomViewStats(view: CustomView): { count: number, updatedAt?: stri
 
 function getIssueTicketsForCustomView(contextKey: string): JiraTicket[] {
   if (contextKey === 'my-issues') {
-    return assignedMyIssueTickets.value
+    return issueTickets.value
   }
 
   const teamKey = getCustomViewTeamKey(contextKey)
@@ -2218,7 +2300,7 @@ function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
     }
 
     if (listOrdering.value === 'manual') {
-      return left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+      return 0
     }
 
     return direction * (getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory))
@@ -2303,6 +2385,7 @@ function getFilterFieldLabel(fieldId: FilterFieldId): string {
   if (fieldId === 'status') return 'Status'
   if (fieldId === 'statusType') return 'Status type'
   if (fieldId === 'assignee') return 'Assignee'
+  if (fieldId === 'reporter') return 'Creator'
   if (fieldId === 'priority') return 'Priority'
   if (fieldId === 'labels') return 'Labels'
   if (fieldId === 'suggestedLabel') return 'Suggested label'
@@ -2339,7 +2422,7 @@ function getFilterOptions(fieldId: FilterFieldId): FilterOption[] {
 function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
   const baseTickets = filterableTickets.value
   if (fieldId === 'status') {
-    return countFilterOptions(baseTickets.map(ticket => ({
+    const statusOptions = countFilterOptions(baseTickets.map(ticket => ({
       value: normalizeFilterValue(ticket.status || 'No status'),
       label: ticket.status || 'No status',
       icon: '◌',
@@ -2347,7 +2430,7 @@ function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
   }
 
   if (fieldId === 'statusType') {
-    return countFilterOptions(baseTickets.map(ticket => {
+    const statusTypeOptions = countFilterOptions(baseTickets.map(ticket => {
       const statusType = getTicketStatusType(ticket)
       return {
         value: statusType,
@@ -2355,6 +2438,19 @@ function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
         icon: getStatusTypeIcon(statusType),
       }
     }))
+    const activeCount = baseTickets.filter(isActiveIssueTicket).length
+
+    return activeCount > 0
+      ? [
+          {
+            value: 'active',
+            label: 'Active',
+            count: activeCount,
+            icon: getStatusTypeIcon('active'),
+          },
+          ...statusTypeOptions.filter(option => option.value !== 'active'),
+        ]
+      : statusTypeOptions
   }
 
   if (fieldId === 'assignee' || fieldId === 'sharedWith') {
@@ -2378,6 +2474,29 @@ function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
             count: currentUserName.value
               ? baseTickets.filter(ticket => normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUser)).length
               : 0,
+          }
+        : option
+    )).filter(option => option.count > 0)
+  }
+
+  if (fieldId === 'reporter') {
+    const people = baseTickets.map(ticket => ({
+      value: normalizeFilterValue(ticket.reporter || 'Unknown'),
+      label: ticket.reporter || 'Unknown',
+      icon: '♙',
+    }))
+    return countFilterOptions([
+      {
+        value: 'current-user',
+        label: 'Current user',
+        icon: '♙',
+      },
+      ...people,
+    ]).map(option => (
+      option.value === 'current-user'
+        ? {
+            ...option,
+            count: baseTickets.filter(ticket => ticketMatchesCurrentUserReporter(ticket)).length,
           }
         : option
     )).filter(option => option.count > 0)
@@ -2724,7 +2843,17 @@ function getTicketStatusType(ticket: JiraTicket): StatusTypeValue {
   return 'started'
 }
 
+function ticketMatchesCurrentUserReporter(ticket: JiraTicket): boolean {
+  if (isLocalTicketKey(ticket.key)) {
+    return true
+  }
+
+  return Boolean(currentUserName.value)
+    && normalizeFilterValue(ticket.reporter) === normalizeFilterValue(currentUserName.value)
+}
+
 function getStatusTypeLabel(value: string): string {
+  if (value === 'active') return 'Active'
   if (value === 'triage') return 'Triage'
   if (value === 'backlog') return 'Backlog'
   if (value === 'unstarted') return 'Unstarted'
@@ -2733,6 +2862,7 @@ function getStatusTypeLabel(value: string): string {
 }
 
 function getStatusTypeIcon(value: string): string {
+  if (value === 'active') return '◐'
   if (value === 'triage') return '⊕'
   if (value === 'backlog') return '◌'
   if (value === 'completed') return '✓'
@@ -2784,13 +2914,28 @@ function applyViewFiltersToTickets(nextTickets: JiraTicket[]): JiraTicket[] {
 }
 
 function ticketMatchesFilter(ticket: JiraTicket, filter: ViewFilterClause): boolean {
-  if (filter.fieldId === 'status') return normalizeFilterValue(ticket.status || 'No status') === filter.value
-  if (filter.fieldId === 'statusType') return getTicketStatusType(ticket) === filter.value
+  if (filter.fieldId === 'status') {
+    return normalizeFilterValue(ticket.status || 'No status') === filter.value
+  }
+  if (filter.fieldId === 'statusType') {
+    if (filter.value === 'active') {
+      return isActiveIssueTicket(ticket)
+    }
+    return getTicketStatusType(ticket) === filter.value
+  }
   if (filter.fieldId === 'assignee' || filter.fieldId === 'sharedWith') {
     if (filter.value === 'current-user') {
-      return Boolean(currentUserName.value) && normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUserName.value)
+      return currentUserName.value
+        ? normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUserName.value)
+        : isActiveIssueTicket(ticket)
     }
     return normalizeFilterValue(ticket.assignee || 'Unassigned') === filter.value
+  }
+  if (filter.fieldId === 'reporter') {
+    if (filter.value === 'current-user') {
+      return ticketMatchesCurrentUserReporter(ticket)
+    }
+    return normalizeFilterValue(ticket.reporter || 'Unknown') === filter.value
   }
   if (filter.fieldId === 'priority') return normalizeFilterValue(ticket.priority || 'No priority') === filter.value
   if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') {
@@ -2989,16 +3134,10 @@ function setActiveCustomViewFilters(filters: ViewFilterClause[]): void {
     return
   }
 
-  const customView = activeCustomView.value
-  if (!customView) {
-    return
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [currentView.value]: filters,
   }
-
-  upsertCustomView({
-    ...customView,
-    filters: customFilters,
-    display: copyViewDisplay(customView.display),
-  })
 }
 
 function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string) {
@@ -3012,7 +3151,7 @@ function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: stri
     valueLabel,
   }
 
-  if (activeCustomView.value) {
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters([...existingFilters, nextFilter])
     filterMenuOpen.value = false
     filterFieldSearchQuery.value = ''
@@ -3030,7 +3169,7 @@ function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: stri
 }
 
 function removeFilterClause(filterId: string) {
-  if (activeCustomView.value) {
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters(currentViewFilters.value.filter(filter => filter.id !== filterId))
     return
   }
@@ -3042,15 +3181,14 @@ function removeFilterClause(filterId: string) {
 }
 
 function clearCurrentViewFilters() {
-  if (activeCustomView.value) {
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters([])
     return
   }
 
-  savedViewFilters.value = {
-    ...savedViewFilters.value,
-    [currentView.value]: [],
-  }
+  const nextFilters = { ...savedViewFilters.value }
+  delete nextFilters[currentView.value]
+  savedViewFilters.value = nextFilters
 }
 
 function openFilterMenu() {
@@ -3074,7 +3212,7 @@ function toggleFilterMenu() {
 }
 
 function saveCurrentViewFilters() {
-  if (activeCustomView.value) {
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters(currentViewFilters.value)
     return
   }
@@ -3240,7 +3378,7 @@ function toggleIssueRowField(fieldId: IssueRowFieldId) {
 }
 
 function resetIssueDisplayOptions() {
-  const defaults = getDefaultViewDisplay()
+  const defaults = getDefaultDisplayForView(currentView.value)
   listGrouping.value = normalizeIssueGroupingFieldId(defaults.grouping)
   listSubGrouping.value = normalizeIssueGroupingFieldId(defaults.subGrouping)
   listOrdering.value = normalizeIssueOrderingFieldId(defaults.ordering)
@@ -3256,6 +3394,10 @@ function resetIssueDisplayOptions() {
   hiddenIssueGroupIds.value = copyIssueGroupConfigMap(defaults.hiddenIssueGroupIds)
   collapsedIssueSectionIds.value = [...defaults.collapsedIssueSectionIds]
   visibleIssueRowFields.value = normalizeIssueRowFields(defaults.visibleIssueRowFields)
+
+  const nextDisplays = { ...savedViewDisplays.value }
+  delete nextDisplays[currentView.value]
+  savedViewDisplays.value = nextDisplays
 }
 
 function resetProjectDisplayOptions() {
@@ -3264,6 +3406,10 @@ function resetProjectDisplayOptions() {
   projectClosedRange.value = 'all'
   collapsedProjectSectionIds.value = []
   visibleProjectRowFields.value = normalizeProjectRowFields(getDefaultViewDisplay().visibleProjectRowFields)
+
+  const nextDisplays = { ...savedViewDisplays.value }
+  delete nextDisplays[currentView.value]
+  savedViewDisplays.value = nextDisplays
 }
 
 function openGroupOrdering() {
@@ -3702,7 +3848,7 @@ function startCreateView(): void {
     name: '',
     description: '',
     contextKey,
-    filters: [],
+    filters: clausesToCustomViewFilters(currentViewFilters.value),
     display: copyViewDisplay(display),
   }
   viewEditorMode.value = 'create'
@@ -3759,6 +3905,15 @@ function saveViewEditor(): void {
   }
 
   upsertCustomView(savedView)
+
+  const nextFilters = { ...savedViewFilters.value }
+  delete nextFilters[savedView.id]
+  savedViewFilters.value = nextFilters
+
+  const nextDisplays = { ...savedViewDisplays.value }
+  delete nextDisplays[savedView.id]
+  savedViewDisplays.value = nextDisplays
+
   finishViewEditor()
   currentView.value = savedView.id
 }
@@ -3897,6 +4052,14 @@ function deleteContextCustomView(): void {
   }
 
   removeCustomView(viewId)
+
+  const nextFilters = { ...savedViewFilters.value }
+  delete nextFilters[viewId]
+  savedViewFilters.value = nextFilters
+
+  const nextDisplays = { ...savedViewDisplays.value }
+  delete nextDisplays[viewId]
+  savedViewDisplays.value = nextDisplays
 
   if (viewEditorDraft.value?.id === viewId) {
     finishViewEditor()
@@ -5075,7 +5238,7 @@ onBeforeUnmount(() => {
         />
 
         <div
-          v-if="!selectedTicket && currentViewFilters.length && (!activeCustomView || viewEditorMode)"
+          v-if="!selectedTicket && currentViewFilters.length"
           class="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2"
         >
           <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -5113,7 +5276,7 @@ onBeforeUnmount(() => {
               class="rounded-md px-2 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
               @click="clearCurrentViewFilters"
             >
-              Clear
+              Reset
             </button>
             <button
               type="button"

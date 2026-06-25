@@ -344,10 +344,10 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
   return {
     grouping: 'none',
     subGrouping: 'none',
-    ordering: 'status',
+    ordering: 'manual',
     groupingDirection: 'asc',
     orderingDirection: 'asc',
-    completedRange: 'hidden',
+    completedRange: 'all',
     showSubIssueContext: true,
     showSubIssuesRange: 'all',
     showTriageIssuesRange: 'all',

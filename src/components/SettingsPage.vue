@@ -460,9 +460,7 @@ const backlogIssueCount = computed(() => (
 const currentSprintIssueCount = computed(() => (
   enabledTickets.value.filter(ticket => ticket.inCurrentSprint && getStatusGroup(ticket.statusCategory) !== 'done').length
 ))
-const readyForQaIssueCount = computed(() => (
-  enabledTickets.value.filter(ticket => ticket.status.toLowerCase().includes('ready for qa')).length
-))
+
 const enabledInstructionPresetCount = computed(() => (
   allInstructionPresets.value.filter(preset => preset.enabled).length
 ))
@@ -493,11 +491,6 @@ const teamTriageRows = computed<SettingsDetailRow[]>(() => [
     label: 'Triage source',
     value: formatCount(triageIssueCount.value, 'issue', 'issues'),
     detail: 'Issues in Jira Todo status categories appear in team triage views.',
-  },
-  {
-    label: 'Ready for QA',
-    value: formatCount(readyForQaIssueCount.value, 'issue', 'issues'),
-    detail: 'Issues with a Ready for QA status are exposed as workspace and team issue views.',
   },
   {
     label: 'Routing',

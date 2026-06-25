@@ -639,7 +639,15 @@ function matchesIssueType(value: string | undefined, expected: JiraCreateIssueTy
 function getAllowedChildIssueTypesForParent(parentIssueType: string): string[] {
   const normalizedParentIssueType = normalizeIssueType(parentIssueType)
 
-  if (normalizedParentIssueType.includes('epic') || normalizedParentIssueType.includes('story')) {
+  if (normalizedParentIssueType.includes('epic')) {
+    return ['Task', 'Bug', 'Story', 'Feature']
+  }
+
+  if (normalizedParentIssueType.includes('feature')) {
+    return ['Task', 'Bug', 'Story']
+  }
+
+  if (normalizedParentIssueType.includes('story')) {
     return ['Task', 'Bug', 'Story']
   }
 

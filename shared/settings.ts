@@ -340,7 +340,7 @@ function normalizeFavoriteViews(value: unknown): FavoriteView[] {
 
 function getDefaultCustomViewDisplay(): CustomViewDisplay {
   return {
-    grouping: 'status',
+    grouping: 'none',
     subGrouping: 'none',
     ordering: 'status',
     groupingDirection: 'asc',

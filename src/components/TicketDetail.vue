@@ -1106,9 +1106,9 @@ async function submitMessage() {
 </script>
 
 <template>
-  <div v-if="ticketKey && mode === 'inline'" class="min-h-full">
-    <div v-if="ticket" class="min-h-full animate-fade-in">
-      <div class="sticky top-0 z-20 border-b border-white/[0.06] bg-surface-0/95 backdrop-blur">
+  <div v-if="ticketKey && mode === 'inline'" class="min-h-full bg-issue-detail-bg">
+    <div v-if="ticket" class="min-h-full animate-fade-in bg-issue-detail-bg">
+      <div class="sticky top-0 z-20 border-b border-white/[0.06] bg-issue-detail-bg backdrop-blur">
         <div class="flex min-h-12 items-center justify-between gap-4 px-6">
           <div class="flex min-w-0 items-center gap-2 text-xs text-slate-500">
             <span class="truncate">{{ detailBreadcrumbSpace }}</span>
@@ -1152,7 +1152,7 @@ async function submitMessage() {
         </div>
       </div>
 
-      <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 bg-issue-detail-bg lg:grid-cols-[minmax(0,1fr)_19rem]">
         <main class="min-w-0 px-6 py-8 lg:px-10">
           <div class="mx-auto max-w-3xl">
             <header class="mb-6 border-b border-white/[0.06] pb-5">
@@ -1513,7 +1513,7 @@ async function submitMessage() {
           </div>
         </main>
 
-        <aside class="border-t border-white/[0.06] bg-white/[0.01] px-4 py-4 lg:border-l lg:border-t-0">
+        <aside class="border-t border-white/[0.06] bg-issue-detail-bg px-4 py-4 lg:border-l lg:border-t-0">
           <div class="sticky top-16 space-y-3">
             <div v-if="!isLocalTicket" class="flex justify-end gap-1.5">
               <button

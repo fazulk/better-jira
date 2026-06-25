@@ -48,7 +48,7 @@ type IssueGroupingFieldId = 'none' | 'status' | 'assignee' | 'agent' | 'project'
 type IssueOrderingFieldId = 'manual' | 'title' | 'status' | 'priority' | 'assignee' | 'agent' | 'estimate' | 'updated' | 'created' | 'due' | 'linkCount' | 'timeInStatus'
 type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
 
-const listGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.grouping', 'status')
+const listGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.grouping', 'none')
 const listSubGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.subGrouping', 'none')
 const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'status')
 const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.groupingDirection', 'asc')
@@ -390,7 +390,7 @@ interface ViewFilterClause {
 
 function getDefaultViewDisplay(): CustomViewDisplay {
   return {
-    grouping: 'status',
+    grouping: 'none',
     subGrouping: 'none',
     ordering: 'status',
     groupingDirection: 'asc',
@@ -549,6 +549,29 @@ function normalizeIssueGroupConfigMap(value: Record<string, string[]>): IssueGro
   }
 
   return normalizedValue
+}
+
+function stringArraysMatch(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+function issueGroupConfigMapsMatch(left: IssueGroupConfigMap, right: IssueGroupConfigMap): boolean {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+
+  for (const key of keys) {
+    const fieldId = parseIssueGroupingFieldId(key)
+    if (!fieldId) {
+      continue
+    }
+
+    const leftEntries = left[fieldId] ?? []
+    const rightEntries = right[fieldId] ?? []
+    if (!stringArraysMatch(leftEntries, rightEntries)) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
@@ -1108,6 +1131,38 @@ const currentViewFilters = computed(() => {
   return savedViewFilters.value[currentView.value] ?? []
 })
 const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0)
+const hasModifiedDisplayOptions = computed(() => {
+  const defaults = getDefaultViewDisplay()
+
+  if (isProjectDisplayView.value) {
+    return !stringArraysMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
+  }
+
+  if (isInitiativeDisplayView.value) {
+    return !stringArraysMatch(visibleInitiativeRowFields.value, ['health', 'lead', 'projects', 'issues', 'updated'])
+  }
+
+  if (isSavedViewDisplayView.value) {
+    return !stringArraysMatch(visibleSavedViewRowFields.value, ['type', 'items', 'owner', 'updated'])
+  }
+
+  if (!isIssueDisplayView.value) {
+    return false
+  }
+
+  return listGrouping.value !== defaults.grouping
+    || listSubGrouping.value !== defaults.subGrouping
+    || listOrdering.value !== defaults.ordering
+    || listGroupingDirection.value !== defaults.groupingDirection
+    || listOrderingDirection.value !== defaults.orderingDirection
+    || completedRange.value !== defaults.completedRange
+    || showSubIssueContext.value !== defaults.showSubIssueContext
+    || orderCompletedByRecency.value !== defaults.orderCompletedByRecency
+    || showEmptyGroups.value !== defaults.showEmptyGroups
+    || !stringArraysMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
+    || !issueGroupConfigMapsMatch(issueGroupOrders.value, {})
+    || !issueGroupConfigMapsMatch(hiddenIssueGroupIds.value, {})
+})
 const visibleFilterMenuEntries = computed<FilterMenuEntry[]>(() => {
   const query = normalizedFilterFieldSearch.value
   if (!query) return filterMenuEntries
@@ -2951,6 +3006,7 @@ function getIssueTypeIcon(issueType: string): string {
   const subtype = getLinearIssueSubtype(issueType)
   if (subtype === 'Story') return '◇'
   if (subtype === 'Bug') return '◆'
+  if (subtype === 'Feature') return '◈'
   return '○'
 }
 
@@ -3005,12 +3061,22 @@ function getPriorityRank(priority: string): number {
 function getProjectKey(ticket: JiraTicket): string | null {
   if (isEpicIssue(ticket)) return ticket.key
 
-  const parent = ticket.parent
-  if (!parent?.key) return null
-  if (isEpicIssueType(parent.issueType)) return parent.key
+  let currentParent = ticket.parent
+  const visitedKeys = new Set<string>()
 
-  const parentTicket = enabledTickets.value.find(candidate => candidate.key === parent.key)
-  return parentTicket && isEpicIssue(parentTicket) ? parentTicket.key : null
+  while (currentParent?.key && !visitedKeys.has(currentParent.key)) {
+    const parentKey = currentParent.key
+    visitedKeys.add(parentKey)
+
+    if (isEpicIssueType(currentParent.issueType)) {
+      return parentKey
+    }
+
+    const parentTicket = enabledTickets.value.find(candidate => candidate.key === parentKey)
+    currentParent = parentTicket?.parent
+  }
+
+  return null
 }
 
 function getProjectSourceTicket(ticket: JiraTicket, projectKey: string): JiraTicket | null {
@@ -3091,7 +3157,7 @@ function toggleIssueRowField(fieldId: IssueRowFieldId) {
 }
 
 function resetIssueDisplayOptions() {
-  listGrouping.value = 'status'
+  listGrouping.value = 'none'
   listSubGrouping.value = 'none'
   listOrdering.value = 'status'
   listGroupingDirection.value = 'asc'
@@ -4637,13 +4703,6 @@ onBeforeUnmount(() => {
                 >
                   Reset
                 </button>
-                <button
-                  type="button"
-                  class="rounded px-1.5 py-1 text-[12px] text-[#7b80ff] hover:bg-white/[0.05] hover:text-[#9da1ff]"
-                  title="Workspace defaults are not available in BetterJira"
-                >
-                  Set default for everyone
-                </button>
               </div>
 
               <div v-else-if="!groupOrderingOpen && isProjectDisplayView" class="border-t border-white/[0.06] p-3">
@@ -4761,7 +4820,10 @@ onBeforeUnmount(() => {
               title="Create view"
               @click="startCreateView"
             >
-              <Icon name="lucide:layers" class="h-3.5 w-3.5" aria-hidden="true" />
+              <span class="relative h-3.5 w-3.5" aria-hidden="true">
+                <Icon name="lucide:layers" class="h-3.5 w-3.5" />
+                <span class="absolute -right-1 -bottom-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#0d0e10] text-[9px] font-medium leading-none text-current">+</span>
+              </span>
             </button>
           </div>
 
@@ -4769,22 +4831,25 @@ onBeforeUnmount(() => {
             <button
               ref="filterMenuButtonRef"
               type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              class="relative flex h-8 w-8 items-center justify-center rounded-full border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
               :class="hasCurrentViewFilters || filterMenuOpen ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]' : 'border-white/[0.08] bg-white/[0.035]'"
               title="Filter"
               @click="toggleFilterMenu"
             >
               <Icon name="lucide:list-filter" class="h-4 w-4" aria-hidden="true" />
+              <span v-if="hasCurrentViewFilters" class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#4dbb83] ring-2 ring-[#0d0e10]" aria-hidden="true"></span>
             </button>
 
             <button
               ref="displayOptionsButtonRef"
               type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              class="relative flex h-8 w-8 items-center justify-center rounded-full border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              :class="hasModifiedDisplayOptions || displayOptionsOpen ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]' : 'border-white/[0.08] bg-white/[0.035]'"
               title="Display options"
               @click="toggleDisplayOptions"
             >
               <Icon name="lucide:sliders-horizontal" class="h-4 w-4" aria-hidden="true" />
+              <span v-if="hasModifiedDisplayOptions" class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#4dbb83] ring-2 ring-[#0d0e10]" aria-hidden="true"></span>
             </button>
           </div>
         </div>

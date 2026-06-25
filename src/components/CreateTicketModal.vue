@@ -203,11 +203,19 @@ function syncSelectedSpaceKey() {
 
 function getAllowedIssueTypesForParent(parentIssueType: string | null): JiraCreateIssueType[] {
   if (!parentIssueType) {
-    return ['Story', 'Task', 'Bug']
+    return ['Story', 'Task', 'Bug', 'Feature']
   }
 
   const normalizedParentIssueType = parentIssueType.toLowerCase()
-  if (normalizedParentIssueType.includes('epic') || normalizedParentIssueType.includes('story')) {
+  if (normalizedParentIssueType.includes('epic')) {
+    return ['Story', 'Task', 'Bug', 'Feature']
+  }
+
+  if (normalizedParentIssueType.includes('feature')) {
+    return ['Task', 'Bug', 'Story']
+  }
+
+  if (normalizedParentIssueType.includes('story')) {
     return ['Story', 'Task', 'Bug']
   }
 
@@ -243,14 +251,19 @@ function canIssueTypeUseParent(childIssueType: string, parentIssueType: string):
     return false
   }
 
+  if (normalizedChildIssueType.includes('feature')) {
+    return normalizedParentIssueType.includes('epic')
+  }
+
   if (normalizedChildIssueType.includes('story') || normalizedChildIssueType.includes('bug')) {
-    return normalizedParentIssueType.includes('epic') || normalizedParentIssueType.includes('story')
+    return normalizedParentIssueType.includes('epic') || normalizedParentIssueType.includes('story') || normalizedParentIssueType.includes('feature')
   }
 
   if (normalizedChildIssueType.includes('task')) {
     return (
       normalizedParentIssueType.includes('epic')
       || normalizedParentIssueType.includes('story')
+      || normalizedParentIssueType.includes('feature')
       || normalizedParentIssueType.includes('task')
       || normalizedParentIssueType.includes('bug')
     )

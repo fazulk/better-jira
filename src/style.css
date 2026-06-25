@@ -9,6 +9,7 @@
   --color-surface-2: #121316;
   --color-surface-3: #191a1f;
   --color-surface-4: #202127;
+  --color-issue-detail-bg: lch(4.52 0.3 272);
 
   --color-border-subtle: rgba(255, 255, 255, 0.055);
   --color-border-default: rgba(255, 255, 255, 0.085);

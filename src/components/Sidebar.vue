@@ -157,7 +157,11 @@ const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map(space =>
 }))
 
 function isEpicIssue(ticket: JiraTicket): boolean {
-  return ticket.issueType.toLowerCase().includes('epic')
+  return isEpicIssueType(ticket.issueType)
+}
+
+function isEpicIssueType(issueType: string): boolean {
+  return issueType.toLowerCase().includes('epic')
 }
 
 function isActiveView(viewId: string): boolean {

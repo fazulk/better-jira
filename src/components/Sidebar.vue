@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getStatusGroup, type JiraTicket } from '@/types/jira'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 const props = defineProps<{
   tickets: JiraTicket[]
@@ -23,6 +25,8 @@ const emit = defineEmits<{
   command: []
   view: [viewId: string]
   'favorite-view': [viewId: string]
+  'add-space': []
+  'leave-space': [spaceKey: string]
 }>()
 
 const { pinnedKeys } = usePinnedTickets()
@@ -47,6 +51,14 @@ interface TeamNavItem {
   triageCount: number
 }
 
+interface TeamMenuState {
+  open: boolean
+  teamKey: string
+  teamName: string
+  x: number
+  y: number
+}
+
 const enabledSpaceKeys = computed(() => new Set(enabledSpaces.value.map(space => space.key)))
 const currentViewId = computed(() => props.currentView)
 const viewNavigationIsActive = computed(() => !props.selectedKey)
@@ -65,6 +77,25 @@ const activeTickets = computed(() => issueTickets.value.filter(ticket => getStat
 const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
 const workspaceExpanded = ref(true)
 const favoritesExpanded = ref(true)
+const expandedTeamKeys = useLocalStorage<string[]>('jira2.expandedTeams', [])
+const expandedTeamKeySet = computed(() => new Set(expandedTeamKeys.value))
+const teamMenuElement = ref<HTMLElement | null>(null)
+const teamMenuState = ref<TeamMenuState>({
+  open: false,
+  teamKey: '',
+  teamName: '',
+  x: 0,
+  y: 0,
+})
+const teamMenuStyle = computed(() => {
+  const leftBoundary = typeof window === 'undefined' ? teamMenuState.value.x : window.innerWidth - 184
+  const topBoundary = typeof window === 'undefined' ? teamMenuState.value.y : window.innerHeight - 72
+
+  return {
+    left: `${Math.max(8, Math.min(teamMenuState.value.x, leftBoundary))}px`,
+    top: `${Math.max(8, Math.min(teamMenuState.value.y, topBoundary))}px`,
+  }
+})
 
 function toggleWorkspace() {
   workspaceExpanded.value = !workspaceExpanded.value
@@ -72,6 +103,27 @@ function toggleWorkspace() {
 
 function toggleFavorites() {
   favoritesExpanded.value = !favoritesExpanded.value
+}
+
+function isTeamExpanded(teamKey: string): boolean {
+  return expandedTeamKeySet.value.has(teamKey)
+}
+
+function expandTeam(teamKey: string): void {
+  if (isTeamExpanded(teamKey)) {
+    return
+  }
+
+  expandedTeamKeys.value = [...expandedTeamKeys.value, teamKey]
+}
+
+function toggleTeam(teamKey: string): void {
+  if (isTeamExpanded(teamKey)) {
+    expandedTeamKeys.value = expandedTeamKeys.value.filter(key => key !== teamKey)
+    return
+  }
+
+  expandedTeamKeys.value = [...expandedTeamKeys.value, teamKey]
 }
 
 const primaryItems = computed<NavItem[]>(() => [
@@ -113,13 +165,90 @@ function isActiveView(viewId: string): boolean {
 }
 
 function selectView(viewId: string) {
+  const teamKey = getTeamKeyFromViewId(viewId)
+  if (teamKey !== null) {
+    expandTeam(teamKey)
+  }
+
   emit('view', viewId)
 }
+
+function openTeamMenu(team: TeamNavItem, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (team.key === LOCAL_SPACE_KEY) {
+    closeTeamMenu()
+    return
+  }
+
+  teamMenuState.value = {
+    open: true,
+    teamKey: team.key,
+    teamName: team.name,
+    x: event.clientX,
+    y: event.clientY,
+  }
+}
+
+function closeTeamMenu(): void {
+  teamMenuState.value = {
+    ...teamMenuState.value,
+    open: false,
+  }
+}
+
+function leaveCurrentTeam(): void {
+  if (!teamMenuState.value.teamKey) {
+    return
+  }
+
+  emit('leave-space', teamMenuState.value.teamKey)
+  closeTeamMenu()
+}
+
+function handlePointerDown(event: PointerEvent): void {
+  if (!teamMenuState.value.open) {
+    return
+  }
+
+  const target = event.target
+  if (target instanceof Node && teamMenuElement.value?.contains(target)) {
+    return
+  }
+
+  closeTeamMenu()
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    closeTeamMenu()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('pointerdown', handlePointerDown)
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('pointerdown', handlePointerDown)
+  window.removeEventListener('keydown', handleKeydown)
+})
 
 type TeamViewSection = 'triage' | 'all' | 'active' | 'backlog' | 'projects' | 'views'
 
 function getTeamViewId(spaceKey: string, section: TeamViewSection): string {
   return `team:${spaceKey}:${section}`
+}
+
+function getTeamKeyFromViewId(viewId: string): string | null {
+  if (!viewId.startsWith('team:')) {
+    return null
+  }
+
+  const [, teamKey] = viewId.split(':')
+  return teamKey || null
 }
 
 function isTeamIssuesView(spaceKey: string): boolean {
@@ -268,22 +397,48 @@ function isTeamIssuesView(spaceKey: string): boolean {
         <section v-if="!collapsed" class="space-y-1">
           <div class="flex h-6 items-center justify-between px-2 text-[12px] font-medium text-[#777a83]">
             <span>Your teams</span>
-            <span>＋</span>
+            <button
+              type="button"
+              class="flex h-5 w-5 items-center justify-center rounded text-[14px] text-[#777a83] transition hover:bg-white/[0.055] hover:text-[#f0f1f4]"
+              aria-label="Add space"
+              @click="emit('add-space')"
+            >
+              ＋
+            </button>
           </div>
 
           <div v-for="team in teamItems" :key="team.key" class="space-y-0.5">
-            <button
-              type="button"
-              class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#c6c8ce] transition hover:bg-white/[0.045] hover:text-[#f0f1f4]"
+            <div
+              class="flex h-7 w-full items-center rounded-md text-[13px] text-[#c6c8ce] transition hover:bg-white/[0.045] hover:text-[#f0f1f4]"
               :class="viewNavigationIsActive && currentViewId.startsWith(`team:${team.key}:`) ? 'bg-white/[0.055]' : ''"
-              @click="selectView(getTeamViewId(team.key, 'active'))"
+              @contextmenu="openTeamMenu(team, $event)"
             >
-              <span class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-[#d65d5d] text-[9px] text-white">{{ team.key.slice(0, 1) }}</span>
-              <span class="min-w-0 flex-1 truncate">{{ team.name }}</span>
-              <span v-if="team.activeCount > 0" class="text-[11px] text-[#6f727b]">{{ team.activeCount }}</span>
-            </button>
+              <button
+                type="button"
+                class="flex h-full min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 text-left"
+                @click="selectView(getTeamViewId(team.key, 'active'))"
+              >
+                <span class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-[#d65d5d] text-[9px] text-white">{{ team.key.slice(0, 1) }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ team.name }}</span>
+                <span v-if="team.activeCount > 0" class="text-[11px] text-[#6f727b]">{{ team.activeCount }}</span>
+              </button>
+              <button
+                type="button"
+                class="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#6f727b] transition hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+                :aria-expanded="isTeamExpanded(team.key)"
+                :aria-label="`${isTeamExpanded(team.key) ? 'Collapse' : 'Expand'} ${team.name}`"
+                @click.stop="toggleTeam(team.key)"
+              >
+                <Icon
+                  name="lucide:chevron-down"
+                  class="h-3.5 w-3.5 transition-transform"
+                  :class="isTeamExpanded(team.key) ? '' : '-rotate-90'"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
 
-            <div v-if="currentViewId.startsWith(`team:${team.key}:`)" class="ml-5 space-y-0.5">
+            <div v-if="isTeamExpanded(team.key)" class="ml-5 space-y-0.5">
               <button
                 type="button"
                 class="flex h-6 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] transition"
@@ -359,5 +514,29 @@ function isTeamIssuesView(spaceKey: string): boolean {
         <span v-if="!collapsed" class="flex-1 truncate">Collapse sidebar</span>
       </button>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="teamMenuState.open"
+        ref="teamMenuElement"
+        class="fixed z-[100] w-44 overflow-hidden rounded-xl border border-white/[0.08] bg-[#11131a]/95 p-1 text-sm text-slate-200 shadow-2xl shadow-black/40 backdrop-blur"
+        :style="teamMenuStyle"
+        role="menu"
+        @contextmenu.prevent
+      >
+        <div class="border-b border-white/[0.06] px-2 py-1.5">
+          <p class="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">{{ teamMenuState.teamName }}</p>
+        </div>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-rose-300 transition hover:bg-rose-500/[0.12] hover:text-rose-200"
+          role="menuitem"
+          @click="leaveCurrentTeam"
+        >
+          <Icon name="lucide:log-out" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>Leave space</span>
+        </button>
+      </div>
+    </Teleport>
   </aside>
 </template>

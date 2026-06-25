@@ -13,6 +13,7 @@ import { useFavoriteViews } from '@/composables/useFavoriteViews'
 import { getLinearIssueSubtype, getStatusGroup, type JiraTicket } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
 import type { FavoriteViewFilter } from '~/shared/settings'
+import AddSpaceModal from './AddSpaceModal.vue'
 import CreateTicketModal from './CreateTicketModal.vue'
 import IssueRow from './IssueRow.vue'
 import Sidebar from './Sidebar.vue'
@@ -25,6 +26,7 @@ const {
   enabledSpaces,
   hasJiraCredentialsConfigured,
   isLoading: isLoadingSpaceSettings,
+  deleteSpace,
 } = useSpaceSettings()
 const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
 const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
@@ -89,6 +91,7 @@ const visibleSavedViewRowFields = useLocalStorage<SavedViewRowFieldId[]>('jira2.
 const isResizingSidebar = ref(false)
 const activePointerId = ref<number | null>(null)
 const isCreateModalOpen = ref(false)
+const isAddSpaceModalOpen = ref(false)
 const createIssueType = ref('Task')
 const createParentKey = ref<string | null>(null)
 const issueTypeLocked = ref(false)
@@ -3044,6 +3047,21 @@ function handleFavoriteViewChange(viewId: string) {
   handleViewChange(viewId)
 }
 
+function openAddSpaceModal(): void {
+  isAddSpaceModalOpen.value = true
+}
+
+function closeAddSpaceModal(): void {
+  isAddSpaceModalOpen.value = false
+}
+
+async function handleLeaveSpace(spaceKey: string): Promise<void> {
+  await deleteSpace(spaceKey)
+  if (currentView.value.startsWith(`team:${spaceKey}:`)) {
+    handleViewChange('my-issues')
+  }
+}
+
 function openGlobalCreate(issueType = 'Task') {
   createIssueType.value = issueType
   createParentKey.value = null
@@ -3440,6 +3458,8 @@ onBeforeUnmount(() => {
         @command="openCommandMenu"
         @view="handleViewChange"
         @favorite-view="handleFavoriteViewChange"
+        @add-space="openAddSpaceModal"
+        @leave-space="handleLeaveSpace"
       />
 
       <button
@@ -4875,6 +4895,11 @@ onBeforeUnmount(() => {
       :parent-locked="parentLocked"
       @close="closeCreateModal"
       @created="handleTicketCreated"
+    />
+
+    <AddSpaceModal
+      :open="isAddSpaceModalOpen"
+      @close="closeAddSpaceModal"
     />
 
     <div

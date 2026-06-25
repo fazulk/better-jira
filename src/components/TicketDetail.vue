@@ -1722,10 +1722,8 @@ async function submitMessage() {
                 @click="$emit('select', detailProjectParent.key)"
                 @mouseenter="prefetchTicket(detailProjectParent.key)"
               >
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">
-                  <svg class="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                    <path d="M12.8 1.6c-2.4.2-4.3 1.1-5.7 2.6L4.5 6.8 2.6 6.4 1.2 7.8l2.5 1.1 1.1 2.5 1.4-1.4-.4-1.9 2.6-2.6c1.5-1.4 2.4-3.3 2.6-5.7h-.2Zm-1.9 2.7a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0ZM3.9 11.3c-.9.2-1.5.6-1.9 1.1-.5.6-.7 1.3-.8 2.1.8-.1 1.5-.3 2.1-.8.5-.4.9-1 1.1-1.9l-.5-.5Z" />
-                  </svg>
+                <span class="flex h-5 w-5 shrink-0 items-center justify-center text-[#9aa8c7]">
+                  <Icon name="lucide:rocket" class="h-4 w-4" aria-hidden="true" />
                 </span>
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-slate-200">{{ detailProjectParentLabel }}</span>

@@ -3943,7 +3943,10 @@ onBeforeUnmount(() => {
                   @click="openTicket(project.key)"
                 >
                   <span class="min-w-0 pr-4">
-                    <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{ project.name }}</span>
+                    <span class="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#e6e7ea]">
+                      <Icon name="lucide:rocket" class="h-3.5 w-3.5 shrink-0 text-[#9aa8c7]" aria-hidden="true" />
+                      <span class="truncate">{{ project.name }}</span>
+                    </span>
                     <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
                   </span>
                   <span>
@@ -4019,7 +4022,10 @@ onBeforeUnmount(() => {
                   @click="openTicket(project.key)"
                 >
                   <span class="min-w-0 pr-4">
-                    <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{ project.name }}</span>
+                    <span class="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#e6e7ea]">
+                      <Icon name="lucide:rocket" class="h-3.5 w-3.5 shrink-0 text-[#9aa8c7]" aria-hidden="true" />
+                      <span class="truncate">{{ project.name }}</span>
+                    </span>
                     <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
                   </span>
                   <span>
@@ -4307,7 +4313,10 @@ onBeforeUnmount(() => {
               @click="openTicket(project.key)"
             >
               <span class="min-w-0 pr-4">
-                <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{ project.name }}</span>
+                <span class="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#e6e7ea]">
+                  <Icon name="lucide:rocket" class="h-3.5 w-3.5 shrink-0 text-[#9aa8c7]" aria-hidden="true" />
+                  <span class="truncate">{{ project.name }}</span>
+                </span>
                 <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
               </span>
 

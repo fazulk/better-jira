@@ -1343,7 +1343,7 @@ const navigationCommands = computed<CommandMenuItem[]>(() => {
       label: 'Search',
       description: 'Open workspace search',
       section: 'Navigation',
-      icon: '⌕',
+      icon: 'search',
       execute: () => handleViewChange('search'),
     },
     {
@@ -3015,7 +3015,13 @@ function getIssueSectionCollapseId(section: IssueSection): string {
 }
 
 function isIssueSectionCollapsed(section: IssueSection): boolean {
+  if (!shouldShowIssueSectionHeader()) return false
+
   return collapsedIssueSectionIds.value.includes(getIssueSectionCollapseId(section))
+}
+
+function shouldShowIssueSectionHeader(): boolean {
+  return listGrouping.value !== 'none' && currentView.value !== 'search'
 }
 
 function toggleIssueSection(section: IssueSection) {
@@ -3321,10 +3327,10 @@ onBeforeUnmount(() => {
               </span>
               <span v-else-if="currentView === 'inbox'" class="shrink-0 text-[12px] text-[#777a83]">
                 {{ inboxItems.length }} {{ inboxItems.length === 1 ? 'notification' : 'notifications' }}
-              </span>
-              <span v-else-if="currentView !== 'search'" class="shrink-0 text-[12px] text-[#777a83]">
-                {{ visibleIssueCount }} {{ visibleIssueCount === 1 ? 'issue' : 'issues' }}
-              </span>
+               </span>
+               <span v-else-if="currentView !== 'search' && !currentTeamKey" class="shrink-0 text-[12px] text-[#777a83]">
+                 {{ visibleIssueCount }} {{ visibleIssueCount === 1 ? 'issue' : 'issues' }}
+               </span>
             </div>
           </div>
 
@@ -3796,7 +3802,7 @@ onBeforeUnmount(() => {
           </div>
         </header>
 
-        <div v-if="!selectedTicket && viewTabs.length" class="flex h-10 shrink-0 items-center gap-1 border-b border-white/[0.06] px-3">
+        <div v-if="!selectedTicket && viewTabs.length" class="flex h-10 shrink-0 items-center gap-1 px-3">
           <button
             v-for="tab in viewTabs"
             :key="tab.id"
@@ -4403,18 +4409,22 @@ onBeforeUnmount(() => {
 
             <div v-if="issueSections.length && visibleIssueCount > 0">
               <section v-for="section in issueSections" :key="section.id">
-                <div class="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.025] px-4 text-[12px] font-medium text-[#aeb0b7]">
+                <div v-if="shouldShowIssueSectionHeader()" class="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.025] px-4 text-[12px] font-medium text-[#aeb0b7]">
                   <button
                     type="button"
                     class="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-[#d7d8dc]"
                     :aria-expanded="!isIssueSectionCollapsed(section)"
                     @click="toggleIssueSection(section)"
                   >
-                    <span class="text-[#777a83] transition-transform" :class="isIssueSectionCollapsed(section) ? '-rotate-90' : ''">⌄</span>
+                    <Icon
+                      name="lucide:chevron-down"
+                      class="h-3 w-3 shrink-0 text-[#777a83] transition-transform"
+                      :class="isIssueSectionCollapsed(section) ? '-rotate-90' : ''"
+                      aria-hidden="true"
+                    />
                     <span class="truncate">{{ section.label }}</span>
                     <span class="text-[#6f727b]">{{ section.tickets.length }}</span>
                   </button>
-                  <button type="button" class="text-[#777a83] hover:text-[#d7d8dc]" @click="openGlobalCreate()">＋</button>
                 </div>
                 <template v-if="!isIssueSectionCollapsed(section)">
                   <IssueRow
@@ -4533,18 +4543,22 @@ onBeforeUnmount(() => {
 
           <div v-if="issueSections.length && visibleIssueCount > 0">
             <section v-for="section in issueSections" :key="section.id">
-              <div class="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.025] px-4 text-[12px] font-medium text-[#aeb0b7]">
+              <div v-if="shouldShowIssueSectionHeader()" class="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.025] px-4 text-[12px] font-medium text-[#aeb0b7]">
                 <button
                   type="button"
                   class="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-[#d7d8dc]"
                   :aria-expanded="!isIssueSectionCollapsed(section)"
                   @click="toggleIssueSection(section)"
                 >
-                  <span class="text-[#777a83] transition-transform" :class="isIssueSectionCollapsed(section) ? '-rotate-90' : ''">⌄</span>
+                  <Icon
+                    name="lucide:chevron-down"
+                    class="h-3 w-3 shrink-0 text-[#777a83] transition-transform"
+                    :class="isIssueSectionCollapsed(section) ? '-rotate-90' : ''"
+                    aria-hidden="true"
+                  />
                   <span class="truncate">{{ section.label }}</span>
                   <span class="text-[#6f727b]">{{ section.tickets.length }}</span>
                 </button>
-                <button type="button" class="text-[#777a83] hover:text-[#d7d8dc]" @click="openGlobalCreate()">＋</button>
               </div>
               <template v-if="!isIssueSectionCollapsed(section)">
                 <IssueRow
@@ -4584,7 +4598,7 @@ onBeforeUnmount(() => {
           <div class="w-full max-w-2xl overflow-hidden rounded-lg border border-white/[0.08] bg-surface-1 shadow-xl shadow-black/45">
             <div class="border-b border-white/[0.06] p-2">
               <div class="flex items-center gap-3 rounded-md border border-white/[0.08] bg-white/[0.035] px-3 py-2">
-                <span class="text-[13px] text-slate-500">⌕</span>
+                <Icon name="lucide:search" class="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
                 <input
                   ref="commandInputRef"
                   v-model="commandQuery"
@@ -4622,7 +4636,8 @@ onBeforeUnmount(() => {
                         ? 'border-white/[0.06] bg-white/[0.025] text-slate-500'
                         : 'border-white/[0.08] bg-white/[0.035] text-slate-400'"
                     >
-                      {{ item.icon ?? '>' }}
+                      <Icon v-if="item.icon === 'search'" name="lucide:search" class="h-3.5 w-3.5" aria-hidden="true" />
+                      <template v-else>{{ item.icon ?? '>' }}</template>
                     </span>
                     <span class="min-w-0 flex-1">
                       <span class="block truncate text-[13px] font-medium text-slate-200">{{ item.label }}</span>

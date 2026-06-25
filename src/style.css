@@ -94,7 +94,7 @@ a,
 }
 
 .linear-row {
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid transparent;
 }
 
 .linear-row:hover {

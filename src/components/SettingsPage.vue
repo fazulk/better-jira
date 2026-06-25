@@ -817,8 +817,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-full animate-fade-in bg-surface-0">
-    <div class="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-white/[0.06] bg-surface-0/95 px-4 backdrop-blur">
+  <div class="flex h-full flex-col animate-fade-in bg-surface-0">
+    <div class="z-20 flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] bg-surface-0/95 px-4 backdrop-blur">
       <button
         class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-100"
         @click="emit('close')"
@@ -832,8 +832,8 @@ onBeforeUnmount(() => {
       <div class="w-20"></div>
     </div>
 
-    <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <aside class="border-b border-white/[0.06] px-4 py-5 lg:border-b-0 lg:border-r lg:border-white/[0.06]">
+    <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside class="overflow-y-auto border-b border-white/[0.06] px-4 py-5 lg:border-b-0 lg:border-r lg:border-white/[0.06]">
         <div class="mb-5 px-2">
           <h1 class="text-lg font-semibold text-slate-100">Settings</h1>
           <p class="mt-1 text-xs text-slate-500">LifeMD workspace</p>
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
         </nav>
       </aside>
 
-      <main class="min-w-0 px-5 py-8 lg:px-10">
+      <main class="min-w-0 overflow-y-auto px-5 py-8 lg:px-10">
         <section v-show="activeSettingsSection === 'account'" class="mx-auto max-w-3xl space-y-5">
           <div>
             <h2 class="text-xl font-semibold text-slate-100">Account</h2>

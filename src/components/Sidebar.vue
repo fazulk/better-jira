@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { getStatusGroup, type JiraTicket } from '@/types/jira'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
@@ -56,6 +56,16 @@ const projectTicketKeySet = computed(() => {
 const issueTickets = computed(() => visibleTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)))
 const activeTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done'))
 const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
+const workspaceExpanded = ref(true)
+const favoritesExpanded = ref(true)
+
+function toggleWorkspace() {
+  workspaceExpanded.value = !workspaceExpanded.value
+}
+
+function toggleFavorites() {
+  favoritesExpanded.value = !favoritesExpanded.value
+}
 
 const primaryItems = computed<NavItem[]>(() => [
   { id: 'inbox', label: 'Inbox', icon: 'inbox', count: triageTickets.value.length },
@@ -66,15 +76,6 @@ const workspaceItems = computed<NavItem[]>(() => [
   { id: 'initiatives', label: 'Initiatives', icon: 'initiative' },
   { id: 'projects', label: 'Projects', icon: 'project' },
   { id: 'views', label: 'Views', icon: 'view' },
-])
-
-const savedViews = computed<NavItem[]>(() => [
-  {
-    id: 'ready-qa',
-    label: 'Ready for QA',
-    icon: 'search',
-    count: issueTickets.value.filter(ticket => ticket.status.toLowerCase().includes('ready for qa')).length,
-  },
 ])
 
 const ticketByKey = computed(() => new Map(visibleTickets.value.map<readonly [string, JiraTicket]>(ticket => [ticket.key, ticket])))
@@ -143,17 +144,17 @@ function isTeamIssuesView(spaceKey: string): boolean {
         title="Search workspace"
         @click="emit('command')"
       >
-        <span aria-hidden="true">⌕</span>
+        <Icon name="lucide:search" class="h-3.5 w-3.5" aria-hidden="true" />
       </button>
 
       <button
         v-if="!collapsed"
         type="button"
-        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#8f9198] hover:bg-white/[0.05] hover:text-[#e6e7ea]"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[#d7d8dc] hover:bg-white/[0.12] hover:text-[#f0f1f4]"
         title="Create issue"
         @click="selectView('create')"
       >
-        <span aria-hidden="true">＋</span>
+        <Icon name="lucide:square-pen" class="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </div>
 
@@ -171,60 +172,79 @@ function isTeamIssuesView(spaceKey: string): boolean {
             ]"
             @click="selectView(item.id)"
           >
-            <span class="w-4 shrink-0 text-center text-[12px] text-[#8f9198]">{{ item.icon === 'inbox' ? '▤' : '◎' }}</span>
+            <Icon
+              :name="item.icon === 'inbox' ? 'lucide:inbox' : 'lucide:scan'"
+              class="h-3.5 w-3.5 shrink-0 text-[#8f9198]"
+              aria-hidden="true"
+            />
             <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
             <span v-if="!collapsed && item.count !== undefined && item.count > 0" class="text-[11px] text-[#6f727b]">{{ item.count }}</span>
           </button>
         </section>
 
         <section v-if="!collapsed" class="space-y-1">
-          <div class="flex h-6 items-center justify-between px-2 text-[12px] font-medium text-[#777a83]">
-            <span>Workspace</span>
-            <span>⌄</span>
-          </div>
           <button
-            v-for="item in workspaceItems"
-            :key="item.id"
             type="button"
-            class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
-            :class="isActiveView(item.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
-            @click="selectView(item.id)"
+            class="flex h-6 w-full items-center justify-between rounded-md px-2 text-left text-[12px] font-medium text-[#777a83] transition hover:bg-white/[0.045] hover:text-[#b9bbc3]"
+            :aria-expanded="workspaceExpanded"
+            @click="toggleWorkspace"
           >
-            <span class="w-4 shrink-0 text-center text-[12px] text-[#8f9198]">{{ item.icon === 'project' ? '◈' : item.icon === 'view' ? '◌' : '◇' }}</span>
-            <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+            <span>Workspace</span>
+            <Icon
+              name="lucide:chevron-down"
+              class="h-3 w-3 transition-transform"
+              :class="workspaceExpanded ? '' : '-rotate-90'"
+              aria-hidden="true"
+            />
           </button>
+          <template v-if="workspaceExpanded">
+            <button
+              v-for="item in workspaceItems"
+              :key="item.id"
+              type="button"
+              class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+              :class="isActiveView(item.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
+              @click="selectView(item.id)"
+            >
+              <Icon
+                :name="item.icon === 'project' ? 'lucide:box' : item.icon === 'view' ? 'lucide:layers' : 'lucide:circle-dashed'"
+                class="h-3.5 w-3.5 shrink-0 text-[#8f9198]"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+            </button>
+          </template>
         </section>
 
         <section v-if="!collapsed" class="space-y-1">
-          <div class="flex h-6 items-center justify-between px-2 text-[12px] font-medium text-[#777a83]">
+          <button
+            type="button"
+            class="flex h-6 w-full items-center justify-between rounded-md px-2 text-left text-[12px] font-medium text-[#777a83] transition hover:bg-white/[0.045] hover:text-[#b9bbc3]"
+            :aria-expanded="favoritesExpanded"
+            @click="toggleFavorites"
+          >
             <span>Favorites</span>
-            <span>⌄</span>
-          </div>
-          <button
-            v-for="item in savedViews"
-            :key="item.id"
-            type="button"
-            class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
-            :class="isActiveView(item.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
-            @click="selectView(item.id)"
-          >
-            <span class="w-4 shrink-0 text-center text-[12px] text-[#bfc1c8]">●</span>
-            <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
-            <span v-if="item.count !== undefined && item.count > 0" class="text-[11px] text-[#6f727b]">{{ item.count }}</span>
+            <Icon
+              name="lucide:chevron-down"
+              class="h-3 w-3 transition-transform"
+              :class="favoritesExpanded ? '' : '-rotate-90'"
+              aria-hidden="true"
+            />
           </button>
-
-          <button
-            v-for="ticket in pinnedTickets"
-            :key="ticket.key"
-            type="button"
-            class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
-            :class="selectedKey === ticket.key ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
-            @mouseenter="emit('prefetch', ticket.key)"
-            @click="emit('select', ticket.key)"
-          >
-            <span class="w-4 shrink-0 text-center text-[12px] text-[#d7a543]">◆</span>
-            <span class="min-w-0 flex-1 truncate">{{ ticket.key }} {{ ticket.summary }}</span>
-          </button>
+          <template v-if="favoritesExpanded">
+            <button
+              v-for="ticket in pinnedTickets"
+              :key="ticket.key"
+              type="button"
+              class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+              :class="selectedKey === ticket.key ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
+              @mouseenter="emit('prefetch', ticket.key)"
+              @click="emit('select', ticket.key)"
+            >
+              <span class="w-4 shrink-0 text-center text-[12px] text-[#d7a543]">◆</span>
+              <span class="min-w-0 flex-1 truncate">{{ ticket.summary }}</span>
+            </button>
+          </template>
         </section>
 
         <section v-if="!collapsed" class="space-y-1">
@@ -252,7 +272,9 @@ function isTeamIssuesView(spaceKey: string): boolean {
                 :class="isActiveView(getTeamViewId(team.key, 'triage')) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
                 @click="selectView(getTeamViewId(team.key, 'triage'))"
               >
-                <span class="w-3 text-center">○</span>
+                <span class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-current" aria-hidden="true">
+                  <Icon name="lucide:arrow-left-right" class="h-2.5 w-2.5" />
+                </span>
                 <span class="flex-1 truncate">Triage</span>
                 <span v-if="team.triageCount > 0">{{ team.triageCount }}</span>
               </button>
@@ -262,7 +284,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
                 :class="isTeamIssuesView(team.key) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
                 @click="selectView(getTeamViewId(team.key, 'active'))"
               >
-                <span class="w-3 text-center">◌</span>
+                <Icon name="lucide:copy" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span class="flex-1 truncate">Issues</span>
               </button>
               <button
@@ -271,7 +293,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
                 :class="isActiveView(getTeamViewId(team.key, 'projects')) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
                 @click="selectView(getTeamViewId(team.key, 'projects'))"
               >
-                <span class="w-3 text-center">◈</span>
+                <Icon name="lucide:box" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span class="flex-1 truncate">Projects</span>
               </button>
               <button
@@ -280,7 +302,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
                 :class="isActiveView(getTeamViewId(team.key, 'views')) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
                 @click="selectView(getTeamViewId(team.key, 'views'))"
               >
-                <span class="w-3 text-center">◍</span>
+                <Icon name="lucide:layers" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span class="flex-1 truncate">Views</span>
               </button>
             </div>
@@ -306,7 +328,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
         :class="collapsed ? 'justify-center' : ''"
         @click="emit('settings')"
       >
-        <span class="w-4 text-center">⚙</span>
+        <Icon name="lucide:settings" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span v-if="!collapsed" class="flex-1 truncate">Settings</span>
       </button>
       <button

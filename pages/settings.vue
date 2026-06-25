@@ -11,9 +11,7 @@ function closeSettings(): void {
 </script>
 
 <template>
-  <main class="min-h-screen overflow-y-auto">
-    <div class="mx-auto max-w-4xl px-8 py-10">
-      <SettingsPage @close="closeSettings" />
-    </div>
+  <main class="h-screen overflow-hidden">
+    <SettingsPage @close="closeSettings" />
   </main>
 </template>

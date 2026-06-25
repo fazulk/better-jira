@@ -63,6 +63,16 @@ const createdLabel = computed(() => formatDate(props.ticket.createdAt))
 const updatedLabel = computed(() => formatDate(props.ticket.updatedAt))
 const dueLabel = computed(() => formatDate(props.ticket.dueDate))
 const subtypeLabel = computed(() => getLinearIssueSubtype(props.ticket.issueType))
+const subtypeDotClass = computed(() => {
+  switch (subtypeLabel.value) {
+    case 'Bug':
+      return 'bg-[#e45d6a]'
+    case 'Story':
+      return 'bg-[#9c6bff]'
+    default:
+      return 'bg-[#62a8d8]'
+  }
+})
 const parentContext = computed(() => {
   const parent = props.ticket.parent
   if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
@@ -103,7 +113,7 @@ function formatDate(value: string | undefined): string {
   <div
     role="button"
     tabindex="0"
-    class="linear-row group relative grid min-h-9 w-full cursor-default items-center gap-2 px-4 py-1.5 text-left transition"
+    class="linear-row group relative grid min-h-12 w-full cursor-default items-center gap-2 px-4 py-2.5 text-left transition"
     :class="selected ? 'linear-row-active text-[#f0f1f4]' : 'text-[#d6d7dc]'"
     :style="{ gridTemplateColumns: rowGridTemplate }"
     @mouseenter="$emit('prefetch', ticket.key)"
@@ -133,7 +143,8 @@ function formatDate(value: string | undefined): string {
       <span v-if="parentContext" class="ml-2 text-[#6f727b]">› {{ parentContext.summary }}</span>
     </span>
 
-    <span v-if="showIssueType !== false" class="hidden items-center rounded-md border border-white/[0.06] bg-white/[0.025] px-1.5 py-0.5 text-[11px] text-[#8f9198] md:inline-flex">
+    <span v-if="showIssueType !== false" class="hidden items-center gap-1.5 rounded-full border border-white/[0.08] px-2 py-0.5 text-[11px] text-[#c7c9d0] md:inline-flex">
+      <span class="h-1.5 w-1.5 rounded-full" :class="subtypeDotClass"></span>
       {{ subtypeLabel }}
     </span>
 

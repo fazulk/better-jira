@@ -180,15 +180,6 @@ function createWindow(url: string): BrowserWindow {
     logLine("[window] blur");
   });
 
-  window.on("close", (event) => {
-    if (isQuitting) {
-      return;
-    }
-
-    event.preventDefault();
-    window.minimize();
-  });
-
   window.on("closed", () => {
     if (mainWindow === window) {
       mainWindow = null;

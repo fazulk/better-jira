@@ -10,6 +10,7 @@ import {
   getAllPriorities,
   getAssignableUsers,
   getCreateAssignableUsers,
+  getCreateIssueTypes,
   getCreatePriorities,
   getPriorities,
   getJiraCurrentUser,
@@ -215,6 +216,13 @@ export default defineEventHandler(async (event) => {
       })
 
       return Response.json(ticket, { headers: API_HEADERS })
+    }
+
+    if (segments.length === 1 && segments[0] === 'create-issue-types' && method === 'GET') {
+      const query = getQuery(event)
+      const parentKey = getStringQueryValue(query.parentKey) ?? null
+      const issueTypes = await getCreateIssueTypes(parentKey)
+      return Response.json(issueTypes, { headers: API_HEADERS })
     }
 
     if (segments.length === 1 && segments[0] === 'create-assignees' && method === 'GET') {

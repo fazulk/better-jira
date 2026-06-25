@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useCreateAssignableUsers } from '@/composables/useCreateAssignableUsers'
+import { useCreateIssueTypes } from '@/composables/useCreateIssueTypes'
 import { useCreateLocalTicket } from '@/composables/useCreateLocalTicket'
 import { useCreatePriorities } from '@/composables/useCreatePriorities'
 import { useCreateTicket } from '@/composables/useCreateTicket'
@@ -155,16 +156,11 @@ const jiraFieldQueriesEnabled = computed(() => props.open && !isLocalSpace.value
 const isSpaceLocked = computed(() => Boolean(selectedParentTicket.value?.spaceKey))
 
 const createAssignableUsersQuery = useCreateAssignableUsers(activeIssueType, effectiveParentKey, effectiveSpaceKey, jiraFieldQueriesEnabled)
+const createIssueTypesQuery = useCreateIssueTypes(effectiveParentKey, jiraFieldQueriesEnabled)
 const createPrioritiesQuery = useCreatePriorities(activeIssueType, effectiveParentKey, jiraFieldQueriesEnabled)
 
 const jiraMeQueryEnabled = computed(() => props.open && isLocalSpace.value && hasJiraCredentialsConfigured.value)
 const jiraMeQuery = useJiraCurrentUser(jiraMeQueryEnabled)
-const canSubmit = computed(() => (
-  !isCreatePending.value
-  && Boolean(selectedIssueType.value)
-  && Boolean(effectiveSpaceKey.value)
-  && !(isLocalSpace.value && (jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value))
-))
 
 function isAvailableCreateSpace(spaceKey: string | null): boolean {
   if (!spaceKey) {
@@ -231,8 +227,30 @@ const issueTypeOptions = computed<JiraCreateIssueType[]>(() => {
     return [LOCAL_ISSUE_TYPE]
   }
 
+  if (effectiveParentKey.value) {
+    return createIssueTypesQuery.data.value?.map((issueType) => issueType.name) ?? []
+  }
+
   return getAllowedIssueTypesForParent(selectedParentTicket.value?.issueType ?? null)
 })
+
+const createIssueTypesError = computed(() => {
+  if (!effectiveParentKey.value) return null
+
+  const error = createIssueTypesQuery.error.value
+  return error instanceof Error ? error.message : null
+})
+
+const hasSelectedIssueTypeOption = computed(() => (
+  Boolean(selectedIssueType.value)
+  && (isLocalSpace.value || issueTypeOptions.value.includes(selectedIssueType.value))
+))
+const canSubmit = computed(() => (
+  !isCreatePending.value
+  && hasSelectedIssueTypeOption.value
+  && Boolean(effectiveSpaceKey.value)
+  && !(isLocalSpace.value && (jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value))
+))
 
 function getDefaultIssueType(parentIssueType: string | null, preferredIssueType?: JiraCreateIssueType): JiraCreateIssueType {
   const options = getAllowedIssueTypesForParent(parentIssueType)
@@ -307,6 +325,10 @@ function getIssueTypeBadgeClass(issueType: JiraCreateIssueType): string {
   if (normalizedType.includes('story')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
   if (normalizedType.includes('sub')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
   return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+}
+
+function getCreateIssueTypeLabel(issueType: JiraCreateIssueType): string {
+  return issueType.toLowerCase().includes('sub') ? issueType : getLinearIssueSubtype(issueType)
 }
 
 function resetForm() {
@@ -941,7 +963,10 @@ async function submit() {
     return
   }
 
-  if (!selectedIssueType.value) return
+  if (!hasSelectedIssueTypeOption.value) {
+    submitError.value = 'Choose an issue type available for this parent.'
+    return
+  }
 
   try {
     const createdTicket = await createMutation.mutateAsync({
@@ -1223,7 +1248,13 @@ onUnmounted(() => {
 
               <div v-if="!isLocalSpace" class="space-y-1.5">
                 <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Subtype</p>
-                <p v-if="issueTypeOptions.length === 0" class="text-xs text-slate-500">
+                <p v-if="effectiveParentKey && createIssueTypesQuery.isLoading.value" class="text-xs text-slate-500">
+                  Loading issue types available for this parent...
+                </p>
+                <p v-else-if="createIssueTypesError" class="text-xs text-rose-300">
+                  {{ createIssueTypesError }}
+                </p>
+                <p v-else-if="issueTypeOptions.length === 0" class="text-xs text-slate-500">
                   No issue types are available for this parent.
                 </p>
                 <div class="flex flex-wrap gap-2">
@@ -1238,7 +1269,7 @@ onUnmounted(() => {
                     :disabled="issueTypeLocked || isCreatePending.value"
                     @click="selectedIssueType = issueType"
                   >
-                    {{ getLinearIssueSubtype(issueType) }}
+                    {{ getCreateIssueTypeLabel(issueType) }}
                   </button>
                 </div>
               </div>

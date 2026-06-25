@@ -76,6 +76,15 @@ export interface JiraPriority {
 
 export type JiraCreateIssueType = string
 
+export interface JiraCreateIssueTypeOption {
+  id: string
+  name: string
+  subtask: boolean
+  hierarchyLevel: number
+  parentRequired: boolean
+  parentSupported: boolean
+}
+
 export type JiraCreateFieldValue = string | string[] | JiraAdfDocument | null
 
 export interface CreateJiraTicketInput {

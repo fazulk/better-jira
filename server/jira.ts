@@ -663,6 +663,27 @@ function isAllowedChildIssueTypeForParent(parentIssueType: string, childIssueTyp
   return allowedChildIssueTypes.some((candidate) => matchesIssueType(childIssueType, candidate))
 }
 
+function isAvailableChildIssueTypeForParent(
+  parentIssueType: string,
+  childIssueType: JiraCreateIssueTypeOption,
+  issueTypeOptions: JiraCreateIssueTypeOption[],
+): boolean {
+  const parentIssueTypeOption = issueTypeOptions.find((candidate) => matchesIssueType(candidate.name, parentIssueType))
+  if (!parentIssueTypeOption) {
+    return isAllowedChildIssueTypeForParent(parentIssueType, childIssueType.name)
+  }
+
+  if (parentIssueTypeOption.hierarchyLevel < 0) {
+    return false
+  }
+
+  if (parentIssueTypeOption.hierarchyLevel === 0) {
+    return childIssueType.subtask
+  }
+
+  return !childIssueType.subtask && childIssueType.hierarchyLevel === parentIssueTypeOption.hierarchyLevel - 1
+}
+
 type SupportedCreateFieldKey = 'summary' | 'description' | 'priority' | 'assignee' | 'duedate'
 
 interface SupportedCreateFieldDescriptor {
@@ -898,8 +919,7 @@ async function getParentValidatedCreateIssueTypeOptions(parentKey: string): Prom
 
   return issueTypeOptions.filter((issueType) => (
     issueType.parentSupported
-    && !matchesIssueType(issueType.name, 'Epic')
-    && isAllowedChildIssueTypeForParent(parent.issueType, issueType.name)
+    && isAvailableChildIssueTypeForParent(parent.issueType, issueType, issueTypeOptions)
   ))
 }
 

@@ -3,6 +3,7 @@ import type {
   JiraAdfDocument,
   JiraActivityItem,
   JiraAssignableUser,
+  JiraCreateIssueTypeOption,
   JiraCreateIssueType,
   JiraMessage,
   JiraPriority,
@@ -86,6 +87,22 @@ export async function createTicket(input: CreateJiraTicketInput): Promise<JiraTi
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`Failed to create ticket: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
+  }
+
+  return res.json()
+}
+
+export async function fetchCreateIssueTypes(parentKey?: string | null): Promise<JiraCreateIssueTypeOption[]> {
+  const params = new URLSearchParams()
+  if (parentKey) {
+    params.set('parentKey', parentKey)
+  }
+
+  const query = params.size > 0 ? `?${params.toString()}` : ''
+  const res = await fetch(`${BASE}/create-issue-types${query}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Failed to fetch create issue types: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
   }
 
   return res.json()

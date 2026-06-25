@@ -4291,7 +4291,7 @@ onBeforeUnmount(() => {
     </div>
 
     <main class="min-w-0 flex-1 overflow-hidden p-2">
-      <div class="linear-panel flex h-full min-w-0 flex-col overflow-hidden rounded-lg bg-[#0d0e10]">
+      <div class="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.055] bg-issue-detail-bg">
         <header
           v-if="!selectedTicket"
           class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4"

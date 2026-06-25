@@ -35,17 +35,52 @@ const sidebarWidth = useLocalStorage('jira2.sidebar.width', defaultSidebarWidth)
 const currentView = useLocalStorage('jira2.currentView', 'my-issues')
 const issueSearch = ref('')
 const displayOptionsOpen = ref(false)
-const listGrouping = useLocalStorage<'status' | 'priority' | 'none'>('jira2.linear.grouping', 'status')
-const listOrdering = useLocalStorage<'priority' | 'updated' | 'created' | 'key'>('jira2.linear.ordering', 'priority')
+const groupOrderingOpen = ref(false)
+type IssueGroupingFieldId = 'none' | 'status' | 'assignee' | 'agent' | 'project' | 'priority' | 'label'
+type IssueOrderingFieldId = 'manual' | 'title' | 'status' | 'priority' | 'assignee' | 'agent' | 'estimate' | 'updated' | 'created' | 'due' | 'linkCount' | 'timeInStatus'
+type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
+
+const listGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.grouping', 'status')
+const listSubGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.subGrouping', 'none')
+const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'status')
+const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.groupingDirection', 'asc')
+const listOrderingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.orderingDirection', 'asc')
+const issueGroupOrders = useLocalStorage<IssueGroupConfigMap>('jira2.linear.issueGroupOrders', {})
+const hiddenIssueGroupIds = useLocalStorage<IssueGroupConfigMap>('jira2.linear.hiddenIssueGroupIds', {})
 const completedRange = useLocalStorage<'hidden' | 'week' | 'month' | 'all'>('jira2.linear.completedRange', 'hidden')
 const showSubIssueContext = useLocalStorage('jira2.linear.showSubIssueContext', true)
+const orderCompletedByRecency = useLocalStorage('jira2.linear.orderCompletedByRecency', false)
+const showEmptyGroups = useLocalStorage('jira2.linear.showEmptyGroups', false)
 const collapsedIssueSectionIds = useLocalStorage<string[]>('jira2.linear.collapsedIssueSectionIds', [])
 const visibleIssueRowFields = useLocalStorage<IssueRowFieldId[]>('jira2.linear.visibleIssueRowFields', [
   'id',
   'status',
-  'type',
-  'priority',
   'assignee',
+  'priority',
+  'project',
+  'due',
+  'labels',
+  'created',
+])
+const visibleProjectRowFields = useLocalStorage<ProjectRowFieldId[]>('jira2.linear.visibleProjectRowFields', [
+  'health',
+  'priority',
+  'lead',
+  'targetDate',
+  'issues',
+  'status',
+])
+const visibleInitiativeRowFields = useLocalStorage<InitiativeRowFieldId[]>('jira2.linear.visibleInitiativeRowFields', [
+  'health',
+  'lead',
+  'projects',
+  'issues',
+  'updated',
+])
+const visibleSavedViewRowFields = useLocalStorage<SavedViewRowFieldId[]>('jira2.linear.visibleSavedViewRowFields', [
+  'type',
+  'items',
+  'owner',
   'updated',
 ])
 const isResizingSidebar = ref(false)
@@ -63,6 +98,9 @@ const displayOptionsButtonRef = ref<HTMLButtonElement | null>(null)
 const displayOptionsPanelRef = ref<HTMLDivElement | null>(null)
 const commandInputRef = ref<HTMLInputElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
+const filterMenuButtonRef = ref<HTMLButtonElement | null>(null)
+const filterMenuPanelRef = ref<HTMLDivElement | null>(null)
+const draggedIssueGroupId = ref<string | null>(null)
 const pendingGotoKey = ref(false)
 const focusedIssueKey = ref<string | null>(null)
 const checkedIssueKeys = ref<string[]>([])
@@ -71,15 +109,80 @@ const activeInboxKey = ref<string | null>(null)
 const inboxArchivedKeys = useLocalStorage<string[]>('jira2.linear.inboxArchivedKeys', [])
 const inboxReadKeys = useLocalStorage<string[]>('jira2.linear.inboxReadKeys', [])
 const searchResultTab = useLocalStorage<SearchResultTab>('jira2.linear.searchTab', 'all')
+const filterMenuOpen = ref(false)
+const activeFilterEntryId = ref<FilterEntryId>('status')
+const activeDateFilterId = ref<DateFilterFieldId>('dueDate')
+const activeProjectPropertyFilterId = ref<ProjectPropertyFilterFieldId>('projectStatus')
+const filterFieldSearchQuery = ref('')
+const filterSearchQuery = ref('')
+const savedViewFilters = useLocalStorage<Record<string, ViewFilterClause[]>>('jira2.linear.viewFilters', {})
 
 type SearchResultTab = 'all' | 'issues' | 'projects' | 'initiatives' | 'documents'
-type IssueRowFieldId = 'id' | 'status' | 'type' | 'priority' | 'assignee' | 'created' | 'updated' | 'due' | 'parent'
+type IssueRowFieldId =
+  | 'id'
+  | 'status'
+  | 'assignee'
+  | 'priority'
+  | 'project'
+  | 'due'
+  | 'milestone'
+  | 'release'
+  | 'labels'
+  | 'links'
+  | 'timeInStatus'
+  | 'created'
+  | 'updated'
+type ProjectRowFieldId = 'health' | 'priority' | 'lead' | 'targetDate' | 'issues' | 'status'
+type InitiativeRowFieldId = 'health' | 'lead' | 'projects' | 'issues' | 'updated'
+type SavedViewRowFieldId = 'type' | 'items' | 'owner' | 'updated'
 type MyIssuesViewId = 'my-issues' | 'my-created' | 'my-subscribed' | 'my-activity'
+type StatusTypeValue = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed'
+type DateFilterOperator = 'hasDate' | 'noDate' | 'past' | 'today' | 'next7' | 'next30'
+type DateFilterFieldId = 'dueDate' | 'createdDate' | 'updatedDate' | 'completedDate'
+type ProjectPropertyFilterFieldId = 'projectStatus' | 'projectPriority' | 'projectLead'
+type FilterContextKind = 'issues' | 'projects' | 'initiatives' | 'views'
+type FilterFieldId =
+  | 'status'
+  | 'statusType'
+  | 'assignee'
+  | 'priority'
+  | 'labels'
+  | 'suggestedLabel'
+  | DateFilterFieldId
+  | 'project'
+  | ProjectPropertyFilterFieldId
+  | 'initiative'
+  | 'subscribers'
+  | 'shared'
+  | 'sharedWith'
+  | 'externalSource'
+type FilterEntryId =
+  | 'status'
+  | 'statusType'
+  | 'assignee'
+  | 'priority'
+  | 'labels'
+  | 'suggestedLabel'
+  | 'dates'
+  | 'project'
+  | 'projectProperties'
+  | 'initiative'
+  | 'subscribers'
+  | 'shared'
+  | 'sharedWith'
+  | 'externalSource'
 
 interface IssueSection {
   id: string
   label: string
   tickets: JiraTicket[]
+}
+
+interface IssueGroupOrderingRow {
+  id: string
+  label: string
+  count: number
+  visible: boolean
 }
 
 interface ViewTab {
@@ -128,6 +231,7 @@ interface ProjectRow {
   priority: string
   lead: string
   targetDate: string
+  targetDateValue?: string
   issueCount: number
   completedCount: number
   progress: number
@@ -165,6 +269,21 @@ interface IssueRowFieldOption {
   label: string
 }
 
+interface ProjectRowFieldOption {
+  id: ProjectRowFieldId
+  label: string
+}
+
+interface InitiativeRowFieldOption {
+  id: InitiativeRowFieldId
+  label: string
+}
+
+interface SavedViewRowFieldOption {
+  id: SavedViewRowFieldId
+  label: string
+}
+
 interface IssueRowDisplayProps {
   showId: boolean
   showStatus: boolean
@@ -190,16 +309,127 @@ interface ProjectAccumulator {
   issues: JiraTicket[]
 }
 
+interface FilterMenuEntry {
+  id: FilterEntryId
+  label: string
+  icon: string
+  hasSubmenu: boolean
+}
+
+interface FilterOption {
+  value: string
+  label: string
+  count: number
+  icon: string
+}
+
+interface DateFilterOption {
+  value: DateFilterOperator
+  label: string
+  count: number
+}
+
+interface ViewFilterClause {
+  id: string
+  fieldId: FilterFieldId
+  fieldLabel: string
+  value: string
+  valueLabel: string
+}
+
 const issueRowFieldOptions: IssueRowFieldOption[] = [
   { id: 'id', label: 'ID' },
   { id: 'status', label: 'Status' },
-  { id: 'type', label: 'Subtype' },
-  { id: 'priority', label: 'Priority' },
   { id: 'assignee', label: 'Assignee' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'project', label: 'Project' },
+  { id: 'due', label: 'Due date' },
+  { id: 'milestone', label: 'Milestone' },
+  { id: 'release', label: 'Release' },
+  { id: 'labels', label: 'Labels' },
+  { id: 'links', label: 'Links' },
+  { id: 'timeInStatus', label: 'Time in status' },
   { id: 'created', label: 'Created' },
   { id: 'updated', label: 'Updated' },
+]
+
+const issueGroupingOptions: Array<{ id: IssueGroupingFieldId, label: string }> = [
+  { id: 'none', label: 'No grouping' },
+  { id: 'status', label: 'Status' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'agent', label: 'Agent' },
+  { id: 'project', label: 'Project' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'label', label: 'Label' },
+]
+
+const issueOrderingOptions: Array<{ id: IssueOrderingFieldId, label: string }> = [
+  { id: 'manual', label: 'Manual' },
+  { id: 'title', label: 'Title' },
+  { id: 'status', label: 'Status' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'agent', label: 'Agent' },
+  { id: 'estimate', label: 'Estimate' },
+  { id: 'updated', label: 'Updated' },
+  { id: 'created', label: 'Created' },
   { id: 'due', label: 'Due date' },
-  { id: 'parent', label: 'Parent' },
+  { id: 'linkCount', label: 'Link count' },
+  { id: 'timeInStatus', label: 'Time in status' },
+]
+
+const projectRowFieldOptions: ProjectRowFieldOption[] = [
+  { id: 'health', label: 'Health' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'lead', label: 'Lead' },
+  { id: 'targetDate', label: 'Target date' },
+  { id: 'issues', label: 'Issues' },
+  { id: 'status', label: 'Status' },
+]
+
+const initiativeRowFieldOptions: InitiativeRowFieldOption[] = [
+  { id: 'health', label: 'Health' },
+  { id: 'lead', label: 'Lead' },
+  { id: 'projects', label: 'Projects' },
+  { id: 'issues', label: 'Issues' },
+  { id: 'updated', label: 'Updated' },
+]
+
+const savedViewRowFieldOptions: SavedViewRowFieldOption[] = [
+  { id: 'type', label: 'Type' },
+  { id: 'items', label: 'Items' },
+  { id: 'owner', label: 'Owner' },
+  { id: 'updated', label: 'Updated' },
+]
+
+const filterMenuEntries: FilterMenuEntry[] = [
+  { id: 'status', label: 'Status', icon: '◌', hasSubmenu: true },
+  { id: 'statusType', label: 'Status type', icon: '◐', hasSubmenu: true },
+  { id: 'assignee', label: 'Assignee', icon: '♙', hasSubmenu: true },
+  { id: 'priority', label: 'Priority', icon: '▥', hasSubmenu: true },
+  { id: 'labels', label: 'Labels', icon: '▭', hasSubmenu: true },
+  { id: 'suggestedLabel', label: 'Suggested label', icon: '▰', hasSubmenu: true },
+  { id: 'dates', label: 'Dates', icon: '□', hasSubmenu: true },
+  { id: 'project', label: 'Project', icon: '◇', hasSubmenu: true },
+  { id: 'projectProperties', label: 'Project properties', icon: '◈', hasSubmenu: true },
+  { id: 'initiative', label: 'Initiative', icon: '◒', hasSubmenu: true },
+  { id: 'subscribers', label: 'Subscribers', icon: '♧', hasSubmenu: true },
+  { id: 'shared', label: 'Shared', icon: '♢', hasSubmenu: false },
+  { id: 'sharedWith', label: 'Shared with', icon: '♧', hasSubmenu: true },
+  { id: 'externalSource', label: 'External source', icon: '◇', hasSubmenu: true },
+]
+
+const dateFilterFields: Array<{ id: DateFilterFieldId, label: string, icon: string }> = [
+  { id: 'dueDate', label: 'Due date', icon: '□' },
+  { id: 'createdDate', label: 'Created date', icon: '◱' },
+  { id: 'updatedDate', label: 'Updated date', icon: '◲' },
+  { id: 'completedDate', label: 'Completed date', icon: '◳' },
+]
+
+const projectPropertyFilterFields: Array<{ id: ProjectPropertyFilterFieldId, label: string, icon: string }> = [
+  { id: 'projectStatus', label: 'Project status', icon: '◌' },
+  { id: 'projectPriority', label: 'Project priority', icon: '▥' },
+  { id: 'projectLead', label: 'Project lead', icon: '♙' },
 ]
 
 if (typeof sidebarWidth.value !== 'number' || Number.isNaN(sidebarWidth.value)) {
@@ -278,14 +508,17 @@ const selectedTicket = computed(() => (
 const issueRowDisplayProps = computed<IssueRowDisplayProps>(() => ({
   showId: isIssueRowFieldVisible('id'),
   showStatus: isIssueRowFieldVisible('status'),
-  showIssueType: isIssueRowFieldVisible('type'),
+  showIssueType: isIssueRowFieldVisible('labels'),
   showPriority: isIssueRowFieldVisible('priority'),
   showAssignee: isIssueRowFieldVisible('assignee'),
   showCreated: isIssueRowFieldVisible('created'),
   showUpdated: isIssueRowFieldVisible('updated'),
   showDue: isIssueRowFieldVisible('due'),
-  showParent: isIssueRowFieldVisible('parent'),
+  showParent: isIssueRowFieldVisible('project'),
 }))
+const projectGridTemplate = computed(() => getProjectGridTemplate())
+const initiativeGridTemplate = computed(() => getInitiativeGridTemplate())
+const savedViewGridTemplate = computed(() => getSavedViewGridTemplate())
 
 const effectiveSidebarWidth = computed(() => (
   sidebarCollapsed.value ? collapsedSidebarWidth : sidebarWidth.value
@@ -318,6 +551,15 @@ const viewDirectoryIds = new Set<string>(['views', 'project-views', 'initiative-
 const isViewsDirectory = computed(() => viewDirectoryIds.has(currentView.value))
 const activeViewsDirectoryTab = computed(() => (
   viewDirectoryIds.has(currentView.value) ? currentView.value : 'views'
+))
+const isProjectDisplayView = computed(() => currentView.value === 'projects' || currentTeamSection.value === 'projects')
+const isInitiativeDisplayView = computed(() => currentView.value === 'initiatives')
+const isSavedViewDisplayView = computed(() => isViewsDirectory.value || currentTeamSection.value === 'views')
+const isIssueDisplayView = computed(() => (
+  !isProjectDisplayView.value
+  && !isInitiativeDisplayView.value
+  && !isSavedViewDisplayView.value
+  && currentView.value !== 'inbox'
 ))
 const readyQaTickets = computed(() => (
   issueTickets.value.filter(ticket => ticket.status.toLowerCase().includes('ready for qa'))
@@ -430,8 +672,56 @@ const scopedTickets = computed(() => {
 })
 
 const normalizedIssueSearch = computed(() => issueSearch.value.trim().toLowerCase())
+const normalizedFilterSearch = computed(() => filterSearchQuery.value.trim().toLowerCase())
+const normalizedFilterFieldSearch = computed(() => filterFieldSearchQuery.value.trim().toLowerCase())
+const currentViewFilters = computed(() => savedViewFilters.value[currentView.value] ?? [])
+const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0)
+const visibleFilterMenuEntries = computed<FilterMenuEntry[]>(() => {
+  const query = normalizedFilterFieldSearch.value
+  if (!query) return filterMenuEntries
+  return filterMenuEntries.filter(entry => entry.label.toLowerCase().includes(query))
+})
+const activeFilterEntry = computed<FilterMenuEntry>(() => {
+  const entry = filterMenuEntries.find(candidate => candidate.id === activeFilterEntryId.value)
+  return entry ?? {
+    id: 'status',
+    label: 'Status',
+    icon: '◌',
+    hasSubmenu: true,
+  }
+})
+const activeValueFilterFieldId = computed<FilterFieldId>(() => {
+  if (activeFilterEntryId.value === 'dates') return activeDateFilterId.value
+  if (activeFilterEntryId.value === 'projectProperties') return activeProjectPropertyFilterId.value
+  if (activeFilterEntryId.value === 'status') return 'status'
+  if (activeFilterEntryId.value === 'statusType') return 'statusType'
+  if (activeFilterEntryId.value === 'assignee') return 'assignee'
+  if (activeFilterEntryId.value === 'priority') return 'priority'
+  if (activeFilterEntryId.value === 'labels') return 'labels'
+  if (activeFilterEntryId.value === 'suggestedLabel') return 'suggestedLabel'
+  if (activeFilterEntryId.value === 'project') return 'project'
+  if (activeFilterEntryId.value === 'initiative') return 'initiative'
+  if (activeFilterEntryId.value === 'subscribers') return 'subscribers'
+  if (activeFilterEntryId.value === 'shared') return 'shared'
+  if (activeFilterEntryId.value === 'sharedWith') return 'sharedWith'
+  return 'externalSource'
+})
+const filterableTickets = computed(() => filterTicketsForCurrentView(scopedTickets.value))
+const activeFilterOptions = computed<FilterOption[]>(() => {
+  const options = getFilterOptions(activeValueFilterFieldId.value)
+  const query = normalizedFilterSearch.value
+  if (!query) return options
+  return options.filter(option => option.label.toLowerCase().includes(query))
+})
+const activeDateFilterOptions = computed<DateFilterOption[]>(() => getDateFilterOptions(activeDateFilterId.value))
 
-const searchedTickets = computed(() => {
+watch(visibleFilterMenuEntries, entries => {
+  const firstEntry = entries[0]
+  if (!firstEntry || entries.some(entry => entry.id === activeFilterEntryId.value)) return
+  activeFilterEntryId.value = firstEntry.id
+})
+
+const baseSearchedTickets = computed(() => {
   const query = currentView.value === 'search' ? normalizedIssueSearch.value : ''
   const baseTickets = currentView.value === 'search'
     ? filterTicketsByCompletedRange(issueTickets.value)
@@ -441,11 +731,14 @@ const searchedTickets = computed(() => {
   return baseTickets.filter(ticket => ticketMatchesQuery(ticket, query))
 })
 
+const searchedTickets = computed(() => applyViewFiltersToTickets(baseSearchedTickets.value))
+
 const searchedProjectRows = computed(() => {
   const query = normalizedIssueSearch.value
-  if (!query) return projectRows.value
+  const baseProjects = applyViewFiltersToProjects(projectRows.value)
+  if (!query) return baseProjects
 
-  return projectRows.value.filter(project => [
+  return baseProjects.filter(project => [
     project.key,
     project.name,
     project.spaceKey,
@@ -459,9 +752,10 @@ const searchedProjectRows = computed(() => {
 
 const searchedInitiativeRows = computed(() => {
   const query = normalizedIssueSearch.value
-  if (!query) return initiativeRows.value
+  const baseInitiatives = applyViewFiltersToInitiatives(initiativeRows.value)
+  if (!query) return baseInitiatives
 
-  return initiativeRows.value.filter(initiative => [
+  return baseInitiatives.filter(initiative => [
     initiative.name,
     initiative.description,
     initiative.health,
@@ -497,7 +791,7 @@ const searchTabs = computed<SearchTab[]>(() => [
   },
 ])
 
-const issueSections = computed<IssueSection[]>(() => {
+const baseIssueSections = computed<IssueSection[]>(() => {
   if (isMyIssuesView(currentView.value)) {
     const label = currentView.value === 'my-created'
       ? 'Created by you'
@@ -522,12 +816,25 @@ const issueSections = computed<IssueSection[]>(() => {
     }]
   }
 
-  if (listGrouping.value === 'priority') {
-    return groupTickets(searchedTickets.value, ticket => ticket.priority || 'No priority', getPriorityRank)
-  }
-
-  return groupTickets(searchedTickets.value, ticket => ticket.status || 'No status', () => 0)
+  return groupTickets(
+    searchedTickets.value,
+    ticket => getIssueGroupingLabel(ticket, listGrouping.value),
+    label => getIssueGroupingRank(label, listGrouping.value),
+  )
 })
+
+const issueSections = computed<IssueSection[]>(() => (
+  baseIssueSections.value.filter(section => !isIssueGroupHidden(section.id))
+))
+
+const issueGroupOrderingRows = computed<IssueGroupOrderingRow[]>(() => (
+  baseIssueSections.value.map(section => ({
+    id: section.id,
+    label: section.label,
+    count: section.tickets.length,
+    visible: !isIssueGroupHidden(section.id),
+  }))
+))
 
 const visibleIssueCount = computed(() => issueSections.value.reduce((count, section) => count + section.tickets.length, 0))
 const hiddenCompletedCount = computed(() => (
@@ -565,7 +872,7 @@ const inboxArchivedKeySet = computed(() => new Set(inboxArchivedKeys.value))
 const inboxReadKeySet = computed(() => new Set(inboxReadKeys.value))
 
 const inboxItems = computed<InboxItem[]>(() => (
-  sortTicketsByActivity(triageTickets.value)
+  sortTicketsByActivity(applyViewFiltersToTickets(triageTickets.value))
     .filter(ticket => !inboxArchivedKeySet.value.has(ticket.key))
     .slice(0, 100)
     .map(ticket => ({
@@ -654,6 +961,7 @@ const projectRows = computed<ProjectRow[]>(() => {
         priority: project.priority || 'No priority',
         lead: project.lead && project.lead !== 'Unassigned' ? project.lead : 'Unassigned',
         targetDate: formatCompactDate(project.targetDate),
+        targetDateValue: project.targetDate,
         issueCount,
         completedCount,
         progress,
@@ -669,7 +977,7 @@ const projectRows = computed<ProjectRow[]>(() => {
     ))
 })
 
-const displayedProjectRows = computed(() => {
+const baseDisplayedProjectRows = computed(() => {
   const key = currentTeamKey.value
   if (currentTeamSection.value !== 'projects' || !key) {
     return projectRows.value
@@ -678,7 +986,9 @@ const displayedProjectRows = computed(() => {
   return projectRows.value.filter(project => project.spaceKey === key)
 })
 
-const initiativeRows = computed<InitiativeRow[]>(() => {
+const displayedProjectRows = computed(() => applyViewFiltersToProjects(baseDisplayedProjectRows.value))
+
+const baseInitiativeRows = computed<InitiativeRow[]>(() => {
   const groups: Array<{
     id: string
     name: string
@@ -733,6 +1043,8 @@ const initiativeRows = computed<InitiativeRow[]>(() => {
     })
 })
 
+const initiativeRows = computed(() => applyViewFiltersToInitiatives(baseInitiativeRows.value))
+
 const savedViewRows = computed<SavedViewRow[]>(() => {
   if (activeViewsDirectoryTab.value === 'project-views') {
     const atRiskProjects = projectRows.value.filter(project => project.health === 'At risk')
@@ -783,8 +1095,8 @@ const savedViewRows = computed<SavedViewRow[]>(() => {
         description: 'Roadmap rollups across active projects',
         category: 'Initiatives',
         owner: 'Workspace',
-        count: initiativeRows.value.length,
-        updatedAt: initiativeRows.value[0]?.updatedAt,
+        count: baseInitiativeRows.value.length,
+        updatedAt: baseInitiativeRows.value[0]?.updatedAt,
         icon: '◇',
         viewId: 'initiatives',
       },
@@ -948,9 +1260,10 @@ const teamSavedViewRows = computed<SavedViewRow[]>(() => {
   ))
 })
 
-const displayedSavedViewRows = computed(() => (
+const baseDisplayedSavedViewRows = computed(() => (
   currentTeamSection.value === 'views' ? teamSavedViewRows.value : savedViewRows.value
 ))
+const displayedSavedViewRows = computed(() => applyViewFiltersToSavedViews(baseDisplayedSavedViewRows.value))
 
 const commandSearchQuery = computed(() => commandQuery.value.trim().toLowerCase())
 
@@ -1132,6 +1445,7 @@ watch(selectedKey, key => {
   if (key) {
     focusedIssueKey.value = key
     displayOptionsOpen.value = false
+    closeFilterMenu()
   }
 })
 
@@ -1193,7 +1507,7 @@ function groupTickets(
   }
 
   return [...groups.entries()]
-    .sort(([left], [right]) => getRank(left) - getRank(right) || left.localeCompare(right))
+    .sort((left, right) => compareIssueGroupEntries(left, right, getRank))
     .map(([label, sectionTickets]) => ({
       id: label,
       label,
@@ -1201,25 +1515,87 @@ function groupTickets(
     }))
 }
 
+function compareIssueGroupEntries(
+  left: [string, JiraTicket[]],
+  right: [string, JiraTicket[]],
+  getRank: (label: string) => number,
+): number {
+  const manualOrder = issueGroupOrders.value[listGrouping.value] ?? []
+  const leftManualIndex = manualOrder.indexOf(left[0])
+  const rightManualIndex = manualOrder.indexOf(right[0])
+
+  if (leftManualIndex !== -1 || rightManualIndex !== -1) {
+    if (leftManualIndex === -1) return 1
+    if (rightManualIndex === -1) return -1
+    return leftManualIndex - rightManualIndex
+  }
+
+  return listGroupingDirection.value === 'desc'
+    ? getRank(right[0]) - getRank(left[0]) || right[0].localeCompare(left[0])
+    : getRank(left[0]) - getRank(right[0]) || left[0].localeCompare(right[0])
+}
+
+function getIssueGroupingLabel(ticket: JiraTicket, fieldId: IssueGroupingFieldId): string {
+  if (fieldId === 'status') return ticket.status || 'No status'
+  if (fieldId === 'assignee') return ticket.assignee || 'Unassigned'
+  if (fieldId === 'agent') return 'No agent'
+  if (fieldId === 'project') return ticket.parent?.summary ?? 'No project'
+  if (fieldId === 'priority') return ticket.priority || 'No priority'
+  if (fieldId === 'label') return getLinearIssueSubtype(ticket.issueType)
+  return 'All issues'
+}
+
+function getIssueGroupingRank(label: string, fieldId: IssueGroupingFieldId): number {
+  if (fieldId === 'priority') return getPriorityRank(label)
+  if (fieldId === 'status') return 0
+  return 0
+}
+
 function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
+  const direction = listOrderingDirection.value === 'desc' ? -1 : 1
   return [...nextTickets].sort((left, right) => {
     if (listOrdering.value === 'updated') {
-      return getTimeValue(right.updatedAt ?? right.createdAt) - getTimeValue(left.updatedAt ?? left.createdAt)
+      return direction * (getTimeValue(right.updatedAt ?? right.createdAt) - getTimeValue(left.updatedAt ?? left.createdAt))
         || getPriorityRank(left.priority) - getPriorityRank(right.priority)
         || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
     }
 
     if (listOrdering.value === 'created') {
-      return getTimeValue(right.createdAt) - getTimeValue(left.createdAt)
+      return direction * (getTimeValue(right.createdAt) - getTimeValue(left.createdAt))
         || getPriorityRank(left.priority) - getPriorityRank(right.priority)
         || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
     }
 
-    if (listOrdering.value === 'key') {
+    if (listOrdering.value === 'due') {
+      return direction * (getTimeValue(left.dueDate) - getTimeValue(right.dueDate))
+        || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    if (listOrdering.value === 'title') {
+      return direction * left.summary.localeCompare(right.summary)
+        || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    if (listOrdering.value === 'assignee') {
+      return direction * (left.assignee || 'Unassigned').localeCompare(right.assignee || 'Unassigned')
+        || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    if (listOrdering.value === 'agent' || listOrdering.value === 'estimate' || listOrdering.value === 'linkCount' || listOrdering.value === 'timeInStatus') {
       return left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
     }
 
-    return getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory)
+    if (listOrdering.value === 'priority') {
+      return direction * (getPriorityRank(left.priority) - getPriorityRank(right.priority))
+        || getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory)
+        || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    if (listOrdering.value === 'manual') {
+      return left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    return direction * (getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory))
       || getPriorityRank(left.priority) - getPriorityRank(right.priority)
       || left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' })
   })
@@ -1270,6 +1646,662 @@ function ticketMatchesQuery(ticket: JiraTicket, query: string): boolean {
     ticket.parent?.key,
     ticket.parent?.summary,
   ].some(value => value?.toLowerCase().includes(query))
+}
+
+function getFilterFieldLabel(fieldId: FilterFieldId): string {
+  if (fieldId === 'status') return 'Status'
+  if (fieldId === 'statusType') return 'Status type'
+  if (fieldId === 'assignee') return 'Assignee'
+  if (fieldId === 'priority') return 'Priority'
+  if (fieldId === 'labels') return 'Labels'
+  if (fieldId === 'suggestedLabel') return 'Suggested label'
+  if (fieldId === 'dueDate') return 'Due date'
+  if (fieldId === 'createdDate') return 'Created date'
+  if (fieldId === 'updatedDate') return 'Updated date'
+  if (fieldId === 'completedDate') return 'Completed date'
+  if (fieldId === 'project') return 'Project'
+  if (fieldId === 'projectStatus') return 'Project status'
+  if (fieldId === 'projectPriority') return 'Project priority'
+  if (fieldId === 'projectLead') return 'Project lead'
+  if (fieldId === 'initiative') return 'Initiative'
+  if (fieldId === 'subscribers') return 'Subscribers'
+  if (fieldId === 'shared') return 'Shared'
+  if (fieldId === 'sharedWith') return 'Shared with'
+  return 'External source'
+}
+
+function getActiveFilterContext(): FilterContextKind {
+  if (currentView.value === 'projects' || currentTeamSection.value === 'projects') return 'projects'
+  if (currentView.value === 'initiatives') return 'initiatives'
+  if (isViewsDirectory.value || currentTeamSection.value === 'views') return 'views'
+  return 'issues'
+}
+
+function getFilterOptions(fieldId: FilterFieldId): FilterOption[] {
+  const context = getActiveFilterContext()
+  if (context === 'projects') return getProjectFilterOptions(fieldId)
+  if (context === 'initiatives') return getInitiativeFilterOptions(fieldId)
+  if (context === 'views') return getSavedViewFilterOptions(fieldId)
+  return getIssueFilterOptions(fieldId)
+}
+
+function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
+  const baseTickets = filterableTickets.value
+  if (fieldId === 'status') {
+    return countFilterOptions(baseTickets.map(ticket => ({
+      value: normalizeFilterValue(ticket.status || 'No status'),
+      label: ticket.status || 'No status',
+      icon: '◌',
+    })))
+  }
+
+  if (fieldId === 'statusType') {
+    return countFilterOptions(baseTickets.map(ticket => {
+      const statusType = getTicketStatusType(ticket)
+      return {
+        value: statusType,
+        label: getStatusTypeLabel(statusType),
+        icon: getStatusTypeIcon(statusType),
+      }
+    }))
+  }
+
+  if (fieldId === 'assignee' || fieldId === 'sharedWith') {
+    const currentUser = currentUserName.value || 'Current user'
+    const people = baseTickets.map(ticket => ({
+      value: normalizeFilterValue(ticket.assignee || 'Unassigned'),
+      label: ticket.assignee || 'Unassigned',
+      icon: '♙',
+    }))
+    return countFilterOptions([
+      {
+        value: 'current-user',
+        label: 'Current user',
+        icon: '♙',
+      },
+      ...people,
+    ]).map(option => (
+      option.value === 'current-user'
+        ? {
+            ...option,
+            count: currentUserName.value
+              ? baseTickets.filter(ticket => normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUser)).length
+              : 0,
+          }
+        : option
+    )).filter(option => option.count > 0)
+  }
+
+  if (fieldId === 'priority') {
+    return countFilterOptions(baseTickets.map(ticket => ({
+      value: normalizeFilterValue(ticket.priority || 'No priority'),
+      label: ticket.priority || 'No priority',
+      icon: '▥',
+    })))
+  }
+
+  if (fieldId === 'labels' || fieldId === 'suggestedLabel') {
+    return countFilterOptions(baseTickets.map(ticket => {
+      const label = getLinearIssueSubtype(ticket.issueType)
+      return {
+        value: normalizeFilterValue(label),
+        label,
+        icon: label === 'Bug' ? '●' : label === 'Story' ? '◆' : '○',
+      }
+    }))
+  }
+
+  if (fieldId === 'project') {
+    return countFilterOptions(baseTickets.map(ticket => {
+      const projectKey = getProjectKey(ticket)
+      const project = projectKey ? projectRows.value.find(row => row.key === projectKey) : null
+      return {
+        value: projectKey ?? 'no-project',
+        label: project?.name ?? projectKey ?? 'No project',
+        icon: '◇',
+      }
+    }))
+  }
+
+  if (fieldId === 'projectStatus') {
+    return countFilterOptions(baseDisplayedProjectRows.value.map(project => ({
+      value: normalizeFilterValue(project.status || 'No status'),
+      label: project.status || 'No status',
+      icon: '◌',
+    })))
+  }
+
+  if (fieldId === 'projectPriority') {
+    return countFilterOptions(baseDisplayedProjectRows.value.map(project => ({
+      value: normalizeFilterValue(project.priority || 'No priority'),
+      label: project.priority || 'No priority',
+      icon: '▥',
+    })))
+  }
+
+  if (fieldId === 'projectLead') {
+    return countFilterOptions(baseDisplayedProjectRows.value.map(project => ({
+      value: normalizeFilterValue(project.lead || 'Unassigned'),
+      label: project.lead || 'Unassigned',
+      icon: '♙',
+    })))
+  }
+
+  if (fieldId === 'initiative') {
+    return countFilterOptions(baseInitiativeRows.value.map(initiative => ({
+      value: initiative.id,
+      label: initiative.name,
+      icon: '◒',
+    })))
+  }
+
+  if (fieldId === 'subscribers') {
+    return countFilterOptions(baseTickets.map(ticket => ({
+      value: ticket.isWatching ? 'watching' : 'not-watching',
+      label: ticket.isWatching ? 'Watching' : 'Not watching',
+      icon: '♧',
+    })))
+  }
+
+  if (fieldId === 'shared') {
+    return [{
+      value: 'shared',
+      label: 'Shared',
+      count: baseTickets.filter(ticket => (ticket.watchCount ?? 0) > 0).length,
+      icon: '♢',
+    }]
+  }
+
+  if (fieldId === 'externalSource') {
+    return countFilterOptions(baseTickets.map(ticket => ({
+      value: isLocalTicketKey(ticket.key) ? 'local' : 'jira',
+      label: isLocalTicketKey(ticket.key) ? 'Local' : 'Jira',
+      icon: '◇',
+    })))
+  }
+
+  return []
+}
+
+function getProjectFilterOptions(fieldId: FilterFieldId): FilterOption[] {
+  const baseProjects = baseDisplayedProjectRows.value
+  if (fieldId === 'status' || fieldId === 'projectStatus') {
+    return countFilterOptions(baseProjects.map(project => ({
+      value: normalizeFilterValue(project.status || 'No status'),
+      label: project.status || 'No status',
+      icon: '◌',
+    })))
+  }
+
+  if (fieldId === 'statusType') {
+    return countFilterOptions(baseProjects.map(project => {
+      const statusType = getProjectStatusType(project)
+      return {
+        value: statusType,
+        label: getStatusTypeLabel(statusType),
+        icon: getStatusTypeIcon(statusType),
+      }
+    }))
+  }
+
+  if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
+    const currentUser = currentUserName.value || 'Current user'
+    const people = baseProjects.map(project => ({
+      value: normalizeFilterValue(project.lead || 'Unassigned'),
+      label: project.lead || 'Unassigned',
+      icon: '♙',
+    }))
+    return countFilterOptions([
+      {
+        value: 'current-user',
+        label: 'Current user',
+        icon: '♙',
+      },
+      ...people,
+    ]).map(option => (
+      option.value === 'current-user'
+        ? {
+            ...option,
+            count: currentUserName.value
+              ? baseProjects.filter(project => normalizeFilterValue(project.lead) === normalizeFilterValue(currentUser)).length
+              : 0,
+          }
+        : option
+    )).filter(option => option.count > 0)
+  }
+
+  if (fieldId === 'priority' || fieldId === 'projectPriority') {
+    return countFilterOptions(baseProjects.map(project => ({
+      value: normalizeFilterValue(project.priority || 'No priority'),
+      label: project.priority || 'No priority',
+      icon: '▥',
+    })))
+  }
+
+  if (fieldId === 'labels' || fieldId === 'suggestedLabel') {
+    return countFilterOptions(baseProjects.map(project => ({
+      value: normalizeFilterValue(project.health),
+      label: project.health,
+      icon: project.health === 'Completed' ? '✓' : project.health === 'At risk' ? '◆' : '○',
+    })))
+  }
+
+  if (fieldId === 'project') {
+    return countFilterOptions(baseProjects.map(project => ({
+      value: project.key,
+      label: project.name,
+      icon: '◇',
+    })))
+  }
+
+  if (fieldId === 'initiative') {
+    return countFilterOptions(baseInitiativeRows.value.map(initiative => ({
+      value: initiative.id,
+      label: initiative.name,
+      icon: '◒',
+    }))).map(option => ({
+      ...option,
+      count: baseProjects.filter(project => (
+        baseInitiativeRows.value.some(initiative => initiative.id === option.value && initiative.health === project.health)
+      )).length,
+    })).filter(option => option.count > 0)
+  }
+
+  if (fieldId === 'externalSource') {
+    return [{
+      value: 'jira',
+      label: 'Jira',
+      count: baseProjects.length,
+      icon: '◇',
+    }]
+  }
+
+  return []
+}
+
+function getInitiativeFilterOptions(fieldId: FilterFieldId): FilterOption[] {
+  const baseInitiatives = baseInitiativeRows.value
+  if (fieldId === 'status' || fieldId === 'labels' || fieldId === 'suggestedLabel') {
+    return countFilterOptions(baseInitiatives.map(initiative => ({
+      value: normalizeFilterValue(initiative.health),
+      label: initiative.health,
+      icon: initiative.health === 'Completed' ? '✓' : initiative.health === 'At risk' ? '◆' : '○',
+    })))
+  }
+
+  if (fieldId === 'statusType') {
+    return countFilterOptions(baseInitiatives.map(initiative => {
+      const statusType = getInitiativeStatusType(initiative)
+      return {
+        value: statusType,
+        label: getStatusTypeLabel(statusType),
+        icon: getStatusTypeIcon(statusType),
+      }
+    }))
+  }
+
+  if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
+    return countFilterOptions(baseInitiatives.map(initiative => ({
+      value: normalizeFilterValue(initiative.lead || 'Unassigned'),
+      label: initiative.lead || 'Unassigned',
+      icon: '♙',
+    })))
+  }
+
+  if (fieldId === 'initiative') {
+    return countFilterOptions(baseInitiatives.map(initiative => ({
+      value: initiative.id,
+      label: initiative.name,
+      icon: '◒',
+    })))
+  }
+
+  if (fieldId === 'externalSource') {
+    return [{
+      value: 'jira',
+      label: 'Jira',
+      count: baseInitiatives.length,
+      icon: '◇',
+    }]
+  }
+
+  return []
+}
+
+function getSavedViewFilterOptions(fieldId: FilterFieldId): FilterOption[] {
+  const baseViews = baseDisplayedSavedViewRows.value
+  if (fieldId === 'assignee' || fieldId === 'sharedWith') {
+    return countFilterOptions(baseViews.map(row => ({
+      value: normalizeFilterValue(row.owner),
+      label: row.owner,
+      icon: '♙',
+    })))
+  }
+
+  if (fieldId === 'labels' || fieldId === 'suggestedLabel' || fieldId === 'project') {
+    return countFilterOptions(baseViews.map(row => ({
+      value: normalizeFilterValue(row.category),
+      label: row.category,
+      icon: row.icon,
+    })))
+  }
+
+  if (fieldId === 'externalSource') {
+    return [{
+      value: 'jira',
+      label: 'Jira',
+      count: baseViews.length,
+      icon: '◇',
+    }]
+  }
+
+  return []
+}
+
+function countFilterOptions(entries: Array<{ value: string, label: string, icon: string }>): FilterOption[] {
+  const optionMap = new Map<string, FilterOption>()
+  for (const entry of entries) {
+    const existing = optionMap.get(entry.value)
+    optionMap.set(entry.value, {
+      value: entry.value,
+      label: existing?.label ?? entry.label,
+      icon: existing?.icon ?? entry.icon,
+      count: (existing?.count ?? 0) + 1,
+    })
+  }
+
+  return [...optionMap.values()]
+    .filter(option => option.count > 0)
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+}
+
+function getDateFilterOptions(fieldId: DateFilterFieldId): DateFilterOption[] {
+  const context = getActiveFilterContext()
+  const options: Array<{ value: DateFilterOperator, label: string }> = [
+    { value: 'hasDate', label: 'Is set' },
+    { value: 'noDate', label: 'Is not set' },
+    { value: 'past', label: 'Before today' },
+    { value: 'today', label: 'Today' },
+    { value: 'next7', label: 'Next 7 days' },
+    { value: 'next30', label: 'Next 30 days' },
+  ]
+
+  return options.map(option => ({
+    ...option,
+    count: getDateFilterOptionCount(context, fieldId, option.value),
+  }))
+}
+
+function getDateFilterOptionCount(context: FilterContextKind, fieldId: DateFilterFieldId, operator: DateFilterOperator): number {
+  if (context === 'projects') {
+    return baseDisplayedProjectRows.value.filter(project => (
+      dateMatchesOperator(getProjectDateValue(project, fieldId), operator)
+    )).length
+  }
+
+  if (context === 'initiatives') {
+    return baseInitiativeRows.value.filter(initiative => (
+      dateMatchesOperator(getInitiativeDateValue(initiative, fieldId), operator)
+    )).length
+  }
+
+  if (context === 'views') {
+    return baseDisplayedSavedViewRows.value.filter(row => (
+      dateMatchesOperator(getSavedViewDateValue(row, fieldId), operator)
+    )).length
+  }
+
+  return filterableTickets.value.filter(ticket => (
+    dateMatchesOperator(getTicketDateValue(ticket, fieldId), operator)
+  )).length
+}
+
+function normalizeFilterValue(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase() ?? ''
+  return normalized || 'none'
+}
+
+function getTicketStatusType(ticket: JiraTicket): StatusTypeValue {
+  const status = ticket.status.trim().toLowerCase()
+  if (status === 'backlog') return 'backlog'
+  const group = getStatusGroup(ticket.statusCategory)
+  if (group === 'new') return 'triage'
+  if (group === 'done') return 'completed'
+  return 'started'
+}
+
+function getStatusTypeLabel(value: string): string {
+  if (value === 'triage') return 'Triage'
+  if (value === 'backlog') return 'Backlog'
+  if (value === 'unstarted') return 'Unstarted'
+  if (value === 'completed') return 'Completed'
+  return 'Started'
+}
+
+function getStatusTypeIcon(value: string): string {
+  if (value === 'triage') return '⊕'
+  if (value === 'backlog') return '◌'
+  if (value === 'completed') return '✓'
+  return '◐'
+}
+
+function getTicketDateValue(ticket: JiraTicket, fieldId: DateFilterFieldId): string | undefined {
+  if (fieldId === 'dueDate') return ticket.dueDate
+  if (fieldId === 'createdDate') return ticket.createdAt
+  if (fieldId === 'updatedDate') return ticket.updatedAt
+  return ticket.completedAt
+}
+
+function getProjectDateValue(project: ProjectRow, fieldId: DateFilterFieldId): string | undefined {
+  if (fieldId === 'dueDate') return project.targetDateValue
+  if (fieldId === 'updatedDate') return project.updatedAt
+  return undefined
+}
+
+function getInitiativeDateValue(initiative: InitiativeRow, fieldId: DateFilterFieldId): string | undefined {
+  if (fieldId === 'updatedDate') return initiative.updatedAt
+  return undefined
+}
+
+function getSavedViewDateValue(row: SavedViewRow, fieldId: DateFilterFieldId): string | undefined {
+  if (fieldId === 'updatedDate') return row.updatedAt
+  return undefined
+}
+
+function dateMatchesOperator(value: string | undefined, operator: DateFilterOperator): boolean {
+  const time = getTimeValue(value)
+  if (operator === 'hasDate') return time > 0
+  if (operator === 'noDate') return time === 0
+  if (time === 0) return false
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfTomorrow = startOfToday + 24 * 60 * 60 * 1000
+  if (operator === 'past') return time < startOfToday
+  if (operator === 'today') return time >= startOfToday && time < startOfTomorrow
+  const maxDays = operator === 'next7' ? 7 : 30
+  return time >= startOfToday && time < startOfToday + maxDays * 24 * 60 * 60 * 1000
+}
+
+function applyViewFiltersToTickets(nextTickets: JiraTicket[]): JiraTicket[] {
+  const filters = currentViewFilters.value
+  if (!filters.length) return nextTickets
+  return nextTickets.filter(ticket => filters.every(filter => ticketMatchesFilter(ticket, filter)))
+}
+
+function ticketMatchesFilter(ticket: JiraTicket, filter: ViewFilterClause): boolean {
+  if (filter.fieldId === 'status') return normalizeFilterValue(ticket.status || 'No status') === filter.value
+  if (filter.fieldId === 'statusType') return getTicketStatusType(ticket) === filter.value
+  if (filter.fieldId === 'assignee' || filter.fieldId === 'sharedWith') {
+    if (filter.value === 'current-user') {
+      return Boolean(currentUserName.value) && normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUserName.value)
+    }
+    return normalizeFilterValue(ticket.assignee || 'Unassigned') === filter.value
+  }
+  if (filter.fieldId === 'priority') return normalizeFilterValue(ticket.priority || 'No priority') === filter.value
+  if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(getLinearIssueSubtype(ticket.issueType)) === filter.value
+  if (filter.fieldId === 'project') return (getProjectKey(ticket) ?? 'no-project') === filter.value
+  if (filter.fieldId === 'projectStatus' || filter.fieldId === 'projectPriority' || filter.fieldId === 'projectLead') {
+    const project = getTicketProject(ticket)
+    if (!project) return false
+    return projectMatchesFilter(project, filter)
+  }
+  if (filter.fieldId === 'initiative') return getTicketInitiativeIds(ticket).includes(filter.value)
+  if (filter.fieldId === 'subscribers') return filter.value === 'watching' ? ticket.isWatching === true : ticket.isWatching !== true
+  if (filter.fieldId === 'shared') return (ticket.watchCount ?? 0) > 0
+  if (filter.fieldId === 'externalSource') return filter.value === (isLocalTicketKey(ticket.key) ? 'local' : 'jira')
+  return dateMatchesOperator(getTicketDateValue(ticket, filter.fieldId), getDateFilterOperator(filter.value))
+}
+
+function getDateFilterOperator(value: string): DateFilterOperator {
+  if (value === 'noDate') return 'noDate'
+  if (value === 'past') return 'past'
+  if (value === 'today') return 'today'
+  if (value === 'next7') return 'next7'
+  if (value === 'next30') return 'next30'
+  return 'hasDate'
+}
+
+function getTicketProject(ticket: JiraTicket): ProjectRow | null {
+  const projectKey = getProjectKey(ticket)
+  if (!projectKey) return null
+  return projectRows.value.find(project => project.key === projectKey) ?? null
+}
+
+function getTicketInitiativeIds(ticket: JiraTicket): string[] {
+  const project = getTicketProject(ticket)
+  if (!project) return []
+  return baseInitiativeRows.value
+    .filter(initiative => initiative.name === project.health || initiative.health === project.health)
+    .map(initiative => initiative.id)
+}
+
+function applyViewFiltersToProjects(nextProjects: ProjectRow[]): ProjectRow[] {
+  const filters = currentViewFilters.value
+  if (!filters.length) return nextProjects
+  return nextProjects.filter(project => filters.every(filter => projectMatchesFilter(project, filter)))
+}
+
+function projectMatchesFilter(project: ProjectRow, filter: ViewFilterClause): boolean {
+  if (filter.fieldId === 'status' || filter.fieldId === 'projectStatus') return normalizeFilterValue(project.status || 'No status') === filter.value
+  if (filter.fieldId === 'statusType') return getProjectStatusType(project) === filter.value
+  if (filter.fieldId === 'assignee' || filter.fieldId === 'projectLead' || filter.fieldId === 'sharedWith') return normalizeFilterValue(project.lead || 'Unassigned') === filter.value
+  if (filter.fieldId === 'priority' || filter.fieldId === 'projectPriority') return normalizeFilterValue(project.priority || 'No priority') === filter.value
+  if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(project.health) === filter.value
+  if (filter.fieldId === 'project') return project.key === filter.value
+  if (filter.fieldId === 'initiative') return baseInitiativeRows.value.some(initiative => initiative.id === filter.value && initiative.health === project.health)
+  if (filter.fieldId === 'externalSource') return filter.value === 'jira'
+  if (filter.fieldId === 'subscribers' || filter.fieldId === 'shared') return true
+  if (filter.fieldId === 'dueDate' || filter.fieldId === 'createdDate' || filter.fieldId === 'updatedDate' || filter.fieldId === 'completedDate') {
+    return dateMatchesOperator(getProjectDateValue(project, filter.fieldId), getDateFilterOperator(filter.value))
+  }
+  return false
+}
+
+function getProjectStatusType(project: ProjectRow): StatusTypeValue {
+  if (project.health === 'Completed') return 'completed'
+  if (project.status.trim().toLowerCase() === 'backlog') return 'backlog'
+  return 'started'
+}
+
+function getInitiativeStatusType(initiative: InitiativeRow): StatusTypeValue {
+  if (initiative.health === 'Completed') return 'completed'
+  return 'started'
+}
+
+function applyViewFiltersToInitiatives(nextInitiatives: InitiativeRow[]): InitiativeRow[] {
+  const filters = currentViewFilters.value
+  if (!filters.length) return nextInitiatives
+  return nextInitiatives.filter(initiative => filters.every(filter => initiativeMatchesFilter(initiative, filter)))
+}
+
+function initiativeMatchesFilter(initiative: InitiativeRow, filter: ViewFilterClause): boolean {
+  if (filter.fieldId === 'initiative') return initiative.id === filter.value
+  if (filter.fieldId === 'shared') return true
+  if (filter.fieldId === 'status' || filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(initiative.health) === filter.value
+  if (filter.fieldId === 'statusType') return getInitiativeStatusType(initiative) === filter.value
+  if (filter.fieldId === 'assignee' || filter.fieldId === 'projectLead' || filter.fieldId === 'sharedWith') return normalizeFilterValue(initiative.lead || 'Unassigned') === filter.value
+  if (filter.fieldId === 'externalSource') return filter.value === 'jira'
+  if (filter.fieldId === 'dueDate' || filter.fieldId === 'createdDate' || filter.fieldId === 'updatedDate' || filter.fieldId === 'completedDate') {
+    return dateMatchesOperator(getInitiativeDateValue(initiative, filter.fieldId), getDateFilterOperator(filter.value))
+  }
+  return false
+}
+
+function applyViewFiltersToSavedViews(nextViews: SavedViewRow[]): SavedViewRow[] {
+  const filters = currentViewFilters.value
+  if (!filters.length) return nextViews
+  return nextViews.filter(row => filters.every(filter => savedViewMatchesFilter(row, filter)))
+}
+
+function savedViewMatchesFilter(row: SavedViewRow, filter: ViewFilterClause): boolean {
+  if (filter.fieldId === 'shared') return true
+  if (filter.fieldId === 'assignee' || filter.fieldId === 'sharedWith') return normalizeFilterValue(row.owner) === filter.value
+  if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel' || filter.fieldId === 'project') return normalizeFilterValue(row.category) === filter.value || normalizeFilterValue(row.name).includes(filter.value)
+  if (filter.fieldId === 'externalSource') return filter.value === 'jira'
+  if (filter.fieldId === 'dueDate' || filter.fieldId === 'createdDate' || filter.fieldId === 'updatedDate' || filter.fieldId === 'completedDate') {
+    return dateMatchesOperator(getSavedViewDateValue(row, filter.fieldId), getDateFilterOperator(filter.value))
+  }
+  return false
+}
+
+function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string) {
+  const fieldLabel = getFilterFieldLabel(fieldId)
+  const existingFilters = currentViewFilters.value.filter(filter => !(filter.fieldId === fieldId && filter.value === value))
+  const nextFilter: ViewFilterClause = {
+    id: `${fieldId}:${value}:${Date.now()}`,
+    fieldId,
+    fieldLabel,
+    value,
+    valueLabel,
+  }
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [currentView.value]: [...existingFilters, nextFilter],
+  }
+  filterMenuOpen.value = false
+  filterFieldSearchQuery.value = ''
+  filterSearchQuery.value = ''
+}
+
+function removeFilterClause(filterId: string) {
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [currentView.value]: currentViewFilters.value.filter(filter => filter.id !== filterId),
+  }
+}
+
+function clearCurrentViewFilters() {
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [currentView.value]: [],
+  }
+}
+
+function openFilterMenu() {
+  filterMenuOpen.value = true
+  displayOptionsOpen.value = false
+}
+
+function closeFilterMenu() {
+  filterMenuOpen.value = false
+  filterFieldSearchQuery.value = ''
+  filterSearchQuery.value = ''
+}
+
+function toggleFilterMenu() {
+  if (filterMenuOpen.value) {
+    closeFilterMenu()
+    return
+  }
+  openFilterMenu()
+}
+
+function saveCurrentViewFilters() {
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [currentView.value]: [...currentViewFilters.value],
+  }
 }
 
 function getIssueTypeIcon(issueType: string): string {
@@ -1387,6 +2419,20 @@ function getInsightBarClass(index: number): string {
   return 'bg-[#8f9198]'
 }
 
+function getIssueGroupMarkerClass(label: string): string {
+  const normalizedLabel = label.toLowerCase()
+  if (normalizedLabel.includes('qa') || normalizedLabel.includes('deployment') || normalizedLabel.includes('done') || normalizedLabel.includes('complete')) {
+    return 'border-[#3aa7ff] bg-[#3aa7ff]/10'
+  }
+  if (normalizedLabel.includes('progress') || normalizedLabel.includes('review') || normalizedLabel.includes('blocked')) {
+    return 'border-[#e59356] bg-[#e59356]/10'
+  }
+  if (normalizedLabel.includes('todo') || normalizedLabel.includes('backlog') || normalizedLabel.includes('unstarted')) {
+    return 'border-[#d7d8dc] bg-transparent'
+  }
+  return 'border-[#8f9198] bg-transparent'
+}
+
 function isIssueRowFieldVisible(fieldId: IssueRowFieldId): boolean {
   return visibleIssueRowFields.value.includes(fieldId)
 }
@@ -1399,6 +2445,172 @@ function toggleIssueRowField(fieldId: IssueRowFieldId) {
   }
 
   visibleIssueRowFields.value = [...visibleIssueRowFields.value, fieldId]
+}
+
+function resetIssueDisplayOptions() {
+  listGrouping.value = 'status'
+  listSubGrouping.value = 'none'
+  listOrdering.value = 'status'
+  listGroupingDirection.value = 'asc'
+  listOrderingDirection.value = 'asc'
+  orderCompletedByRecency.value = false
+  showSubIssueContext.value = true
+  showEmptyGroups.value = false
+  visibleIssueRowFields.value = ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created']
+}
+
+function openGroupOrdering() {
+  groupOrderingOpen.value = true
+}
+
+function closeGroupOrdering() {
+  groupOrderingOpen.value = false
+}
+
+function getCurrentIssueGroupOrder(): string[] {
+  return issueGroupOrders.value[listGrouping.value] ?? []
+}
+
+function setCurrentIssueGroupOrder(groupIds: string[]) {
+  issueGroupOrders.value = {
+    ...issueGroupOrders.value,
+    [listGrouping.value]: groupIds,
+  }
+}
+
+function getCurrentHiddenIssueGroupIds(): string[] {
+  return hiddenIssueGroupIds.value[listGrouping.value] ?? []
+}
+
+function setCurrentHiddenIssueGroupIds(groupIds: string[]) {
+  hiddenIssueGroupIds.value = {
+    ...hiddenIssueGroupIds.value,
+    [listGrouping.value]: groupIds,
+  }
+}
+
+function isIssueGroupHidden(groupId: string): boolean {
+  return getCurrentHiddenIssueGroupIds().includes(groupId)
+}
+
+function toggleIssueGroupVisibility(groupId: string) {
+  const hiddenIds = getCurrentHiddenIssueGroupIds()
+  setCurrentHiddenIssueGroupIds(
+    hiddenIds.includes(groupId)
+      ? hiddenIds.filter(id => id !== groupId)
+      : [...hiddenIds, groupId],
+  )
+}
+
+function resetCurrentIssueGroupOrdering() {
+  listGroupingDirection.value = 'asc'
+  setCurrentIssueGroupOrder([])
+  setCurrentHiddenIssueGroupIds([])
+}
+
+function startIssueGroupDrag(groupId: string) {
+  draggedIssueGroupId.value = groupId
+}
+
+function finishIssueGroupDrag() {
+  draggedIssueGroupId.value = null
+}
+
+function dropIssueGroup(targetGroupId: string) {
+  const draggedGroupId = draggedIssueGroupId.value
+  if (!draggedGroupId || draggedGroupId === targetGroupId) {
+    finishIssueGroupDrag()
+    return
+  }
+
+  const currentIds = issueGroupOrderingRows.value.map(row => row.id)
+  const nextIds = currentIds.filter(id => id !== draggedGroupId)
+  const targetIndex = nextIds.indexOf(targetGroupId)
+
+  if (targetIndex === -1) {
+    finishIssueGroupDrag()
+    return
+  }
+
+  nextIds.splice(targetIndex, 0, draggedGroupId)
+  setCurrentIssueGroupOrder(nextIds)
+  finishIssueGroupDrag()
+}
+
+function toggleOrderingDirection() {
+  listOrderingDirection.value = listOrderingDirection.value === 'asc' ? 'desc' : 'asc'
+}
+
+function isProjectRowFieldVisible(fieldId: ProjectRowFieldId): boolean {
+  return visibleProjectRowFields.value.includes(fieldId)
+}
+
+function toggleProjectRowField(fieldId: ProjectRowFieldId) {
+  if (isProjectRowFieldVisible(fieldId)) {
+    if (visibleProjectRowFields.value.length === 1) return
+    visibleProjectRowFields.value = visibleProjectRowFields.value.filter(item => item !== fieldId)
+    return
+  }
+
+  visibleProjectRowFields.value = [...visibleProjectRowFields.value, fieldId]
+}
+
+function isInitiativeRowFieldVisible(fieldId: InitiativeRowFieldId): boolean {
+  return visibleInitiativeRowFields.value.includes(fieldId)
+}
+
+function toggleInitiativeRowField(fieldId: InitiativeRowFieldId) {
+  if (isInitiativeRowFieldVisible(fieldId)) {
+    if (visibleInitiativeRowFields.value.length === 1) return
+    visibleInitiativeRowFields.value = visibleInitiativeRowFields.value.filter(item => item !== fieldId)
+    return
+  }
+
+  visibleInitiativeRowFields.value = [...visibleInitiativeRowFields.value, fieldId]
+}
+
+function isSavedViewRowFieldVisible(fieldId: SavedViewRowFieldId): boolean {
+  return visibleSavedViewRowFields.value.includes(fieldId)
+}
+
+function toggleSavedViewRowField(fieldId: SavedViewRowFieldId) {
+  if (isSavedViewRowFieldVisible(fieldId)) {
+    if (visibleSavedViewRowFields.value.length === 1) return
+    visibleSavedViewRowFields.value = visibleSavedViewRowFields.value.filter(item => item !== fieldId)
+    return
+  }
+
+  visibleSavedViewRowFields.value = [...visibleSavedViewRowFields.value, fieldId]
+}
+
+function getProjectGridTemplate(): string {
+  const columns = ['minmax(220px,1.4fr)']
+  if (isProjectRowFieldVisible('health')) columns.push('108px')
+  if (isProjectRowFieldVisible('priority')) columns.push('94px')
+  if (isProjectRowFieldVisible('lead')) columns.push('130px')
+  if (isProjectRowFieldVisible('targetDate')) columns.push('104px')
+  if (isProjectRowFieldVisible('issues')) columns.push('150px')
+  if (isProjectRowFieldVisible('status')) columns.push('116px')
+  return columns.join(' ')
+}
+
+function getInitiativeGridTemplate(): string {
+  const columns = ['minmax(260px,1.4fr)']
+  if (isInitiativeRowFieldVisible('health')) columns.push('112px')
+  if (isInitiativeRowFieldVisible('lead')) columns.push('124px')
+  if (isInitiativeRowFieldVisible('projects')) columns.push('132px')
+  if (isInitiativeRowFieldVisible('issues')) columns.push('156px')
+  if (isInitiativeRowFieldVisible('updated')) columns.push('112px')
+  return columns.join(' ')
+}
+
+function getSavedViewGridTemplate(): string {
+  const columns = ['minmax(260px,1fr)']
+  if (isSavedViewRowFieldVisible('type')) columns.push('112px')
+  if (isSavedViewRowFieldVisible('items')) columns.push('88px')
+  if (isSavedViewRowFieldVisible('owner')) columns.push('132px')
+  if (isSavedViewRowFieldVisible('updated')) columns.push('112px')
+  return columns.join(' ')
 }
 
 function getMostCommonLead(projects: ProjectRow[]): string {
@@ -1724,6 +2936,7 @@ function openCommandMenu(initialQuery = '') {
   commandActiveIndex.value = 0
   commandMenuOpen.value = true
   displayOptionsOpen.value = false
+  closeFilterMenu()
 }
 
 function closeCommandMenu() {
@@ -1734,25 +2947,42 @@ function closeCommandMenu() {
 
 function closeDisplayOptions() {
   displayOptionsOpen.value = false
+  groupOrderingOpen.value = false
 }
 
 function toggleDisplayOptions() {
+  if (!displayOptionsOpen.value) {
+    closeFilterMenu()
+    groupOrderingOpen.value = false
+  }
   displayOptionsOpen.value = !displayOptionsOpen.value
 }
 
 function handleDocumentPointerDown(event: PointerEvent) {
-  if (!displayOptionsOpen.value) return
   const target = event.target
   if (!(target instanceof Node)) return
 
-  if (
-    displayOptionsPanelRef.value?.contains(target)
-    || displayOptionsButtonRef.value?.contains(target)
-  ) {
-    return
+  if (displayOptionsOpen.value) {
+    if (
+      displayOptionsPanelRef.value?.contains(target)
+      || displayOptionsButtonRef.value?.contains(target)
+    ) {
+      return
+    }
+
+    closeDisplayOptions()
   }
 
-  closeDisplayOptions()
+  if (filterMenuOpen.value) {
+    if (
+      filterMenuPanelRef.value?.contains(target)
+      || filterMenuButtonRef.value?.contains(target)
+    ) {
+      return
+    }
+
+    closeFilterMenu()
+  }
 }
 
 function runCommandItem(item: CommandMenuItem) {
@@ -1867,7 +3097,17 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
   if (displayOptionsOpen.value && event.key === 'Escape') {
     event.preventDefault()
+    if (groupOrderingOpen.value) {
+      closeGroupOrdering()
+      return
+    }
     closeDisplayOptions()
+    return
+  }
+
+  if (filterMenuOpen.value && event.key === 'Escape') {
+    event.preventDefault()
+    closeFilterMenu()
     return
   }
 
@@ -2091,21 +3331,166 @@ onBeforeUnmount(() => {
           <div class="relative flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              class="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 text-[12px] text-[#bfc1c8] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
-              @click="openGlobalCreate()"
-            >
-              <span>＋</span>
-              <span>New</span>
-            </button>
-            <button
-              type="button"
               class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4] disabled:opacity-50"
               :disabled="refreshing"
               title="Refresh"
               @click="handleRefresh"
             >
-              <span :class="{ 'animate-spin': refreshing }">↻</span>
+              <svg
+                class="h-4 w-4"
+                :class="{ 'animate-spin': refreshing }"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                aria-hidden="true"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.25 3.25v3.2h-3.2" />
+              </svg>
             </button>
+            <button
+              v-if="!selectedTicket"
+              ref="filterMenuButtonRef"
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              :class="hasCurrentViewFilters || filterMenuOpen ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]' : 'border-white/[0.08] bg-white/[0.035]'"
+              title="Filter"
+              @click="toggleFilterMenu"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" d="M3 4h10M5 8h6M7 12h2" />
+              </svg>
+            </button>
+
+            <div
+              v-if="filterMenuOpen && !selectedTicket"
+              ref="filterMenuPanelRef"
+              class="absolute right-10 top-10 z-30 flex max-h-[35rem] w-[34rem] overflow-hidden rounded-lg border border-white/[0.08] bg-[#15161a] shadow-xl shadow-black/40"
+            >
+              <div class="w-[15rem] shrink-0 border-r border-white/[0.06] py-1.5">
+                <div class="px-2 pb-1">
+                  <input
+                    v-model="filterFieldSearchQuery"
+                    type="text"
+                    name="linear-filter-field-search"
+                    class="h-8 w-full rounded-md border border-white/[0.06] bg-black/20 px-2 text-[12px] text-[#d7d8dc] outline-none placeholder:text-[#6f727b] focus:border-white/[0.14]"
+                    placeholder="Add Filter..."
+                  >
+                </div>
+
+                <button
+                  v-for="entry in visibleFilterMenuEntries"
+                  :key="entry.id"
+                  type="button"
+                  class="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] transition"
+                  :class="activeFilterEntryId === entry.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                  @mouseenter="activeFilterEntryId = entry.id"
+                  @focus="activeFilterEntryId = entry.id"
+                  @click="entry.id === 'shared' ? addFilterClause('shared', 'shared', 'Shared') : activeFilterEntryId = entry.id"
+                >
+                  <span class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
+                  <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
+                  <span v-if="entry.hasSubmenu" class="text-[11px] text-[#777a83]">›</span>
+                </button>
+                <div v-if="visibleFilterMenuEntries.length === 0" class="px-3 py-8 text-center text-[12px] text-[#777a83]">
+                  No matching filters
+                </div>
+              </div>
+
+              <div class="min-w-0 flex-1 py-1.5">
+                <template v-if="activeFilterEntryId === 'dates'">
+                  <div class="border-b border-white/[0.06] px-2 pb-1">
+                    <button
+                      v-for="field in dateFilterFields"
+                      :key="field.id"
+                      type="button"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px]"
+                      :class="activeDateFilterId === field.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                      @mouseenter="activeDateFilterId = field.id"
+                      @click="activeDateFilterId = field.id"
+                    >
+                      <span class="w-4 text-center text-[#8f9198]">{{ field.icon }}</span>
+                      <span class="flex-1 truncate">{{ field.label }}</span>
+                      <span class="text-[11px] text-[#777a83]">›</span>
+                    </button>
+                  </div>
+                  <div class="px-2 pt-1">
+                    <button
+                      v-for="option in activeDateFilterOptions"
+                      :key="option.value"
+                      type="button"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
+                      @click="addFilterClause(activeDateFilterId, option.value, option.label)"
+                    >
+                      <span class="w-4 text-center text-[#8f9198]">◷</span>
+                      <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
+                      <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
+                    </button>
+                  </div>
+                </template>
+
+                <template v-else-if="activeFilterEntryId === 'projectProperties'">
+                  <div class="border-b border-white/[0.06] px-2 pb-1">
+                    <button
+                      v-for="field in projectPropertyFilterFields"
+                      :key="field.id"
+                      type="button"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px]"
+                      :class="activeProjectPropertyFilterId === field.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                      @mouseenter="activeProjectPropertyFilterId = field.id"
+                      @click="activeProjectPropertyFilterId = field.id"
+                    >
+                      <span class="w-4 text-center text-[#8f9198]">{{ field.icon }}</span>
+                      <span class="flex-1 truncate">{{ field.label }}</span>
+                      <span class="text-[11px] text-[#777a83]">›</span>
+                    </button>
+                  </div>
+                  <div class="px-2 pt-1">
+                    <button
+                      v-for="option in activeFilterOptions"
+                      :key="option.value"
+                      type="button"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
+                      @click="addFilterClause(activeProjectPropertyFilterId, option.value, option.label)"
+                    >
+                      <span class="w-4 text-center text-[#8f9198]">{{ option.icon }}</span>
+                      <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
+                      <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
+                    </button>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <div class="px-2 pb-1">
+                    <input
+                      v-model="filterSearchQuery"
+                      type="text"
+                      name="linear-filter-search"
+                      class="h-8 w-full rounded-md border border-white/[0.06] bg-black/20 px-2 text-[12px] text-[#d7d8dc] outline-none placeholder:text-[#6f727b] focus:border-white/[0.14]"
+                      :placeholder="`Filter ${activeFilterEntry.label.toLowerCase()}...`"
+                    >
+                  </div>
+                  <div class="max-h-[30rem] overflow-y-auto px-2">
+                    <button
+                      v-for="option in activeFilterOptions"
+                      :key="option.value"
+                      type="button"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
+                      @click="addFilterClause(activeValueFilterFieldId, option.value, option.label)"
+                    >
+                      <span class="w-4 shrink-0 text-center text-[#8f9198]">{{ option.icon }}</span>
+                      <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
+                      <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
+                    </button>
+                    <div v-if="activeFilterOptions.length === 0" class="px-3 py-8 text-center text-[12px] text-[#777a83]">
+                      No matching options
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
             <button
               v-if="!selectedTicket"
               ref="displayOptionsButtonRef"
@@ -2114,7 +3499,10 @@ onBeforeUnmount(() => {
               title="Display options"
               @click="toggleDisplayOptions"
             >
-              ⇄
+              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5.25h8.5m0 0-2-2m2 2-2 2" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.75H3.5m0 0 2-2m-2 2 2 2" />
+              </svg>
             </button>
 
             <div
@@ -2122,60 +3510,138 @@ onBeforeUnmount(() => {
               ref="displayOptionsPanelRef"
               class="absolute right-0 top-10 z-20 w-[22rem] overflow-hidden rounded-lg border border-white/[0.08] bg-surface-2 shadow-xl shadow-black/35"
             >
-              <div class="flex h-10 items-center justify-between gap-3 border-b border-white/[0.06] px-3">
-                <p class="text-[12px] font-medium text-[#d7d8dc]">Display</p>
-                <button
-                  type="button"
-                  class="inline-flex h-6 w-6 items-center justify-center rounded-md text-[13px] text-[#777a83] transition hover:bg-white/[0.05] hover:text-[#f0f1f4]"
-                  aria-label="Close display options"
-                  @click="closeDisplayOptions"
-                >
-                  <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                    <path stroke-linecap="round" d="M4.25 4.25l7.5 7.5M11.75 4.25l-7.5 7.5" />
-                  </svg>
-                </button>
+              <div v-if="groupOrderingOpen" class="overflow-hidden">
+                <div class="flex h-11 items-center justify-between border-b border-white/[0.06] px-3">
+                  <button
+                    type="button"
+                    class="flex h-7 min-w-0 items-center gap-2 rounded-md pr-2 text-[13px] text-[#aeb0b7] hover:text-[#f0f1f4]"
+                    @click="closeGroupOrdering"
+                  >
+                    <span class="text-[16px] leading-none">‹</span>
+                    <span>Group ordering</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded px-1.5 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
+                    @click="resetCurrentIssueGroupOrdering"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                <div class="max-h-[22rem] overflow-y-auto py-2">
+                  <div v-if="issueGroupOrderingRows.length" class="space-y-0.5">
+                    <div
+                      v-for="row in issueGroupOrderingRows"
+                      :key="row.id"
+                      class="group flex h-8 items-center gap-2 px-3 text-[13px] transition"
+                      :class="row.visible ? 'text-[#d7d8dc]' : 'text-[#777a83]'"
+                      draggable="true"
+                      @dragstart="startIssueGroupDrag(row.id)"
+                      @dragover.prevent
+                      @drop="dropIssueGroup(row.id)"
+                      @dragend="finishIssueGroupDrag"
+                    >
+                      <span class="cursor-grab text-[14px] text-[#555861] active:cursor-grabbing">⁝⁝</span>
+                      <span class="h-3.5 w-3.5 shrink-0 rounded-full border" :class="getIssueGroupMarkerClass(row.label)"></span>
+                      <span class="min-w-0 flex-1 truncate">{{ row.label }}</span>
+                      <button
+                        type="button"
+                        class="flex h-6 w-6 items-center justify-center rounded-md text-[#aeb0b7] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+                        :aria-label="row.visible ? `Hide ${row.label}` : `Show ${row.label}`"
+                        @click="toggleIssueGroupVisibility(row.id)"
+                      >
+                        <svg v-if="row.visible" class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M1.75 8s2.25-4 6.25-4 6.25 4 6.25 4-2.25 4-6.25 4-6.25-4-6.25-4Z" />
+                          <circle cx="8" cy="8" r="1.75" />
+                        </svg>
+                        <svg v-else class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 2.5l11 11M6.2 6.2A2 2 0 0 0 8 10a2 2 0 0 0 1.8-1.1M4.7 4.9C2.8 6.1 1.75 8 1.75 8s2.25 4 6.25 4c1.1 0 2.05-.3 2.85-.72M7.2 4.04A6.7 6.7 0 0 1 8 4c4 0 6.25 4 6.25 4a9.02 9.02 0 0 1-1.55 1.88" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="px-3 py-8 text-center text-[12px] text-[#777a83]">
+                    No groups to order
+                  </div>
+                </div>
               </div>
 
-              <div class="space-y-0.5 p-2">
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5">
-                  <span class="text-[12px] text-[#8f9198]">Layout</span>
+              <div v-if="!groupOrderingOpen" class="space-y-0.5 p-2">
+                <div class="rounded-md px-2 py-1.5">
                   <div class="grid grid-cols-2 gap-1 rounded-md bg-black/20 p-0.5">
                     <button type="button" class="rounded bg-white/[0.08] px-2 py-1 text-[12px] text-[#f0f1f4]">List</button>
                     <button type="button" class="rounded px-2 py-1 text-[12px] text-[#777a83]" disabled>Board</button>
                   </div>
                 </div>
 
-                <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
-                  <span class="text-[12px] text-[#8f9198]">Group by</span>
-                  <select v-model="listGrouping" name="issue-grouping" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
-                    <option value="status">Status</option>
-                    <option value="priority">Priority</option>
-                    <option value="none">None</option>
-                  </select>
-                </label>
+                <template v-if="isIssueDisplayView">
+                  <label class="grid grid-cols-[7.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
+                    <span class="text-[12px] text-[#8f9198]">Grouping</span>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-md text-[#aeb0b7] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+                      aria-label="Group ordering"
+                      title="Group ordering"
+                      @click.prevent="openGroupOrdering"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12V4m0 0L2.75 6.25M5 4l2.25 2.25M11 4v8m0 0 2.25-2.25M11 12 8.75 9.75" />
+                      </svg>
+                    </button>
+                    <select v-model="listGrouping" name="issue-grouping" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in issueGroupingOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
 
-                <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
-                  <span class="text-[12px] text-[#8f9198]">Order by</span>
-                  <select v-model="listOrdering" name="issue-ordering" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
-                    <option value="priority">Priority</option>
-                    <option value="updated">Last updated</option>
-                    <option value="created">Created</option>
-                    <option value="key">Issue key</option>
-                  </select>
-                </label>
+                  <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
+                    <span class="text-[12px] text-[#8f9198]">Sub-grouping</span>
+                    <select v-model="listSubGrouping" name="issue-sub-grouping" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in issueGroupingOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
 
-                <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
-                  <span class="text-[12px] text-[#8f9198]">Completed</span>
-                  <select v-model="completedRange" name="completed-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
-                    <option value="hidden">Hidden</option>
-                    <option value="week">Past week</option>
-                    <option value="month">Past month</option>
-                    <option value="all">All</option>
-                  </select>
-                </label>
+                  <label class="grid grid-cols-[7.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
+                    <span class="text-[12px] text-[#8f9198]">Ordering</span>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 items-center justify-center rounded-md text-[#aeb0b7] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+                      :aria-label="listOrderingDirection === 'asc' ? 'Order ascending' : 'Order descending'"
+                      :title="listOrderingDirection === 'asc' ? 'Order ascending' : 'Order descending'"
+                      @click.prevent="toggleOrderingDirection"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <path v-if="listOrderingDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" d="M4.75 12V4m0 0L2.5 6.25M4.75 4 7 6.25M9 5h4.5M9 8h3.5M9 11h2" />
+                        <path v-else stroke-linecap="round" stroke-linejoin="round" d="M4.75 4v8m0 0L7 9.75M4.75 12 2.5 9.75M9 5h2M9 8h3.5M9 11h4.5" />
+                      </svg>
+                    </button>
+                    <select v-model="listOrdering" name="issue-ordering" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in issueOrderingOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
+                    role="switch"
+                    :aria-checked="orderCompletedByRecency"
+                    @click="orderCompletedByRecency = !orderCompletedByRecency"
+                  >
+                    <span class="text-[12px] text-[#8f9198]">Order completed by recency</span>
+                    <span
+                      class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
+                      :class="orderCompletedByRecency ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                    >
+                      <span
+                        class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
+                        :class="orderCompletedByRecency ? 'translate-x-3' : 'translate-x-0'"
+                      ></span>
+                    </span>
+                  </button>
+                </template>
               </div>
 
-              <div class="border-t border-white/[0.06] p-2">
+              <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-2">
                 <button
                   type="button"
                   class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
@@ -2183,7 +3649,7 @@ onBeforeUnmount(() => {
                   :aria-checked="showSubIssueContext"
                   @click="showSubIssueContext = !showSubIssueContext"
                 >
-                  <span class="text-[12px] text-[#bfc1c8]">Sub-issue context</span>
+                  <span class="text-[12px] text-[#bfc1c8]">Show sub-issues</span>
                   <span
                     class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
                     :class="showSubIssueContext ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
@@ -2196,10 +3662,28 @@ onBeforeUnmount(() => {
                 </button>
               </div>
 
-              <div class="border-t border-white/[0.06] p-3">
+              <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-3">
+                <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">List options</p>
+                <button
+                  type="button"
+                  class="mb-3 flex w-full items-center justify-between gap-4 rounded-md px-0 py-1 text-left transition"
+                  role="switch"
+                  :aria-checked="showEmptyGroups"
+                  @click="showEmptyGroups = !showEmptyGroups"
+                >
+                  <span class="text-[12px] text-[#8f9198]">Show empty groups</span>
+                  <span
+                    class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
+                    :class="showEmptyGroups ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                  >
+                    <span
+                      class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
+                      :class="showEmptyGroups ? 'translate-x-3' : 'translate-x-0'"
+                    ></span>
+                  </span>
+                </button>
                 <div class="mb-2 flex items-center justify-between gap-3">
-                  <span class="text-[12px] text-[#8f9198]">Visible properties</span>
-                  <span class="text-[11px] text-[#6f727b]">{{ visibleIssueRowFields.length }} shown</span>
+                  <span class="text-[12px] text-[#8f9198]">Display properties</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                   <button
@@ -2211,11 +3695,107 @@ onBeforeUnmount(() => {
                       ? 'border-white/[0.12] bg-white/[0.06] text-[#f0f1f4]'
                       : 'border-white/[0.06] bg-white/[0.025] text-[#8f9198] hover:bg-white/[0.04] hover:text-[#d7d8dc]'"
                     :disabled="visibleIssueRowFields.length === 1 && isIssueRowFieldVisible(field.id)"
+                    :aria-pressed="isIssueRowFieldVisible(field.id)"
                     @click="toggleIssueRowField(field.id)"
+                  >
+                    <span>{{ field.label }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="!groupOrderingOpen && isIssueDisplayView" class="flex items-center justify-end gap-4 border-t border-white/[0.06] px-3 py-2">
+                <button
+                  type="button"
+                  class="rounded px-1.5 py-1 text-[12px] text-[#d7d8dc] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
+                  @click="resetIssueDisplayOptions"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  class="rounded px-1.5 py-1 text-[12px] text-[#7b80ff] hover:bg-white/[0.05] hover:text-[#9da1ff]"
+                  title="Workspace defaults are not available in BetterJira"
+                >
+                  Set default for everyone
+                </button>
+              </div>
+
+              <div v-else-if="!groupOrderingOpen && isProjectDisplayView" class="border-t border-white/[0.06] p-3">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="text-[12px] text-[#8f9198]">Visible properties</span>
+                  <span class="text-[11px] text-[#6f727b]">{{ visibleProjectRowFields.length }} shown</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="field in projectRowFieldOptions"
+                    :key="field.id"
+                    type="button"
+                    class="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[12px] transition"
+                    :class="isProjectRowFieldVisible(field.id)
+                      ? 'border-white/[0.12] bg-white/[0.06] text-[#f0f1f4]'
+                      : 'border-white/[0.06] bg-white/[0.025] text-[#8f9198] hover:bg-white/[0.04] hover:text-[#d7d8dc]'"
+                    :disabled="visibleProjectRowFields.length === 1 && isProjectRowFieldVisible(field.id)"
+                    @click="toggleProjectRowField(field.id)"
                   >
                     <span
                       class="flex h-3.5 w-3.5 items-center justify-center rounded border text-[9px]"
-                      :class="isIssueRowFieldVisible(field.id) ? 'border-white/[0.18] text-slate-200' : 'border-white/[0.1] text-transparent'"
+                      :class="isProjectRowFieldVisible(field.id) ? 'border-white/[0.18] text-slate-200' : 'border-white/[0.1] text-transparent'"
+                    >
+                      ✓
+                    </span>
+                    <span>{{ field.label }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-else-if="!groupOrderingOpen && isInitiativeDisplayView" class="border-t border-white/[0.06] p-3">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="text-[12px] text-[#8f9198]">Visible properties</span>
+                  <span class="text-[11px] text-[#6f727b]">{{ visibleInitiativeRowFields.length }} shown</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="field in initiativeRowFieldOptions"
+                    :key="field.id"
+                    type="button"
+                    class="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[12px] transition"
+                    :class="isInitiativeRowFieldVisible(field.id)
+                      ? 'border-white/[0.12] bg-white/[0.06] text-[#f0f1f4]'
+                      : 'border-white/[0.06] bg-white/[0.025] text-[#8f9198] hover:bg-white/[0.04] hover:text-[#d7d8dc]'"
+                    :disabled="visibleInitiativeRowFields.length === 1 && isInitiativeRowFieldVisible(field.id)"
+                    @click="toggleInitiativeRowField(field.id)"
+                  >
+                    <span
+                      class="flex h-3.5 w-3.5 items-center justify-center rounded border text-[9px]"
+                      :class="isInitiativeRowFieldVisible(field.id) ? 'border-white/[0.18] text-slate-200' : 'border-white/[0.1] text-transparent'"
+                    >
+                      ✓
+                    </span>
+                    <span>{{ field.label }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-else-if="!groupOrderingOpen && isSavedViewDisplayView" class="border-t border-white/[0.06] p-3">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="text-[12px] text-[#8f9198]">Visible properties</span>
+                  <span class="text-[11px] text-[#6f727b]">{{ visibleSavedViewRowFields.length }} shown</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="field in savedViewRowFieldOptions"
+                    :key="field.id"
+                    type="button"
+                    class="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[12px] transition"
+                    :class="isSavedViewRowFieldVisible(field.id)
+                      ? 'border-white/[0.12] bg-white/[0.06] text-[#f0f1f4]'
+                      : 'border-white/[0.06] bg-white/[0.025] text-[#8f9198] hover:bg-white/[0.04] hover:text-[#d7d8dc]'"
+                    :disabled="visibleSavedViewRowFields.length === 1 && isSavedViewRowFieldVisible(field.id)"
+                    @click="toggleSavedViewRowField(field.id)"
+                  >
+                    <span
+                      class="flex h-3.5 w-3.5 items-center justify-center rounded border text-[9px]"
+                      :class="isSavedViewRowFieldVisible(field.id) ? 'border-white/[0.18] text-slate-200' : 'border-white/[0.1] text-transparent'"
                     >
                       ✓
                     </span>
@@ -2238,6 +3818,57 @@ onBeforeUnmount(() => {
           >
             {{ tab.label }}
           </button>
+        </div>
+
+        <div
+          v-if="!selectedTicket && currentViewFilters.length"
+          class="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2"
+        >
+          <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <span
+              v-for="filter in currentViewFilters"
+              :key="filter.id"
+              class="inline-flex h-7 max-w-[18rem] items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.045] px-2 text-[12px] text-[#d7d8dc]"
+            >
+              <span class="truncate">{{ filter.fieldLabel }}</span>
+              <span class="text-[#777a83]">is</span>
+              <span class="truncate text-[#f0f1f4]">{{ filter.valueLabel }}</span>
+              <button
+                type="button"
+                class="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-[#777a83] hover:bg-white/[0.08] hover:text-[#f0f1f4]"
+                :aria-label="`Remove ${filter.fieldLabel} filter`"
+                @click="removeFilterClause(filter.id)"
+              >
+                ×
+              </button>
+            </span>
+
+            <button
+              type="button"
+              class="flex h-7 w-7 items-center justify-center rounded-md text-[#8f9198] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
+              title="Add filter"
+              @click="openFilterMenu"
+            >
+              +
+            </button>
+          </div>
+
+          <div class="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md px-2 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
+              @click="clearCurrentViewFilters"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              class="rounded-md border border-white/[0.08] bg-white/[0.045] px-2.5 py-1 text-[12px] text-[#d7d8dc] hover:bg-white/[0.07] hover:text-[#f0f1f4]"
+              @click="saveCurrentViewFilters"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         <div v-if="selectedKey" class="min-h-0 flex-1 overflow-y-auto">
@@ -2611,13 +4242,13 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else-if="currentView === 'initiatives'" class="min-h-0 flex-1 overflow-y-auto">
-          <div class="grid grid-cols-[minmax(260px,1.4fr)_112px_124px_132px_156px_112px] border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]">
+          <div class="grid border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]" :style="{ gridTemplateColumns: initiativeGridTemplate }">
             <span>Name</span>
-            <span>Health</span>
-            <span>Lead</span>
-            <span>Projects</span>
-            <span>Issues</span>
-            <span>Updated</span>
+            <span v-if="isInitiativeRowFieldVisible('health')">Health</span>
+            <span v-if="isInitiativeRowFieldVisible('lead')">Lead</span>
+            <span v-if="isInitiativeRowFieldVisible('projects')">Projects</span>
+            <span v-if="isInitiativeRowFieldVisible('issues')">Issues</span>
+            <span v-if="isInitiativeRowFieldVisible('updated')">Updated</span>
           </div>
 
           <div v-if="initiativeRows.length">
@@ -2625,7 +4256,8 @@ onBeforeUnmount(() => {
               v-for="initiative in initiativeRows"
               :key="initiative.id"
               type="button"
-              class="linear-row grid min-h-12 w-full grid-cols-[minmax(260px,1.4fr)_112px_124px_132px_156px_112px] items-center px-4 py-2 text-left"
+              class="linear-row grid min-h-12 w-full items-center px-4 py-2 text-left"
+              :style="{ gridTemplateColumns: initiativeGridTemplate }"
               @click="handleViewChange('project-views')"
             >
               <span class="min-w-0 pr-4">
@@ -2633,16 +4265,16 @@ onBeforeUnmount(() => {
                 <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ initiative.description }}</span>
               </span>
 
-              <span>
+              <span v-if="isInitiativeRowFieldVisible('health')">
                 <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px]" :class="getProjectHealthClass(initiative.health)">
                   {{ initiative.health }}
                 </span>
               </span>
 
-              <span class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ initiative.lead }}</span>
-              <span class="text-[12px] text-[#8f9198]">{{ initiative.projectCount }} {{ initiative.projectCount === 1 ? 'project' : 'projects' }}</span>
+              <span v-if="isInitiativeRowFieldVisible('lead')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ initiative.lead }}</span>
+              <span v-if="isInitiativeRowFieldVisible('projects')" class="text-[12px] text-[#8f9198]">{{ initiative.projectCount }} {{ initiative.projectCount === 1 ? 'project' : 'projects' }}</span>
 
-              <span class="pr-5">
+              <span v-if="isInitiativeRowFieldVisible('issues')" class="pr-5">
                 <span class="flex items-center justify-between gap-2 text-[11px] text-[#8f9198]">
                   <span>{{ initiative.completedCount }}/{{ initiative.issueCount }}</span>
                   <span>{{ initiative.progress }}%</span>
@@ -2652,7 +4284,7 @@ onBeforeUnmount(() => {
                 </span>
               </span>
 
-              <span class="truncate text-[12px] text-[#777a83]">{{ getRelativeTimeLabel(initiative.updatedAt) }}</span>
+              <span v-if="isInitiativeRowFieldVisible('updated')" class="truncate text-[12px] text-[#777a83]">{{ getRelativeTimeLabel(initiative.updatedAt) }}</span>
             </button>
           </div>
 
@@ -2665,14 +4297,14 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else-if="currentView === 'projects' || currentTeamSection === 'projects'" class="min-h-0 flex-1 overflow-y-auto">
-          <div class="grid grid-cols-[minmax(220px,1.4fr)_108px_94px_130px_104px_150px_116px] border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]">
+          <div class="grid border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]" :style="{ gridTemplateColumns: projectGridTemplate }">
             <span>Name</span>
-            <span>Health</span>
-            <span>Priority</span>
-            <span>Lead</span>
-            <span>Target date</span>
-            <span>Issues</span>
-            <span>Status</span>
+            <span v-if="isProjectRowFieldVisible('health')">Health</span>
+            <span v-if="isProjectRowFieldVisible('priority')">Priority</span>
+            <span v-if="isProjectRowFieldVisible('lead')">Lead</span>
+            <span v-if="isProjectRowFieldVisible('targetDate')">Target date</span>
+            <span v-if="isProjectRowFieldVisible('issues')">Issues</span>
+            <span v-if="isProjectRowFieldVisible('status')">Status</span>
           </div>
 
           <div v-if="displayedProjectRows.length">
@@ -2680,7 +4312,8 @@ onBeforeUnmount(() => {
               v-for="project in displayedProjectRows"
               :key="project.key"
               type="button"
-              class="linear-row grid min-h-12 w-full grid-cols-[minmax(220px,1.4fr)_108px_94px_130px_104px_150px_116px] items-center gap-0 px-4 py-2 text-left"
+              class="linear-row grid min-h-12 w-full items-center gap-0 px-4 py-2 text-left"
+              :style="{ gridTemplateColumns: projectGridTemplate }"
               @mouseenter="prefetchTicket(project.key)"
               @click="openTicket(project.key)"
             >
@@ -2689,17 +4322,17 @@ onBeforeUnmount(() => {
                 <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
               </span>
 
-              <span>
+              <span v-if="isProjectRowFieldVisible('health')">
                 <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px]" :class="getProjectHealthClass(project.health)">
                   {{ project.health }}
                 </span>
               </span>
 
-              <span class="truncate text-[12px] text-[#aeb0b7]">{{ project.priority }}</span>
-              <span class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ project.lead }}</span>
-              <span class="truncate text-[12px] text-[#8f9198]">{{ project.targetDate }}</span>
+              <span v-if="isProjectRowFieldVisible('priority')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.priority }}</span>
+              <span v-if="isProjectRowFieldVisible('lead')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ project.lead }}</span>
+              <span v-if="isProjectRowFieldVisible('targetDate')" class="truncate text-[12px] text-[#8f9198]">{{ project.targetDate }}</span>
 
-              <span class="pr-5">
+              <span v-if="isProjectRowFieldVisible('issues')" class="pr-5">
                 <span class="flex items-center justify-between gap-2 text-[11px] text-[#8f9198]">
                   <span>{{ project.completedCount }}/{{ project.issueCount }}</span>
                   <span>{{ project.progress }}%</span>
@@ -2709,7 +4342,7 @@ onBeforeUnmount(() => {
                 </span>
               </span>
 
-              <span class="truncate text-[12px] text-[#aeb0b7]">{{ project.status }}</span>
+              <span v-if="isProjectRowFieldVisible('status')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.status }}</span>
             </button>
           </div>
 
@@ -2722,12 +4355,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else-if="isViewsDirectory || currentTeamSection === 'views'" class="min-h-0 flex-1 overflow-y-auto">
-          <div class="grid grid-cols-[minmax(260px,1fr)_112px_88px_132px_112px] border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]">
+          <div class="grid border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]" :style="{ gridTemplateColumns: savedViewGridTemplate }">
             <span>Name</span>
-            <span>Type</span>
-            <span>Items</span>
-            <span>Owner</span>
-            <span>Updated</span>
+            <span v-if="isSavedViewRowFieldVisible('type')">Type</span>
+            <span v-if="isSavedViewRowFieldVisible('items')">Items</span>
+            <span v-if="isSavedViewRowFieldVisible('owner')">Owner</span>
+            <span v-if="isSavedViewRowFieldVisible('updated')">Updated</span>
           </div>
 
           <div v-if="displayedSavedViewRows.length">
@@ -2735,7 +4368,8 @@ onBeforeUnmount(() => {
               v-for="row in displayedSavedViewRows"
               :key="row.id"
               type="button"
-              class="linear-row grid min-h-12 w-full grid-cols-[minmax(260px,1fr)_112px_88px_132px_112px] items-center px-4 py-2 text-left"
+              class="linear-row grid min-h-12 w-full items-center px-4 py-2 text-left"
+              :style="{ gridTemplateColumns: savedViewGridTemplate }"
               @click="handleViewChange(row.viewId)"
             >
               <span class="flex min-w-0 items-center gap-3 pr-4">
@@ -2746,10 +4380,10 @@ onBeforeUnmount(() => {
                 </span>
               </span>
 
-              <span class="truncate text-[12px] text-[#aeb0b7]">{{ row.category }}</span>
-              <span class="text-[12px] text-[#8f9198]">{{ row.count }}</span>
-              <span class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ row.owner }}</span>
-              <span class="truncate text-[12px] text-[#777a83]">{{ getRelativeTimeLabel(row.updatedAt) }}</span>
+              <span v-if="isSavedViewRowFieldVisible('type')" class="truncate text-[12px] text-[#aeb0b7]">{{ row.category }}</span>
+              <span v-if="isSavedViewRowFieldVisible('items')" class="text-[12px] text-[#8f9198]">{{ row.count }}</span>
+              <span v-if="isSavedViewRowFieldVisible('owner')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ row.owner }}</span>
+              <span v-if="isSavedViewRowFieldVisible('updated')" class="truncate text-[12px] text-[#777a83]">{{ getRelativeTimeLabel(row.updatedAt) }}</span>
             </button>
           </div>
 
@@ -2763,9 +4397,8 @@ onBeforeUnmount(() => {
 
         <div v-else-if="isReadyQaView" class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] overflow-hidden">
           <div class="min-w-0 overflow-y-auto">
-            <div class="flex h-9 items-center justify-between border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
-              <span>{{ visibleIssueCount }} {{ visibleIssueCount === 1 ? 'issue' : 'issues' }}</span>
-              <button v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
+            <div v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" class="flex h-9 items-center justify-end border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
+              <button type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
                 {{ hiddenCompletedCount }} completed hidden by display options
               </button>
             </div>
@@ -2894,9 +4527,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else class="min-h-0 flex-1 overflow-y-auto">
-          <div class="flex h-9 items-center justify-between border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
-            <span>{{ visibleIssueCount }} {{ visibleIssueCount === 1 ? 'issue' : 'issues' }}</span>
-            <button v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
+          <div v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" class="flex h-9 items-center justify-end border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
+            <button type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
               {{ hiddenCompletedCount }} completed hidden by display options
             </button>
           </div>

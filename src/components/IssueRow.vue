@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getLinearIssueSubtype, getStatusGroup, type JiraTicket } from '@/types/jira'
+import { getStatusGroup, type JiraTicket } from '@/types/jira'
 
 const props = defineProps<{
   ticket: JiraTicket
@@ -8,7 +8,7 @@ const props = defineProps<{
   checked: boolean
   showId?: boolean
   showStatus?: boolean
-  showIssueType?: boolean
+  showLabels?: boolean
   showPriority?: boolean
   showAssignee?: boolean
   showCreated?: boolean
@@ -62,16 +62,16 @@ const initials = computed(() => {
 const createdLabel = computed(() => formatDate(props.ticket.createdAt))
 const updatedLabel = computed(() => formatDate(props.ticket.updatedAt))
 const dueLabel = computed(() => formatDate(props.ticket.dueDate))
-const subtypeLabel = computed(() => getLinearIssueSubtype(props.ticket.issueType))
-const subtypeDotClass = computed(() => {
-  switch (subtypeLabel.value) {
-    case 'Bug':
-      return 'bg-[#e45d6a]'
-    case 'Story':
-      return 'bg-[#9c6bff]'
-    default:
-      return 'bg-[#62a8d8]'
+const visibleLabels = computed(() => {
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const label of props.ticket.labels ?? []) {
+    const trimmed = label.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    labels.push(trimmed)
   }
+  return labels
 })
 const parentContext = computed(() => {
   const parent = props.ticket.parent
@@ -84,7 +84,7 @@ const rowGridTemplate = computed(() => {
   if (props.showStatus !== false) columns.push('18px')
   if (props.showId !== false) columns.push('82px')
   columns.push('minmax(0,1fr)')
-  if (props.showIssueType !== false) columns.push('auto')
+  if (props.showLabels !== false && visibleLabels.value.length > 0) columns.push('auto')
   if (props.showParent === true) columns.push('minmax(72px, 128px)')
   if (props.showPriority !== false) columns.push('auto')
   if (
@@ -143,9 +143,10 @@ function formatDate(value: string | undefined): string {
       <span v-if="parentContext" class="ml-2 text-[#6f727b]">› {{ parentContext.summary }}</span>
     </span>
 
-    <span v-if="showIssueType !== false" class="hidden items-center gap-1.5 rounded-full border border-white/[0.08] px-2 py-0.5 text-[11px] text-[#c7c9d0] md:inline-flex">
-      <span class="h-1.5 w-1.5 rounded-full" :class="subtypeDotClass"></span>
-      {{ subtypeLabel }}
+    <span v-if="showLabels !== false && visibleLabels.length > 0" class="hidden max-w-[28rem] flex-wrap items-center justify-end gap-1 md:flex">
+      <span v-for="label in visibleLabels" :key="label" class="rounded-full border border-white/[0.08] px-2 py-0.5 text-[11px] text-[#c7c9d0]">
+        {{ label }}
+      </span>
     </span>
 
     <span v-if="showParent === true && parentContext" class="hidden truncate text-[12px] text-[#8f9198] xl:inline">

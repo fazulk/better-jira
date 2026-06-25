@@ -14,6 +14,7 @@ export interface JiraTicket {
   completedAt?: string
   priority: string
   issueType: string
+  labels: string[]
   spaceKey: string
   spaceName: string
   assignee: string

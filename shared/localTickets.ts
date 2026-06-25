@@ -97,6 +97,7 @@ export interface JiraTicketLike {
   completedAt?: string
   priority: string
   issueType: string
+  labels: string[]
   spaceKey: string
   spaceName: string
   assignee: string
@@ -136,6 +137,7 @@ export function storedLocalToJiraShape(
     completedAt: stored.completedAt ?? undefined,
     priority: stored.priority,
     issueType: LOCAL_ISSUE_TYPE,
+    labels: [],
     spaceKey: LOCAL_SPACE_KEY,
     spaceName: LOCAL_SPACE_NAME,
     assignee: stored.assigneeName?.trim() || 'Unassigned',

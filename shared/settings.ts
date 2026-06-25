@@ -33,12 +33,26 @@ export interface AiInstructionPresetSetting {
   enabled: boolean
 }
 
+export interface FavoriteViewFilter {
+  id: string
+  fieldId: string
+  fieldLabel: string
+  value: string
+  valueLabel: string
+}
+
+export interface FavoriteView {
+  id: string
+  filters: FavoriteViewFilter[]
+}
+
 export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
 export type SidebarGroupBy = Exclude<SidebarSortBy, 'key'> | 'hierarchy' | 'none'
 export type SidebarTicketScope = 'currentSprint' | 'all'
 
 export interface SidebarSettings {
   pinnedTicketKeys: string[]
+  favoriteViews: FavoriteView[]
   filterTypeKeys: string[]
   filterStatuses: string[]
   filterAssignees: string[]
@@ -63,6 +77,7 @@ export interface UpdateAiConnectionInput {
 
 export interface UpdateSidebarSettingsInput {
   pinnedTicketKeys?: string[]
+  favoriteViews?: FavoriteView[]
   filterTypeKeys?: string[]
   filterStatuses?: string[]
   filterAssignees?: string[]
@@ -166,6 +181,65 @@ function normalizeStringList(value: unknown): string[] {
   }
 
   return [...normalizedValues]
+}
+
+function normalizeFavoriteViewFilter(value: unknown): FavoriteViewFilter | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const id = typeof recordValue.id === 'string' ? recordValue.id.trim() : ''
+  const fieldId = typeof recordValue.fieldId === 'string' ? recordValue.fieldId.trim() : ''
+  const fieldLabel = typeof recordValue.fieldLabel === 'string' ? recordValue.fieldLabel.trim() : ''
+  const filterValue = typeof recordValue.value === 'string' ? recordValue.value.trim() : ''
+  const valueLabel = typeof recordValue.valueLabel === 'string' ? recordValue.valueLabel.trim() : ''
+
+  if (!id || !fieldId || !fieldLabel || !filterValue || !valueLabel) {
+    return null
+  }
+
+  return {
+    id,
+    fieldId,
+    fieldLabel,
+    value: filterValue,
+    valueLabel,
+  }
+}
+
+function normalizeFavoriteViews(value: unknown): FavoriteView[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const favoriteViewsById = new Map<string, FavoriteView>()
+
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) {
+      continue
+    }
+
+    const recordValue: Record<string, unknown> = entry
+    const id = typeof recordValue.id === 'string' ? recordValue.id.trim() : ''
+
+    if (!id || favoriteViewsById.has(id)) {
+      continue
+    }
+
+    const filters = Array.isArray(recordValue.filters)
+      ? recordValue.filters
+        .map(normalizeFavoriteViewFilter)
+        .filter((filter): filter is FavoriteViewFilter => filter !== null)
+      : []
+
+    favoriteViewsById.set(id, {
+      id,
+      filters,
+    })
+  }
+
+  return [...favoriteViewsById.values()]
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -405,6 +479,7 @@ function normalizeAiConnectionUpdate(value: unknown): UpdateAiConnectionInput | 
 function getDefaultSidebarSettings(): SidebarSettings {
   return {
     pinnedTicketKeys: [],
+    favoriteViews: [],
     filterTypeKeys: [],
     filterStatuses: [],
     filterAssignees: [],
@@ -427,6 +502,7 @@ function normalizeSidebarSettings(value: unknown): SidebarSettings {
 
   return {
     pinnedTicketKeys: normalizeStringList(recordValue.pinnedTicketKeys),
+    favoriteViews: normalizeFavoriteViews(recordValue.favoriteViews),
     filterTypeKeys: normalizeStringList(recordValue.filterTypeKeys),
     filterStatuses: normalizeStringList(recordValue.filterStatuses),
     filterAssignees: normalizeStringList(recordValue.filterAssignees),
@@ -489,6 +565,10 @@ function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSettingsIn
     nextSidebar.pinnedTicketKeys = normalizeStringList(recordValue.pinnedTicketKeys)
   }
 
+  if ('favoriteViews' in recordValue) {
+    nextSidebar.favoriteViews = normalizeFavoriteViews(recordValue.favoriteViews)
+  }
+
   if ('filterTypeKeys' in recordValue) {
     nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
   }
@@ -527,6 +607,7 @@ function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSettingsIn
 function reconcileSidebarSettings(sidebar: SidebarSettings): SidebarSettings {
   return {
     pinnedTicketKeys: normalizeStringList(sidebar.pinnedTicketKeys),
+    favoriteViews: normalizeFavoriteViews(sidebar.favoriteViews),
     filterTypeKeys: normalizeStringList(sidebar.filterTypeKeys),
     filterStatuses: normalizeStringList(sidebar.filterStatuses),
     filterAssignees: normalizeStringList(sidebar.filterAssignees),

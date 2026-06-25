@@ -10,6 +10,7 @@ const props = defineProps<{
   collapsed: boolean
   refreshing: boolean
   currentView: string
+  favoriteViews: FavoriteViewNavItem[]
 }>()
 
 const emit = defineEmits<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   settings: []
   command: []
   view: [viewId: string]
+  'favorite-view': [viewId: string]
 }>()
 
 const { pinnedKeys } = usePinnedTickets()
@@ -31,6 +33,11 @@ interface NavItem {
   label: string
   icon: string
   count?: number
+}
+
+interface FavoriteViewNavItem {
+  id: string
+  label: string
 }
 
 interface TeamNavItem {
@@ -133,7 +140,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
         :class="collapsed ? 'justify-center' : ''"
         @click="emit('home')"
       >
-        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#2f7cf6] text-[11px] font-semibold text-white">B</span>
+        <img src="/favicon.svg" alt="" class="h-5 w-5 shrink-0 rounded" aria-hidden="true" />
         <span v-if="!collapsed" class="truncate font-medium">BetterJira!</span>
       </button>
 
@@ -232,6 +239,17 @@ function isTeamIssuesView(spaceKey: string): boolean {
             />
           </button>
           <template v-if="favoritesExpanded">
+            <button
+              v-for="favoriteView in favoriteViews"
+              :key="favoriteView.id"
+              type="button"
+              class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+              :class="isActiveView(favoriteView.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
+              @click="emit('favorite-view', favoriteView.id)"
+            >
+              <Icon name="lucide:star" class="h-3.5 w-3.5 shrink-0 fill-[#d7a543] text-[#d7a543]" aria-hidden="true" />
+              <span class="min-w-0 flex-1 truncate">{{ favoriteView.label }}</span>
+            </button>
             <button
               v-for="ticket in pinnedTickets"
               :key="ticket.key"

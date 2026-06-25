@@ -9,8 +9,10 @@ import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { useJiraTickets } from '@/composables/useJiraTickets'
 import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { useFavoriteViews } from '@/composables/useFavoriteViews'
 import { getLinearIssueSubtype, getStatusGroup, type JiraTicket } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
+import type { FavoriteViewFilter } from '~/shared/settings'
 import CreateTicketModal from './CreateTicketModal.vue'
 import IssueRow from './IssueRow.vue'
 import Sidebar from './Sidebar.vue'
@@ -24,6 +26,7 @@ const {
   hasJiraCredentialsConfigured,
   isLoading: isLoadingSpaceSettings,
 } = useSpaceSettings()
+const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
 const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
 
 const sidebarCollapsed = useLocalStorage('jira2.sidebar.collapsed', false)
@@ -156,6 +159,27 @@ type FilterFieldId =
   | 'shared'
   | 'sharedWith'
   | 'externalSource'
+const filterFieldIds = new Set<string>([
+  'status',
+  'statusType',
+  'assignee',
+  'priority',
+  'labels',
+  'suggestedLabel',
+  'dueDate',
+  'createdDate',
+  'updatedDate',
+  'completedDate',
+  'project',
+  'projectStatus',
+  'projectPriority',
+  'projectLead',
+  'initiative',
+  'subscribers',
+  'shared',
+  'sharedWith',
+  'externalSource',
+])
 type FilterEntryId =
   | 'status'
   | 'statusType'
@@ -186,6 +210,11 @@ interface IssueGroupOrderingRow {
 }
 
 interface ViewTab {
+  id: string
+  label: string
+}
+
+interface FavoriteViewNavItem {
   id: string
   label: string
 }
@@ -287,7 +316,7 @@ interface SavedViewRowFieldOption {
 interface IssueRowDisplayProps {
   showId: boolean
   showStatus: boolean
-  showIssueType: boolean
+  showLabels: boolean
   showPriority: boolean
   showAssignee: boolean
   showCreated: boolean
@@ -508,7 +537,7 @@ const selectedTicket = computed(() => (
 const issueRowDisplayProps = computed<IssueRowDisplayProps>(() => ({
   showId: isIssueRowFieldVisible('id'),
   showStatus: isIssueRowFieldVisible('status'),
-  showIssueType: isIssueRowFieldVisible('labels'),
+  showLabels: isIssueRowFieldVisible('labels'),
   showPriority: isIssueRowFieldVisible('priority'),
   showAssignee: isIssueRowFieldVisible('assignee'),
   showCreated: isIssueRowFieldVisible('created'),
@@ -818,7 +847,7 @@ const baseIssueSections = computed<IssueSection[]>(() => {
 
   return groupTickets(
     searchedTickets.value,
-    ticket => getIssueGroupingLabel(ticket, listGrouping.value),
+    ticket => getIssueGroupingLabels(ticket, listGrouping.value),
     label => getIssueGroupingRank(label, listGrouping.value),
   )
 })
@@ -1264,6 +1293,90 @@ const baseDisplayedSavedViewRows = computed(() => (
   currentTeamSection.value === 'views' ? teamSavedViewRows.value : savedViewRows.value
 ))
 const displayedSavedViewRows = computed(() => applyViewFiltersToSavedViews(baseDisplayedSavedViewRows.value))
+const currentViewIsFavoritable = computed(() => currentView.value !== 'search')
+const favoriteViewNavItems = computed<FavoriteViewNavItem[]>(() => favoriteViews.value.map(view => ({
+  id: view.id,
+  label: deriveViewLabel(view.id),
+})))
+
+function isFilterFieldId(value: string): value is FilterFieldId {
+  return filterFieldIds.has(value)
+}
+
+function hasKnownFilterFieldId(filter: FavoriteViewFilter): filter is FavoriteViewFilter & { fieldId: FilterFieldId } {
+  return isFilterFieldId(filter.fieldId)
+}
+
+function getTeamSectionLabel(section: string | undefined): string {
+  if (section === 'triage') return 'Triage'
+  if (section === 'all') return 'All issues'
+  if (section === 'backlog') return 'Backlog'
+  if (section === 'projects') return 'Projects'
+  if (section === 'views') return 'Views'
+  if (section === 'ready-qa') return 'Ready for QA'
+  return 'Active'
+}
+
+function deriveViewLabel(viewId: string): string {
+  if (viewId === 'inbox') return 'Inbox'
+  if (viewId === 'my-issues') return 'My issues · Assigned'
+  if (viewId === 'my-created') return 'My issues · Created'
+  if (viewId === 'my-subscribed') return 'My issues · Subscribed'
+  if (viewId === 'my-activity') return 'My issues · Activity'
+  if (viewId === 'initiatives') return 'Initiatives'
+  if (viewId === 'projects') return 'Projects'
+  if (viewId === 'views') return 'Views · Issues'
+  if (viewId === 'project-views') return 'Views · Projects'
+  if (viewId === 'initiative-views') return 'Views · Initiatives'
+  if (viewId === 'dashboards') return 'Views · Dashboards'
+  if (viewId === 'ready-qa') return 'Ready for QA'
+
+  const [scope, key, section] = viewId.split(':')
+  if (scope === 'team' && key) {
+    const teamName = enabledSpaces.value.find(space => space.key === key)?.name || key
+    return `${teamName} · ${getTeamSectionLabel(section)}`
+  }
+
+  const savedView = [...savedViewRows.value, ...teamSavedViewRows.value].find(row => row.viewId === viewId)
+  return savedView?.name ?? viewId
+}
+
+function getCurrentFavoriteViewFilters(): FavoriteViewFilter[] {
+  return currentViewFilters.value.map(filter => ({
+    id: filter.id,
+    fieldId: filter.fieldId,
+    fieldLabel: filter.fieldLabel,
+    value: filter.value,
+    valueLabel: filter.valueLabel,
+  }))
+}
+
+function toViewFilterClauses(filters: FavoriteViewFilter[]): ViewFilterClause[] {
+  return filters
+    .filter(hasKnownFilterFieldId)
+    .map(filter => ({
+      id: filter.id,
+      fieldId: filter.fieldId,
+      fieldLabel: filter.fieldLabel,
+      value: filter.value,
+      valueLabel: filter.valueLabel,
+    }))
+}
+
+function restoreFavoriteViewFilters(viewId: string) {
+  const favoriteView = getFavoriteView(viewId)
+  if (!favoriteView) return
+
+  savedViewFilters.value = {
+    ...savedViewFilters.value,
+    [viewId]: toViewFilterClauses(favoriteView.filters),
+  }
+}
+
+function toggleCurrentViewFavorite() {
+  if (!currentViewIsFavoritable.value) return
+  toggleFavoriteView(currentView.value, getCurrentFavoriteViewFilters())
+}
 
 const commandSearchQuery = computed(() => commandQuery.value.trim().toLowerCase())
 
@@ -1497,13 +1610,14 @@ watch(inboxItems, items => {
 
 function groupTickets(
   nextTickets: JiraTicket[],
-  getLabel: (ticket: JiraTicket) => string,
+  getLabels: (ticket: JiraTicket) => string[],
   getRank: (label: string) => number,
 ): IssueSection[] {
   const groups = new Map<string, JiraTicket[]>()
   for (const ticket of nextTickets) {
-    const label = getLabel(ticket)
-    groups.set(label, [...groups.get(label) ?? [], ticket])
+    for (const label of getLabels(ticket)) {
+      groups.set(label, [...groups.get(label) ?? [], ticket])
+    }
   }
 
   return [...groups.entries()]
@@ -1535,14 +1649,30 @@ function compareIssueGroupEntries(
     : getRank(left[0]) - getRank(right[0]) || left[0].localeCompare(right[0])
 }
 
-function getIssueGroupingLabel(ticket: JiraTicket, fieldId: IssueGroupingFieldId): string {
-  if (fieldId === 'status') return ticket.status || 'No status'
-  if (fieldId === 'assignee') return ticket.assignee || 'Unassigned'
-  if (fieldId === 'agent') return 'No agent'
-  if (fieldId === 'project') return ticket.parent?.summary ?? 'No project'
-  if (fieldId === 'priority') return ticket.priority || 'No priority'
-  if (fieldId === 'label') return getLinearIssueSubtype(ticket.issueType)
-  return 'All issues'
+function getIssueGroupingLabels(ticket: JiraTicket, fieldId: IssueGroupingFieldId): string[] {
+  if (fieldId === 'status') return [ticket.status || 'No status']
+  if (fieldId === 'assignee') return [ticket.assignee || 'Unassigned']
+  if (fieldId === 'agent') return ['No agent']
+  if (fieldId === 'project') return [ticket.parent?.summary ?? 'No project']
+  if (fieldId === 'priority') return [ticket.priority || 'No priority']
+  if (fieldId === 'label') {
+    const labels = getTicketLabels(ticket)
+    return labels.length > 0 ? labels : ['No labels']
+  }
+  return ['All issues']
+}
+
+function getTicketLabels(ticket: JiraTicket): string[] {
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const label of ticket.labels ?? []) {
+    const trimmed = label.trim()
+    const normalized = normalizeFilterValue(trimmed)
+    if (!trimmed || seen.has(normalized)) continue
+    seen.add(normalized)
+    labels.push(trimmed)
+  }
+  return labels
 }
 
 function getIssueGroupingRank(label: string, fieldId: IssueGroupingFieldId): number {
@@ -1645,6 +1775,7 @@ function ticketMatchesQuery(ticket: JiraTicket, query: string): boolean {
     ticket.spaceName,
     ticket.parent?.key,
     ticket.parent?.summary,
+    ...getTicketLabels(ticket),
   ].some(value => value?.toLowerCase().includes(query))
 }
 
@@ -1741,13 +1872,16 @@ function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
   }
 
   if (fieldId === 'labels' || fieldId === 'suggestedLabel') {
-    return countFilterOptions(baseTickets.map(ticket => {
-      const label = getLinearIssueSubtype(ticket.issueType)
-      return {
+    return countFilterOptions(baseTickets.flatMap(ticket => {
+      const labels = getTicketLabels(ticket)
+      if (labels.length === 0) {
+        return [{ value: normalizeFilterValue('No labels'), label: 'No labels', icon: '▭' }]
+      }
+      return labels.map(label => ({
         value: normalizeFilterValue(label),
         label,
-        icon: label === 'Bug' ? '●' : label === 'Story' ? '◆' : '○',
-      }
+        icon: '▭',
+      }))
     }))
   }
 
@@ -2139,7 +2273,11 @@ function ticketMatchesFilter(ticket: JiraTicket, filter: ViewFilterClause): bool
     return normalizeFilterValue(ticket.assignee || 'Unassigned') === filter.value
   }
   if (filter.fieldId === 'priority') return normalizeFilterValue(ticket.priority || 'No priority') === filter.value
-  if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(getLinearIssueSubtype(ticket.issueType)) === filter.value
+  if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') {
+    const labels = getTicketLabels(ticket)
+    if (labels.length === 0) return filter.value === normalizeFilterValue('No labels')
+    return labels.some(label => normalizeFilterValue(label) === filter.value)
+  }
   if (filter.fieldId === 'project') return (getProjectKey(ticket) ?? 'no-project') === filter.value
   if (filter.fieldId === 'projectStatus' || filter.fieldId === 'projectPriority' || filter.fieldId === 'projectLead') {
     const project = getTicketProject(ticket)
@@ -2901,6 +3039,11 @@ function handleViewChange(viewId: string) {
   }
 }
 
+function handleFavoriteViewChange(viewId: string) {
+  restoreFavoriteViewFilters(viewId)
+  handleViewChange(viewId)
+}
+
 function openGlobalCreate(issueType = 'Task') {
   createIssueType.value = issueType
   createParentKey.value = null
@@ -3287,6 +3430,7 @@ onBeforeUnmount(() => {
         :collapsed="sidebarCollapsed"
         :refreshing="refreshing"
         :current-view="currentView"
+        :favorite-views="favoriteViewNavItems"
         @select="openTicket"
         @prefetch="prefetchTicket"
         @toggle-collapse="sidebarCollapsed = !sidebarCollapsed"
@@ -3295,6 +3439,7 @@ onBeforeUnmount(() => {
         @settings="openSettings"
         @command="openCommandMenu"
         @view="handleViewChange"
+        @favorite-view="handleFavoriteViewChange"
       />
 
       <button
@@ -3335,6 +3480,22 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="relative flex shrink-0 items-center gap-1.5">
+            <button
+              v-if="currentViewIsFavoritable"
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md border transition"
+              :class="isFavoriteView(currentView) ? 'border-[#d7a543]/40 bg-[#d7a543]/10 text-[#d7a543] hover:bg-[#d7a543]/15' : 'border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]'"
+              :aria-pressed="isFavoriteView(currentView)"
+              :title="isFavoriteView(currentView) ? 'Remove view from favorites' : 'Add view to favorites'"
+              @click="toggleCurrentViewFavorite"
+            >
+              <Icon
+                name="lucide:star"
+                class="h-4 w-4"
+                :class="isFavoriteView(currentView) ? 'fill-[#d7a543]' : ''"
+                aria-hidden="true"
+              />
+            </button>
             <button
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4] disabled:opacity-50"

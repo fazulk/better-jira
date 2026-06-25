@@ -9,9 +9,10 @@ import { buildEnabledSpaceSearchQuery } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 export const TICKETS_QUERY_KEY = ['tickets'] as const
+const TICKETS_QUERY_SCHEMA_VERSION = 'labels-v1'
 
 export function ticketsQueryKey(spaceKeys: readonly string[]): QueryKey {
-  return [...TICKETS_QUERY_KEY, ...spaceKeys]
+  return [...TICKETS_QUERY_KEY, TICKETS_QUERY_SCHEMA_VERSION, ...spaceKeys]
 }
 
 function isTicketsQueryKey(queryKey: QueryKey): boolean {

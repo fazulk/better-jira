@@ -191,6 +191,18 @@ const detailProjectParentLabel = computed(() => {
   const parent = detailProjectParent.value
   return parent?.summary ?? ''
 })
+const detailLabels = computed(() => {
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const label of ticket.value?.labels ?? []) {
+    const trimmed = label.trim()
+    const normalized = trimmed.toLowerCase()
+    if (!trimmed || seen.has(normalized)) continue
+    seen.add(normalized)
+    labels.push(trimmed)
+  }
+  return labels
+})
 const detailChildActionLabel = computed(() => (isProjectDetail.value ? 'Add issue' : 'Add sub-issue'))
 const detailChildSectionLabel = computed(() => (isProjectDetail.value ? 'Issues' : 'Sub-issues'))
 const detailEmptyChildLabel = computed(() => (isProjectDetail.value ? 'No issues linked' : 'No sub-issues'))
@@ -278,6 +290,15 @@ const descriptionEditorRef = ref<{ focusEditor: () => void } | null>(null)
 const descriptionDraft = ref<JiraAdfDocument | null>(null)
 const descriptionError = ref<string | null>(null)
 const showAiModal = ref(false)
+const collapsedSections = ref({
+  properties: false,
+  labels: false,
+  project: false,
+  jira: false,
+})
+function toggleSection(section: keyof typeof collapsedSections.value) {
+  collapsedSections.value[section] = !collapsedSections.value[section]
+}
 const messageDraft = ref('')
 const messageError = ref<string | null>(null)
 const watchError = ref<string | null>(null)
@@ -1531,13 +1552,22 @@ async function submitMessage() {
               </button>
             </div>
 
-            <section class="rounded-lg border border-white/[0.06] bg-white/[0.025] p-4">
-              <div class="mb-3 flex items-center gap-1.5 text-sm text-slate-400">
+            <section
+              class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 transition-[padding]"
+              :class="collapsedSections.properties ? 'py-3' : 'py-4'"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+                :class="{ 'mb-3': !collapsedSections.properties }"
+                :aria-expanded="!collapsedSections.properties"
+                @click="toggleSection('properties')"
+              >
                 <span>Properties</span>
-                <span class="text-[10px] text-slate-600">▼</span>
-              </div>
+                <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsedSections.properties }">▼</span>
+              </button>
 
-              <div class="space-y-1 text-sm">
+              <div v-show="!collapsedSections.properties" class="space-y-1 text-sm">
                 <div class="flex items-center rounded-md px-1 py-2">
                   <div v-if="isEditingStatus" class="min-w-0 space-y-2">
                     <select
@@ -1709,12 +1739,59 @@ async function submitMessage() {
               </div>
             </section>
 
-            <section v-if="!isProjectDetail" class="rounded-lg border border-white/[0.06] bg-white/[0.025] p-4">
-              <div class="mb-3 flex items-center gap-1.5 text-sm text-slate-400">
-                <span>Project</span>
-                <span class="text-[10px] text-slate-600">▼</span>
-              </div>
+            <section
+              class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 transition-[padding]"
+              :class="collapsedSections.labels ? 'py-3' : 'py-4'"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+                :class="{ 'mb-3': !collapsedSections.labels }"
+                :aria-expanded="!collapsedSections.labels"
+                @click="toggleSection('labels')"
+              >
+                <span>Labels</span>
+                <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsedSections.labels }">▼</span>
+              </button>
 
+              <div v-show="!collapsedSections.labels" class="flex flex-wrap items-center gap-2">
+                <span
+                  v-for="label in detailLabels"
+                  :key="label"
+                  class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 py-1 text-xs font-medium text-slate-300"
+                >
+                  <span class="h-2 w-2 shrink-0 rounded-full bg-rose-400"></span>
+                  <span class="truncate">{{ label }}</span>
+                </span>
+                <span v-if="detailLabels.length === 0" class="text-sm text-slate-600">No labels</span>
+                <button
+                  type="button"
+                  class="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
+                  title="Editing labels is not available yet"
+                  aria-label="Add label"
+                >
+                  +
+                </button>
+              </div>
+            </section>
+
+            <section
+              v-if="!isProjectDetail"
+              class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 transition-[padding]"
+              :class="collapsedSections.project ? 'py-3' : 'py-4'"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+                :class="{ 'mb-3': !collapsedSections.project }"
+                :aria-expanded="!collapsedSections.project"
+                @click="toggleSection('project')"
+              >
+                <span>Project</span>
+                <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsedSections.project }">▼</span>
+              </button>
+
+              <div v-show="!collapsedSections.project">
               <button
                 v-if="detailProjectParent"
                 type="button"
@@ -1744,15 +1821,25 @@ async function submitMessage() {
                   <span class="block truncate text-sm font-medium">Add to project</span>
                 </span>
               </button>
+              </div>
             </section>
 
-            <section class="rounded-lg border border-white/[0.06] bg-white/[0.025] p-4">
-              <div class="mb-3 flex items-center gap-1.5 text-sm text-slate-400">
+            <section
+              class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 transition-[padding]"
+              :class="collapsedSections.jira ? 'py-3' : 'py-4'"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+                :class="{ 'mb-3': !collapsedSections.jira }"
+                :aria-expanded="!collapsedSections.jira"
+                @click="toggleSection('jira')"
+              >
                 <span>Jira</span>
-                <span class="text-[10px] text-slate-600">▼</span>
-              </div>
+                <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsedSections.jira }">▼</span>
+              </button>
 
-              <div class="space-y-2 text-sm">
+              <div v-show="!collapsedSections.jira" class="space-y-2 text-sm">
                 <div
                   v-if="detailJiraTypeLabel"
                   class="flex items-center"

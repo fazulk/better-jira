@@ -187,6 +187,7 @@ export interface JiraTicket {
   completedAt?: string
   priority: string
   issueType: string
+  labels: string[]
   spaceKey: string
   spaceName: string
   assignee: string
@@ -364,6 +365,7 @@ interface JiraApiIssueFields {
     id?: string
     name?: string
   }
+  labels?: string[]
   assignee?: JiraApiUser
   reporter?: JiraApiUser
   watches?: {
@@ -497,6 +499,7 @@ function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId
     completedAt: fields?.resolutiondate ?? undefined,
     priority: fields?.priority?.name ?? '',
     issueType: fields?.issuetype?.name ?? '',
+    labels: fields?.labels ?? [],
     spaceKey: fields?.project?.key ?? '',
     spaceName: fields?.project?.name ?? fields?.project?.key ?? 'Unknown space',
     assignee: fields?.assignee?.displayName ?? 'Unassigned',
@@ -1146,6 +1149,7 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
     'status',
     'priority',
     'issuetype',
+    'labels',
     'assignee',
     'reporter',
     'watches',
@@ -1223,6 +1227,7 @@ export async function getTicket(key: string): Promise<JiraTicket> {
     'status',
     'priority',
     'issuetype',
+    'labels',
     'assignee',
     'reporter',
     'watches',

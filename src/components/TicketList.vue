@@ -4299,10 +4299,7 @@ onBeforeUnmount(() => {
           <div class="min-w-0">
             <div class="flex min-w-0 items-baseline gap-2">
               <h1 class="truncate text-[20px] font-semibold text-[#f0f1f4]">{{ viewTitle }}</h1>
-              <span v-if="isProjectDisplayView" class="shrink-0 text-[12px] text-[#777a83]">
-                {{ displayedProjectRows.length }} {{ displayedProjectRows.length === 1 ? 'project' : 'projects' }}
-              </span>
-              <span v-else-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
+              <span v-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
                 {{ initiativeRows.length }} {{ initiativeRows.length === 1 ? 'initiative' : 'initiatives' }}
               </span>
               <span v-else-if="isViewsDirectory || currentTeamSection === 'views'" class="shrink-0 text-[12px] text-[#777a83]">

@@ -1336,15 +1336,12 @@ async function submitMessage() {
                   <span class="hidden shrink-0 text-xs text-slate-600 md:inline">{{ child.status }}</span>
                 </button>
               </div>
-              <button
+              <div
                 v-else
-                type="button"
-                class="flex min-h-12 w-full items-center justify-between rounded-lg border border-dashed border-white/[0.08] px-3 py-2 text-left text-sm text-slate-600 transition hover:border-white/[0.14] hover:bg-white/[0.025] hover:text-slate-400"
-                @click="emit('create-child', ticket.key)"
+                class="flex min-h-12 w-full items-center rounded-lg border border-dashed border-white/[0.08] px-3 py-2 text-sm text-slate-600"
               >
                 <span>{{ detailEmptyChildLabel }}</span>
-                <span class="text-xs">{{ detailChildActionLabel }}</span>
-              </button>
+              </div>
             </section>
 
             <section v-if="!isLocalTicket" class="mb-8">

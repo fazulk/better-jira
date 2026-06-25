@@ -240,7 +240,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-type TeamViewSection = 'triage' | 'all' | 'active' | 'backlog' | 'projects' | 'views'
+type TeamViewSection = 'triage' | 'all' | 'active' | 'backlog' | 'projects' | 'views' | 'project-views'
 
 function getTeamViewId(spaceKey: string, section: TeamViewSection): string {
   return `team:${spaceKey}:${section}`
@@ -260,6 +260,13 @@ function isTeamIssuesView(spaceKey: string): boolean {
     currentViewId.value === getTeamViewId(spaceKey, 'all')
     || currentViewId.value === getTeamViewId(spaceKey, 'active')
     || currentViewId.value === getTeamViewId(spaceKey, 'backlog')
+  )
+}
+
+function isTeamViewsView(spaceKey: string): boolean {
+  return viewNavigationIsActive.value && (
+    currentViewId.value === getTeamViewId(spaceKey, 'views')
+    || currentViewId.value === getTeamViewId(spaceKey, 'project-views')
   )
 }
 </script>
@@ -476,7 +483,7 @@ function isTeamIssuesView(spaceKey: string): boolean {
               <button
                 type="button"
                 class="flex h-6 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] transition"
-                :class="isActiveView(getTeamViewId(team.key, 'views')) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
+                :class="isTeamViewsView(team.key) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
                 @click="selectView(getTeamViewId(team.key, 'views'))"
               >
                 <Icon name="lucide:layers" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

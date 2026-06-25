@@ -62,6 +62,8 @@ export interface CustomViewDisplay {
   orderingDirection: 'asc' | 'desc'
   completedRange: string
   showSubIssueContext: boolean
+  showSubIssuesRange: string
+  showTriageIssuesRange: string
   orderCompletedByRecency: boolean
   showEmptyGroups: boolean
   issueGroupOrders: Record<string, string[]>
@@ -347,6 +349,8 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
     orderingDirection: 'asc',
     completedRange: 'hidden',
     showSubIssueContext: true,
+    showSubIssuesRange: 'all',
+    showTriageIssuesRange: 'all',
     orderCompletedByRecency: false,
     showEmptyGroups: false,
     issueGroupOrders: {},
@@ -380,6 +384,8 @@ function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
     orderingDirection: normalizeDirectionValue(recordValue.orderingDirection),
     completedRange: typeof recordValue.completedRange === 'string' && recordValue.completedRange.trim() ? recordValue.completedRange.trim() : defaults.completedRange,
     showSubIssueContext: normalizeBoolean(recordValue.showSubIssueContext, defaults.showSubIssueContext),
+    showSubIssuesRange: typeof recordValue.showSubIssuesRange === 'string' && recordValue.showSubIssuesRange.trim() ? recordValue.showSubIssuesRange.trim() : defaults.showSubIssuesRange,
+    showTriageIssuesRange: typeof recordValue.showTriageIssuesRange === 'string' && recordValue.showTriageIssuesRange.trim() ? recordValue.showTriageIssuesRange.trim() : defaults.showTriageIssuesRange,
     orderCompletedByRecency: normalizeBoolean(recordValue.orderCompletedByRecency, defaults.orderCompletedByRecency),
     showEmptyGroups: normalizeBoolean(recordValue.showEmptyGroups, defaults.showEmptyGroups),
     issueGroupOrders: normalizeStringListRecord(recordValue.issueGroupOrders),

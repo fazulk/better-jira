@@ -46,20 +46,42 @@ const displayOptionsOpen = ref(false)
 const groupOrderingOpen = ref(false)
 type IssueGroupingFieldId = 'none' | 'status' | 'assignee' | 'agent' | 'project' | 'priority' | 'label'
 type IssueOrderingFieldId = 'manual' | 'title' | 'status' | 'priority' | 'assignee' | 'agent' | 'estimate' | 'updated' | 'created' | 'due' | 'linkCount' | 'timeInStatus'
+type ProjectGroupingFieldId = 'none' | 'health' | 'status' | 'priority' | 'lead'
+type ProjectOrderingFieldId = 'manual' | 'name' | 'health' | 'priority' | 'lead' | 'targetDate' | 'updated' | 'progress'
+type ProjectClosedRange = 'all' | 'hidden'
+type IssueVisibilityRange = 'all' | 'day' | 'week' | 'month' | 'hidden'
 type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
 
 const listGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.grouping', 'none')
 const listSubGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.subGrouping', 'none')
 const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'status')
+const projectGrouping = useLocalStorage<ProjectGroupingFieldId>('jira2.linear.projectGrouping', 'none')
+const projectOrdering = useLocalStorage<ProjectOrderingFieldId>('jira2.linear.projectOrdering', 'manual')
+const projectClosedRange = useLocalStorage<ProjectClosedRange>('jira2.linear.projectClosedRange', 'all')
 const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.groupingDirection', 'asc')
 const listOrderingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.orderingDirection', 'asc')
 const issueGroupOrders = useLocalStorage<IssueGroupConfigMap>('jira2.linear.issueGroupOrders', {})
 const hiddenIssueGroupIds = useLocalStorage<IssueGroupConfigMap>('jira2.linear.hiddenIssueGroupIds', {})
-const completedRange = useLocalStorage<'hidden' | 'week' | 'month' | 'all'>('jira2.linear.completedRange', 'hidden')
+const completedRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.completedRange', 'hidden')
 const showSubIssueContext = useLocalStorage('jira2.linear.showSubIssueContext', true)
+const showSubIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showSubIssuesRange', 'all')
+const showTriageIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showTriageIssuesRange', 'all')
+const showSubIssues = computed({
+  get: () => showSubIssuesRange.value !== 'hidden',
+  set: (value: boolean) => {
+    showSubIssuesRange.value = value ? 'all' : 'hidden'
+  },
+})
+const showTriageAndBacklogIssues = computed({
+  get: () => showTriageIssuesRange.value !== 'hidden',
+  set: (value: boolean) => {
+    showTriageIssuesRange.value = value ? 'all' : 'hidden'
+  },
+})
 const orderCompletedByRecency = useLocalStorage('jira2.linear.orderCompletedByRecency', false)
 const showEmptyGroups = useLocalStorage('jira2.linear.showEmptyGroups', false)
 const collapsedIssueSectionIds = useLocalStorage<string[]>('jira2.linear.collapsedIssueSectionIds', [])
+const collapsedProjectSectionIds = useLocalStorage<string[]>('jira2.linear.collapsedProjectSectionIds', [])
 const visibleIssueRowFields = useLocalStorage<IssueRowFieldId[]>('jira2.linear.visibleIssueRowFields', [
   'id',
   'status',
@@ -85,12 +107,7 @@ const visibleInitiativeRowFields = useLocalStorage<InitiativeRowFieldId[]>('jira
   'issues',
   'updated',
 ])
-const visibleSavedViewRowFields = useLocalStorage<SavedViewRowFieldId[]>('jira2.linear.visibleSavedViewRowFields', [
-  'type',
-  'items',
-  'owner',
-  'updated',
-])
+const visibleSavedViewRowFields = useLocalStorage<SavedViewRowFieldId[]>('jira2.linear.visibleSavedViewRowFields', ['owner'])
 const isResizingSidebar = ref(false)
 const activePointerId = ref<number | null>(null)
 const isCreateModalOpen = ref(false)
@@ -158,12 +175,14 @@ type IssueRowFieldId =
 type ProjectRowFieldId = 'health' | 'priority' | 'lead' | 'targetDate' | 'issues' | 'status'
 type InitiativeRowFieldId = 'health' | 'lead' | 'projects' | 'issues' | 'updated'
 type SavedViewRowFieldId = 'type' | 'items' | 'owner' | 'updated'
-type MyIssuesViewId = 'my-issues' | 'my-created' | 'my-subscribed' | 'my-activity'
+type MyIssuesViewId = 'my-issues' | 'my-created'
 type StatusTypeValue = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed'
 type DateFilterOperator = 'hasDate' | 'noDate' | 'past' | 'today' | 'next7' | 'next30'
 type DateFilterFieldId = 'dueDate' | 'createdDate' | 'updatedDate' | 'completedDate'
 type ProjectPropertyFilterFieldId = 'projectStatus' | 'projectPriority' | 'projectLead'
 type FilterContextKind = 'issues' | 'projects' | 'initiatives' | 'views'
+type ViewsDirectoryTabId = 'views' | 'project-views'
+type CustomViewKind = 'issues' | 'projects'
 type FilterFieldId =
   | 'status'
   | 'statusType'
@@ -290,6 +309,12 @@ interface ProjectRow {
   updatedAt?: string
 }
 
+interface ProjectSection {
+  id: string
+  label: string
+  projects: ProjectRow[]
+}
+
 interface SavedViewRow {
   id: string
   name: string
@@ -397,6 +422,8 @@ function getDefaultViewDisplay(): CustomViewDisplay {
     orderingDirection: 'asc',
     completedRange: 'hidden',
     showSubIssueContext: true,
+    showSubIssuesRange: 'all',
+    showTriageIssuesRange: 'all',
     orderCompletedByRecency: false,
     showEmptyGroups: false,
     issueGroupOrders: {},
@@ -457,8 +484,9 @@ function normalizeIssueOrderingFieldId(value: string): IssueOrderingFieldId {
   }
 }
 
-function normalizeCompletedRange(value: string): 'hidden' | 'week' | 'month' | 'all' {
+function normalizeIssueVisibilityRange(value: string): IssueVisibilityRange {
   switch (value) {
+    case 'day':
     case 'week':
     case 'month':
     case 'all':
@@ -467,6 +495,14 @@ function normalizeCompletedRange(value: string): 'hidden' | 'week' | 'month' | '
     default:
       return 'hidden'
   }
+}
+
+function getLegacySubIssuesRange(display: CustomViewDisplay, defaults: CustomViewDisplay): IssueVisibilityRange {
+  if (display.showSubIssuesRange) {
+    return normalizeIssueVisibilityRange(display.showSubIssuesRange)
+  }
+
+  return (display.showSubIssueContext ?? defaults.showSubIssueContext) ? 'all' : 'hidden'
 }
 
 function normalizeDirection(value: string): 'asc' | 'desc' {
@@ -555,6 +591,10 @@ function stringArraysMatch(left: readonly string[], right: readonly string[]): b
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
+function stringSetsMatch(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every(value => right.includes(value))
+}
+
 function issueGroupConfigMapsMatch(left: IssueGroupConfigMap, right: IssueGroupConfigMap): boolean {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)])
 
@@ -585,6 +625,8 @@ function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
     orderingDirection: display.orderingDirection ?? defaults.orderingDirection,
     completedRange: display.completedRange ?? defaults.completedRange,
     showSubIssueContext: display.showSubIssueContext ?? defaults.showSubIssueContext,
+    showSubIssuesRange: display.showSubIssuesRange ?? getLegacySubIssuesRange(display, defaults),
+    showTriageIssuesRange: display.showTriageIssuesRange ?? defaults.showTriageIssuesRange,
     orderCompletedByRecency: display.orderCompletedByRecency ?? defaults.orderCompletedByRecency,
     showEmptyGroups: display.showEmptyGroups ?? defaults.showEmptyGroups,
     issueGroupOrders: copyIssueGroupConfigMap(display.issueGroupOrders ?? defaults.issueGroupOrders),
@@ -604,6 +646,8 @@ function captureDisplay(): CustomViewDisplay {
     orderingDirection: listOrderingDirection.value,
     completedRange: completedRange.value,
     showSubIssueContext: showSubIssueContext.value,
+    showSubIssuesRange: showSubIssuesRange.value,
+    showTriageIssuesRange: showTriageIssuesRange.value,
     orderCompletedByRecency: orderCompletedByRecency.value,
     showEmptyGroups: showEmptyGroups.value,
     issueGroupOrders: copyIssueGroupConfigMap(issueGroupOrders.value),
@@ -620,8 +664,10 @@ function applyDisplay(display: CustomViewDisplay): void {
   listOrdering.value = normalizeIssueOrderingFieldId(display.ordering)
   listGroupingDirection.value = normalizeDirection(display.groupingDirection)
   listOrderingDirection.value = normalizeDirection(display.orderingDirection)
-  completedRange.value = normalizeCompletedRange(display.completedRange)
+  completedRange.value = normalizeIssueVisibilityRange(display.completedRange)
   showSubIssueContext.value = display.showSubIssueContext
+  showSubIssuesRange.value = getLegacySubIssuesRange(display, getDefaultViewDisplay())
+  showTriageIssuesRange.value = normalizeIssueVisibilityRange(display.showTriageIssuesRange)
   orderCompletedByRecency.value = display.orderCompletedByRecency
   showEmptyGroups.value = display.showEmptyGroups
   issueGroupOrders.value = normalizeIssueGroupConfigMap(display.issueGroupOrders)
@@ -738,6 +784,38 @@ const issueOrderingOptions: Array<{ id: IssueOrderingFieldId, label: string }> =
   { id: 'timeInStatus', label: 'Time in status' },
 ]
 
+const projectGroupingOptions: Array<{ id: ProjectGroupingFieldId, label: string }> = [
+  { id: 'none', label: 'No grouping' },
+  { id: 'health', label: 'Health' },
+  { id: 'status', label: 'Status' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'lead', label: 'Lead' },
+]
+
+const projectOrderingOptions: Array<{ id: ProjectOrderingFieldId, label: string }> = [
+  { id: 'manual', label: 'Manual' },
+  { id: 'name', label: 'Name' },
+  { id: 'health', label: 'Health' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'lead', label: 'Lead' },
+  { id: 'targetDate', label: 'Target date' },
+  { id: 'updated', label: 'Updated' },
+  { id: 'progress', label: 'Progress' },
+]
+
+const projectClosedRangeOptions: Array<{ id: ProjectClosedRange, label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'hidden', label: 'Hide' },
+]
+
+const issueVisibilityRangeOptions: Array<{ id: IssueVisibilityRange, label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'day', label: 'Past day' },
+  { id: 'week', label: 'Past week' },
+  { id: 'month', label: 'Past month' },
+  { id: 'hidden', label: 'None' },
+]
+
 const projectRowFieldOptions: ProjectRowFieldOption[] = [
   { id: 'health', label: 'Health' },
   { id: 'priority', label: 'Priority' },
@@ -843,25 +921,6 @@ const createdMyIssueTickets = computed(() => {
     || isLocalTicketKey(ticket.key)
   ))
 })
-const subscribedMyIssueTickets = computed(() => (
-  issueTickets.value.filter(ticket => ticket.isWatching === true)
-))
-const activityMyIssueTickets = computed(() => {
-  const keys = new Set<string>()
-  const nextTickets: JiraTicket[] = []
-
-  for (const ticket of [
-    ...assignedMyIssueTickets.value,
-    ...createdMyIssueTickets.value,
-    ...subscribedMyIssueTickets.value,
-  ]) {
-    if (keys.has(ticket.key)) continue
-    keys.add(ticket.key)
-    nextTickets.push(ticket)
-  }
-
-  return sortTicketsByActivity(nextTickets)
-})
 const selectedTicket = computed(() => (
   selectedKey.value ? tickets.value.find(ticket => ticket.key === selectedKey.value) ?? null : null
 ))
@@ -917,6 +976,14 @@ function getContextKeyForViewId(viewId: string): string | null {
   const [scope, key, section] = viewId.split(':')
 
   if (scope === 'team' && key) {
+    if (section === 'views') {
+      return `team:${key}:issues`
+    }
+
+    if (section === 'project-views') {
+      return `team:${key}:projects`
+    }
+
     if (section === 'projects') {
       return `team:${key}:projects`
     }
@@ -929,6 +996,14 @@ function getContextKeyForViewId(viewId: string): string | null {
   }
 
   if (viewId === 'projects') {
+    return 'projects'
+  }
+
+  if (viewId === 'views') {
+    return 'my-issues'
+  }
+
+  if (viewId === 'project-views') {
     return 'projects'
   }
 
@@ -959,14 +1034,24 @@ const currentTeamSection = computed(() => {
   return scope === 'team' ? section ?? 'active' : null
 })
 
-const viewDirectoryIds = new Set<string>(['views', 'project-views', 'initiative-views', 'dashboards'])
-const isViewsDirectory = computed(() => viewDirectoryIds.has(currentView.value))
-const activeViewsDirectoryTab = computed(() => (
-  viewDirectoryIds.has(currentView.value) ? currentView.value : 'views'
-))
+function getViewsDirectoryTabFromViewId(viewId: string): ViewsDirectoryTabId | null {
+  if (viewId === 'views' || viewId === 'project-views') {
+    return viewId
+  }
+
+  const [scope, , section] = viewId.split(':')
+  if (scope === 'team' && (section === 'views' || section === 'project-views')) {
+    return section
+  }
+
+  return null
+}
+
+const isViewsDirectory = computed(() => getViewsDirectoryTabFromViewId(currentView.value) !== null)
+const activeViewsDirectoryTab = computed<ViewsDirectoryTabId>(() => getViewsDirectoryTabFromViewId(currentView.value) ?? 'views')
 const isProjectDisplayView = computed(() => activeBaseViewId.value === 'projects' || currentTeamSection.value === 'projects')
 const isInitiativeDisplayView = computed(() => currentView.value === 'initiatives')
-const isSavedViewDisplayView = computed(() => isViewsDirectory.value || currentTeamSection.value === 'views')
+const isSavedViewDisplayView = computed(() => isViewsDirectory.value)
 const isIssueDisplayView = computed(() => (
   !isProjectDisplayView.value
   && !isInitiativeDisplayView.value
@@ -983,14 +1068,17 @@ const currentTeamTickets = computed(() => {
   return issueTickets.value.filter(ticket => ticket.spaceKey === key)
 })
 const isReadyQaView = computed(() => currentView.value === 'ready-qa' || currentTeamSection.value === 'ready-qa')
-const isCurrentTeamAllIssuesView = computed(() => currentTeamKey.value !== null && currentTeamSection.value === 'all')
 
 function isMyIssuesView(viewId: string): viewId is MyIssuesViewId {
   return viewId === 'my-issues'
     || viewId === 'my-created'
-    || viewId === 'my-subscribed'
-    || viewId === 'my-activity'
 }
+
+watchEffect(() => {
+  if (currentView.value === 'my-subscribed' || currentView.value === 'my-activity') {
+    currentView.value = 'my-issues'
+  }
+})
 
 const viewTitle = computed(() => {
   if (selectedTicket.value) return selectedTicket.value.key
@@ -1038,8 +1126,6 @@ const viewTabs = computed<ViewTab[]>(() => {
     return [
       { id: 'my-issues', label: 'Assigned' },
       { id: 'my-created', label: 'Created' },
-      { id: 'my-subscribed', label: 'Subscribed' },
-      { id: 'my-activity', label: 'Activity' },
       ...customViewTabs.value,
     ]
   }
@@ -1064,11 +1150,10 @@ const viewTabs = computed<ViewTab[]>(() => {
   }
 
   if (isViewsDirectory.value) {
+    const tabPrefix = currentTeamKey.value ? `team:${currentTeamKey.value}:` : ''
     return [
-      { id: 'views', label: 'Issues' },
-      { id: 'project-views', label: 'Projects' },
-      { id: 'initiative-views', label: 'Initiatives' },
-      { id: 'dashboards', label: 'Dashboards' },
+      { id: `${tabPrefix}views`, label: 'Issues' },
+      { id: `${tabPrefix}project-views`, label: 'Projects' },
     ]
   }
 
@@ -1086,14 +1171,6 @@ const scopedTickets = computed(() => {
 
   if (activeBaseViewId.value === 'my-created') {
     return createdMyIssueTickets.value
-  }
-
-  if (activeBaseViewId.value === 'my-subscribed') {
-    return subscribedMyIssueTickets.value
-  }
-
-  if (activeBaseViewId.value === 'my-activity') {
-    return activityMyIssueTickets.value
   }
 
   if (activeBaseViewId.value === 'my-issues') {
@@ -1135,15 +1212,18 @@ const hasModifiedDisplayOptions = computed(() => {
   const defaults = getDefaultViewDisplay()
 
   if (isProjectDisplayView.value) {
-    return !stringArraysMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
+    return projectGrouping.value !== 'none'
+      || projectOrdering.value !== 'manual'
+      || projectClosedRange.value !== 'all'
+      || !stringSetsMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
   }
 
   if (isInitiativeDisplayView.value) {
-    return !stringArraysMatch(visibleInitiativeRowFields.value, ['health', 'lead', 'projects', 'issues', 'updated'])
+    return !stringSetsMatch(visibleInitiativeRowFields.value, ['health', 'lead', 'projects', 'issues', 'updated'])
   }
 
   if (isSavedViewDisplayView.value) {
-    return !stringArraysMatch(visibleSavedViewRowFields.value, ['type', 'items', 'owner', 'updated'])
+    return !stringSetsMatch(visibleSavedViewRowFields.value, ['owner'])
   }
 
   if (!isIssueDisplayView.value) {
@@ -1156,10 +1236,11 @@ const hasModifiedDisplayOptions = computed(() => {
     || listGroupingDirection.value !== defaults.groupingDirection
     || listOrderingDirection.value !== defaults.orderingDirection
     || completedRange.value !== defaults.completedRange
-    || showSubIssueContext.value !== defaults.showSubIssueContext
+    || showSubIssuesRange.value !== defaults.showSubIssuesRange
+    || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
     || orderCompletedByRecency.value !== defaults.orderCompletedByRecency
     || showEmptyGroups.value !== defaults.showEmptyGroups
-    || !stringArraysMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
+    || !stringSetsMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
     || !issueGroupConfigMapsMatch(issueGroupOrders.value, {})
     || !issueGroupConfigMapsMatch(hiddenIssueGroupIds.value, {})
 })
@@ -1262,7 +1343,7 @@ watch(visibleFilterMenuEntries, entries => {
 const baseSearchedTickets = computed(() => {
   const query = currentView.value === 'search' ? normalizedIssueSearch.value : ''
   const baseTickets = currentView.value === 'search'
-    ? filterTicketsByCompletedRange(issueTickets.value)
+    ? filterTicketsForCurrentView(issueTickets.value)
     : filterTicketsForCurrentView(scopedTickets.value)
   if (!query) return baseTickets
 
@@ -1331,18 +1412,12 @@ const searchTabs = computed<SearchTab[]>(() => [
 
 const baseIssueSections = computed<IssueSection[]>(() => {
   if (isMyIssuesView(currentView.value)) {
-    const label = currentView.value === 'my-created'
-      ? 'Created by you'
-      : currentView.value === 'my-subscribed'
-        ? 'Subscribed'
-        : currentView.value === 'my-activity'
-          ? 'Recent activity'
-          : 'Assigned to you'
+    const label = currentView.value === 'my-created' ? 'Created by you' : 'Assigned to you'
 
     return [{
       id: currentView.value,
       label,
-      tickets: currentView.value === 'my-activity' ? searchedTickets.value : sortTickets(searchedTickets.value),
+      tickets: sortTickets(searchedTickets.value),
     }]
   }
 
@@ -1376,9 +1451,9 @@ const issueGroupOrderingRows = computed<IssueGroupOrderingRow[]>(() => (
 
 const visibleIssueCount = computed(() => issueSections.value.reduce((count, section) => count + section.tickets.length, 0))
 const hiddenCompletedCount = computed(() => (
-  completedRange.value === 'all' || isCurrentTeamAllIssuesView.value
+  completedRange.value === 'all'
     ? 0
-    : scopedTickets.value.filter(ticket => !isTicketVisibleInCompletedRange(ticket)).length
+    : scopedTickets.value.filter(ticket => !isCompletedIssueVisible(ticket)).length
 ))
 const readyQaInsightTickets = computed(() => (isReadyQaView.value ? searchedTickets.value : []))
 const readyQaRecentlyUpdatedCount = computed(() => (
@@ -1524,7 +1599,21 @@ const baseDisplayedProjectRows = computed(() => {
   return projectRows.value.filter(project => project.spaceKey === key)
 })
 
-const displayedProjectRows = computed(() => applyViewFiltersToProjects(baseDisplayedProjectRows.value))
+const displayedProjectRows = computed(() => sortProjectsByOrdering(
+  applyProjectClosedRange(applyViewFiltersToProjects(baseDisplayedProjectRows.value)),
+))
+const projectSections = computed<ProjectSection[]>(() => {
+  if (projectGrouping.value === 'none') {
+    return [{
+      id: 'all',
+      label: displayedProjectRows.value.length === 1 ? '1 project' : `${displayedProjectRows.value.length} projects`,
+      projects: displayedProjectRows.value,
+    }]
+  }
+
+  return groupProjects(displayedProjectRows.value, projectGrouping.value)
+})
+const visibleProjectCount = computed(() => projectSections.value.reduce((count, section) => count + section.projects.length, 0))
 
 const baseInitiativeRows = computed<InitiativeRow[]>(() => {
   const groups: Array<{
@@ -1583,230 +1672,128 @@ const baseInitiativeRows = computed<InitiativeRow[]>(() => {
 
 const initiativeRows = computed(() => applyViewFiltersToInitiatives(baseInitiativeRows.value))
 
-const savedViewRows = computed<SavedViewRow[]>(() => {
-  if (activeViewsDirectoryTab.value === 'project-views') {
-    const atRiskProjects = projectRows.value.filter(project => project.health === 'At risk')
-    const completedProjects = projectRows.value.filter(project => project.health === 'Completed')
-
-    return [
-      {
-        id: 'all-projects',
-        name: 'All projects',
-        description: 'Every project across enabled teams',
-        category: 'Projects',
-        owner: 'Workspace',
-        count: projectRows.value.length,
-        updatedAt: projectRows.value[0]?.updatedAt,
-        icon: '◈',
-        viewId: 'projects',
-      },
-      {
-        id: 'at-risk-projects',
-        name: 'At risk projects',
-        description: 'Projects with blocked status or very low completion',
-        category: 'Projects',
-        owner: 'Workspace',
-        count: atRiskProjects.length,
-        updatedAt: atRiskProjects[0]?.updatedAt,
-        icon: '◇',
-        viewId: 'projects',
-      },
-      {
-        id: 'completed-projects',
-        name: 'Completed projects',
-        description: 'Projects where all tracked issues are complete',
-        category: 'Projects',
-        owner: 'Workspace',
-        count: completedProjects.length,
-        updatedAt: completedProjects[0]?.updatedAt,
-        icon: '◆',
-        viewId: 'projects',
-      },
-    ]
-  }
-
-  if (activeViewsDirectoryTab.value === 'initiative-views') {
-    return [
-      {
-        id: 'workspace-initiatives',
-        name: 'Workspace initiatives',
-        description: 'Roadmap rollups across active projects',
-        category: 'Initiatives',
-        owner: 'Workspace',
-        count: baseInitiativeRows.value.length,
-        updatedAt: baseInitiativeRows.value[0]?.updatedAt,
-        icon: '◇',
-        viewId: 'initiatives',
-      },
-    ]
-  }
-
-  if (activeViewsDirectoryTab.value === 'dashboards') {
-    return [
-      {
-        id: 'workspace-overview',
-        name: 'Workspace overview',
-        description: 'Active issues, triage, completed work, and project health',
-        category: 'Dashboard',
-        owner: 'Workspace',
-        count: issueTickets.value.length,
-        updatedAt: sortTicketsByActivity(issueTickets.value)[0]?.updatedAt,
-        icon: '▦',
-        viewId: 'my-issues',
-      },
-      {
-        id: 'qa-readiness',
-        name: 'QA readiness',
-        description: 'Issues waiting for validation across enabled teams',
-        category: 'Dashboard',
-        owner: 'Quality',
-        count: readyQaTickets.value.length,
-        updatedAt: sortTicketsByActivity(readyQaTickets.value)[0]?.updatedAt,
-        icon: '◌',
-        viewId: 'ready-qa',
-      },
-    ]
-  }
-
-  const teamRows = enabledSpaces.value.map<SavedViewRow>(space => {
-    const teamTickets = activeTickets.value.filter(ticket => ticket.spaceKey === space.key)
-    return {
-      id: `team-${space.key}-active`,
-      name: `${space.name || space.key} active issues`,
-      description: `Current issue work for ${space.key}`,
-      category: 'Team',
-      owner: space.name || space.key,
-      count: teamTickets.length,
-      updatedAt: sortTicketsByActivity(teamTickets)[0]?.updatedAt,
-      icon: '◎',
-      viewId: `team:${space.key}:active`,
-    }
-  })
-
-  return [
-    {
-      id: 'ready-qa',
-      name: 'Ready for QA',
-      description: 'Issues awaiting QA review across enabled teams',
-      category: 'Issues',
-      owner: 'Quality',
-      count: readyQaTickets.value.length,
-      updatedAt: sortTicketsByActivity(readyQaTickets.value)[0]?.updatedAt,
-      icon: '●',
-      viewId: 'ready-qa',
-    },
-    {
-      id: 'my-active-issues',
-      name: 'My active issues',
-      description: 'Assigned and active issue work',
-      category: 'Issues',
-      owner: 'Me',
-      count: activeTickets.value.length,
-      updatedAt: sortTicketsByActivity(activeTickets.value)[0]?.updatedAt,
-      icon: '◎',
-      viewId: 'my-issues',
-    },
-    {
-      id: 'inbox-triage',
-      name: 'Inbox triage',
-      description: 'New issues and updates that need attention',
-      category: 'Issues',
-      owner: 'Workspace',
-      count: triageTickets.value.length,
-      updatedAt: sortTicketsByActivity(triageTickets.value)[0]?.updatedAt,
-      icon: '▤',
-      viewId: 'inbox',
-    },
-    ...teamRows,
-  ].sort((left, right) => (
-    getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
-    || left.name.localeCompare(right.name)
-  ))
-})
-
-const teamSavedViewRows = computed<SavedViewRow[]>(() => {
-  const key = currentTeamKey.value
-  const name = currentTeamName.value
-  if (!key || !name) return []
-
-  const teamTickets = currentTeamTickets.value
-  const teamActiveTickets = teamTickets.filter(isActiveIssueTicket)
-  const teamTriageTickets = teamTickets.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new')
-  const teamBacklogTickets = teamTickets.filter(isBacklogIssueTicket)
-  const teamReadyQaTickets = teamTickets.filter(ticket => ticket.status.toLowerCase().includes('ready for qa'))
-  const teamProjectRows = projectRows.value.filter(project => project.spaceKey === key)
-
-  return [
-    {
-      id: `team-${key}-active`,
-      name: 'Active issues',
-      description: `Current issue work for ${key}`,
-      category: 'Issues',
-      owner: name,
-      count: teamActiveTickets.length,
-      updatedAt: sortTicketsByActivity(teamActiveTickets)[0]?.updatedAt,
-      icon: '◌',
-      viewId: `team:${key}:active`,
-    },
-    {
-      id: `team-${key}-triage`,
-      name: 'Triage',
-      description: 'New issues and intake candidates',
-      category: 'Issues',
-      owner: name,
-      count: teamTriageTickets.length,
-      updatedAt: sortTicketsByActivity(teamTriageTickets)[0]?.updatedAt,
-      icon: '○',
-      viewId: `team:${key}:triage`,
-    },
-    {
-      id: `team-${key}-backlog`,
-      name: 'Backlog',
-      description: 'Issues outside the current sprint',
-      category: 'Issues',
-      owner: name,
-      count: teamBacklogTickets.length,
-      updatedAt: sortTicketsByActivity(teamBacklogTickets)[0]?.updatedAt,
-      icon: '□',
-      viewId: `team:${key}:backlog`,
-    },
-    {
-      id: `team-${key}-ready-qa`,
-      name: 'Ready for QA',
-      description: 'Team issues waiting for validation',
-      category: 'Issues',
-      owner: 'Quality',
-      count: teamReadyQaTickets.length,
-      updatedAt: sortTicketsByActivity(teamReadyQaTickets)[0]?.updatedAt,
-      icon: '●',
-      viewId: `team:${key}:ready-qa`,
-    },
-    {
-      id: `team-${key}-projects`,
-      name: 'Projects',
-      description: 'Team projects',
-      category: 'Projects',
-      owner: name,
-      count: teamProjectRows.length,
-      updatedAt: teamProjectRows[0]?.updatedAt,
-      icon: '◈',
-      viewId: `team:${key}:projects`,
-    },
-  ].sort((left, right) => (
-    getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
-    || left.name.localeCompare(right.name)
-  ))
-})
-
-const baseDisplayedSavedViewRows = computed(() => (
-  currentTeamSection.value === 'views' ? teamSavedViewRows.value : savedViewRows.value
+const savedViewRows = computed<SavedViewRow[]>(() => (
+  customViews.value
+    .filter(view => customViewBelongsInCurrentViewsDirectory(view))
+    .map(view => customViewToSavedViewRow(view))
 ))
+
+const baseDisplayedSavedViewRows = computed(() => savedViewRows.value)
 const displayedSavedViewRows = computed(() => applyViewFiltersToSavedViews(baseDisplayedSavedViewRows.value))
 const currentViewIsFavoritable = computed(() => currentView.value !== 'search')
 const favoriteViewNavItems = computed<FavoriteViewNavItem[]>(() => favoriteViews.value.map(view => ({
   id: view.id,
   label: deriveViewLabel(view.id),
 })))
+
+function customViewBelongsInCurrentViewsDirectory(view: CustomView): boolean {
+  const kind = getCustomViewKind(view.contextKey)
+  if (kind === null) {
+    return false
+  }
+
+  if ((activeViewsDirectoryTab.value === 'project-views') !== (kind === 'projects')) {
+    return false
+  }
+
+  const activeTeamKey = currentTeamKey.value
+  const viewTeamKey = getCustomViewTeamKey(view.contextKey)
+  return activeTeamKey ? viewTeamKey === activeTeamKey : viewTeamKey === null
+}
+
+function getCustomViewKind(contextKey: string): CustomViewKind | null {
+  if (contextKey === 'my-issues') {
+    return 'issues'
+  }
+
+  if (contextKey === 'projects') {
+    return 'projects'
+  }
+
+  const [scope, , section] = contextKey.split(':')
+  if (scope !== 'team') {
+    return null
+  }
+
+  if (section === 'issues') {
+    return 'issues'
+  }
+
+  if (section === 'projects') {
+    return 'projects'
+  }
+
+  return null
+}
+
+function getCustomViewTeamKey(contextKey: string): string | null {
+  const [scope, key] = contextKey.split(':')
+  return scope === 'team' && key ? key : null
+}
+
+function customViewToSavedViewRow(view: CustomView): SavedViewRow {
+  const kind = getCustomViewKind(view.contextKey)
+  const stats = getCustomViewStats(view)
+
+  return {
+    id: view.id,
+    name: view.name,
+    description: view.description,
+    category: kind === 'projects' ? 'Projects' : 'Issues',
+    owner: currentUserName.value || 'Me',
+    count: stats.count,
+    updatedAt: stats.updatedAt,
+    icon: kind === 'projects' ? '◈' : '▱',
+    viewId: view.id,
+  }
+}
+
+function getCustomViewStats(view: CustomView): { count: number, updatedAt?: string } {
+  const filters = customViewFiltersToClauses(view.filters)
+  const kind = getCustomViewKind(view.contextKey)
+
+  if (kind === 'projects') {
+    const projects = getProjectRowsForCustomView(view.contextKey)
+      .filter(project => filters.every(filter => projectMatchesFilter(project, filter)))
+    const updatedAt = [...projects]
+      .sort((left, right) => getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt))[0]?.updatedAt
+
+    return {
+      count: projects.length,
+      updatedAt,
+    }
+  }
+
+  const tickets = getIssueTicketsForCustomView(view.contextKey)
+    .filter(ticket => filters.every(filter => ticketMatchesFilter(ticket, filter)))
+
+  return {
+    count: tickets.length,
+    updatedAt: sortTicketsByActivity(tickets)[0]?.updatedAt,
+  }
+}
+
+function getIssueTicketsForCustomView(contextKey: string): JiraTicket[] {
+  if (contextKey === 'my-issues') {
+    return assignedMyIssueTickets.value
+  }
+
+  const teamKey = getCustomViewTeamKey(contextKey)
+  if (teamKey) {
+    return issueTickets.value.filter(ticket => ticket.spaceKey === teamKey)
+  }
+
+  return issueTickets.value
+}
+
+function getProjectRowsForCustomView(contextKey: string): ProjectRow[] {
+  const teamKey = getCustomViewTeamKey(contextKey)
+  if (teamKey) {
+    return projectRows.value.filter(project => project.spaceKey === teamKey)
+  }
+
+  return projectRows.value
+}
 
 function isFilterFieldId(value: string): value is FilterFieldId {
   return filterFieldIds.has(value)
@@ -1822,6 +1809,7 @@ function getTeamSectionLabel(section: string | undefined): string {
   if (section === 'backlog') return 'Backlog'
   if (section === 'projects') return 'Projects'
   if (section === 'views') return 'Views'
+  if (section === 'project-views') return 'Views · Projects'
   if (section === 'ready-qa') return 'Ready for QA'
   return 'Active'
 }
@@ -1833,14 +1821,10 @@ function deriveViewLabel(viewId: string): string {
   if (viewId === 'inbox') return 'Inbox'
   if (viewId === 'my-issues') return 'My issues · Assigned'
   if (viewId === 'my-created') return 'My issues · Created'
-  if (viewId === 'my-subscribed') return 'My issues · Subscribed'
-  if (viewId === 'my-activity') return 'My issues · Activity'
   if (viewId === 'initiatives') return 'Initiatives'
   if (viewId === 'projects') return 'Projects'
   if (viewId === 'views') return 'Views · Issues'
   if (viewId === 'project-views') return 'Views · Projects'
-  if (viewId === 'initiative-views') return 'Views · Initiatives'
-  if (viewId === 'dashboards') return 'Views · Dashboards'
   if (viewId === 'ready-qa') return 'Ready for QA'
 
   const [scope, key, section] = viewId.split(':')
@@ -1849,7 +1833,7 @@ function deriveViewLabel(viewId: string): string {
     return `${teamName} · ${getTeamSectionLabel(section)}`
   }
 
-  const savedView = [...savedViewRows.value, ...teamSavedViewRows.value].find(row => row.viewId === viewId)
+  const savedView = savedViewRows.value.find(row => row.viewId === viewId)
   return savedView?.name ?? viewId
 }
 
@@ -2243,13 +2227,12 @@ function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
   })
 }
 
-function filterTicketsByCompletedRange(nextTickets: JiraTicket[]): JiraTicket[] {
-  return nextTickets.filter(isTicketVisibleInCompletedRange)
-}
-
 function filterTicketsForCurrentView(nextTickets: JiraTicket[]): JiraTicket[] {
-  if (isCurrentTeamAllIssuesView.value) return nextTickets
-  return filterTicketsByCompletedRange(nextTickets)
+  return nextTickets.filter(ticket => (
+    isCompletedIssueVisible(ticket)
+    && isSubIssueVisible(ticket)
+    && isTriageIssueVisible(ticket)
+  ))
 }
 
 function isBacklogIssueTicket(ticket: JiraTicket): boolean {
@@ -2260,18 +2243,43 @@ function isActiveIssueTicket(ticket: JiraTicket): boolean {
   return getStatusGroup(ticket.statusCategory) !== 'done' && !isBacklogIssueTicket(ticket)
 }
 
-function isTicketVisibleInCompletedRange(ticket: JiraTicket): boolean {
+function isCompletedIssueVisible(ticket: JiraTicket): boolean {
   if (getStatusGroup(ticket.statusCategory) !== 'done') return true
-  if (completedRange.value === 'all') return true
-  if (completedRange.value === 'hidden') return false
+  return isDateVisibleInRange(completedRange.value, ticket.completedAt ?? ticket.updatedAt)
+}
 
-  const completedAt = getTimeValue(ticket.completedAt ?? ticket.updatedAt)
-  if (completedAt === 0) return false
+function isSubIssueTicket(ticket: JiraTicket): boolean {
+  const parentIssueType = ticket.parent?.issueType.trim().toLowerCase()
+  return Boolean(parentIssueType && !parentIssueType.includes('epic'))
+}
 
-  const rangeMs = completedRange.value === 'week'
-    ? 7 * 24 * 60 * 60 * 1000
-    : 30 * 24 * 60 * 60 * 1000
-  return Date.now() - completedAt <= rangeMs
+function isSubIssueVisible(ticket: JiraTicket): boolean {
+  if (!isSubIssueTicket(ticket)) return true
+  return isDateVisibleInRange(showSubIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
+}
+
+function isTriageOrBacklogIssueTicket(ticket: JiraTicket): boolean {
+  return getStatusGroup(ticket.statusCategory) === 'new' || isBacklogIssueTicket(ticket)
+}
+
+function isTriageIssueVisible(ticket: JiraTicket): boolean {
+  if (!isTriageOrBacklogIssueTicket(ticket)) return true
+  return isDateVisibleInRange(showTriageIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
+}
+
+function isDateVisibleInRange(range: IssueVisibilityRange, dateValue: string | undefined): boolean {
+  if (range === 'all') return true
+  if (range === 'hidden') return false
+
+  const timeValue = getTimeValue(dateValue)
+  if (timeValue === 0) return false
+
+  const rangeMs = range === 'day'
+    ? 24 * 60 * 60 * 1000
+    : range === 'week'
+      ? 7 * 24 * 60 * 60 * 1000
+      : 30 * 24 * 60 * 60 * 1000
+  return Date.now() - timeValue <= rangeMs
 }
 
 function ticketMatchesQuery(ticket: JiraTicket, query: string): boolean {
@@ -2316,7 +2324,7 @@ function getFilterFieldLabel(fieldId: FilterFieldId): string {
 function getActiveFilterContext(): FilterContextKind {
   if (isProjectDisplayView.value) return 'projects'
   if (currentView.value === 'initiatives') return 'initiatives'
-  if (isViewsDirectory.value || currentTeamSection.value === 'views') return 'views'
+  if (isViewsDirectory.value) return 'views'
   return 'issues'
 }
 
@@ -2848,6 +2856,81 @@ function projectMatchesFilter(project: ProjectRow, filter: ViewFilterClause): bo
   return false
 }
 
+function applyProjectClosedRange(projects: ProjectRow[]): ProjectRow[] {
+  if (projectClosedRange.value === 'all') return projects
+  return projects.filter(project => project.health !== 'Completed')
+}
+
+function sortProjectsByOrdering(projects: ProjectRow[]): ProjectRow[] {
+  if (projectOrdering.value === 'manual') {
+    return projects
+  }
+
+  return [...projects].sort((left, right) => compareProjects(left, right, projectOrdering.value))
+}
+
+function compareProjects(left: ProjectRow, right: ProjectRow, ordering: ProjectOrderingFieldId): number {
+  if (ordering === 'name') return left.name.localeCompare(right.name)
+  if (ordering === 'health') return getProjectHealthRank(left.health) - getProjectHealthRank(right.health)
+  if (ordering === 'priority') return getPriorityRank(left.priority) - getPriorityRank(right.priority)
+  if (ordering === 'lead') return left.lead.localeCompare(right.lead)
+  if (ordering === 'targetDate') return compareOptionalDates(left.targetDateValue, right.targetDateValue)
+  if (ordering === 'updated') return getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
+  if (ordering === 'progress') return right.progress - left.progress
+  return 0
+}
+
+function compareOptionalDates(left: string | undefined, right: string | undefined): number {
+  const leftTime = getTimeValue(left)
+  const rightTime = getTimeValue(right)
+  if (leftTime === 0 && rightTime === 0) return 0
+  if (leftTime === 0) return 1
+  if (rightTime === 0) return -1
+  return leftTime - rightTime
+}
+
+function groupProjects(projects: ProjectRow[], grouping: ProjectGroupingFieldId): ProjectSection[] {
+  const groups = new Map<string, ProjectRow[]>()
+
+  for (const project of projects) {
+    const label = getProjectGroupingLabel(project, grouping)
+    groups.set(label, [...(groups.get(label) ?? []), project])
+  }
+
+  return [...groups.entries()]
+    .map(([label, groupProjects]) => ({
+      id: `${grouping}:${label}`,
+      label,
+      projects: groupProjects,
+    }))
+    .sort((left, right) => (
+      getProjectGroupingRank(left.label, grouping) - getProjectGroupingRank(right.label, grouping)
+      || left.label.localeCompare(right.label)
+    ))
+}
+
+function getProjectGroupingLabel(project: ProjectRow, grouping: ProjectGroupingFieldId): string {
+  if (grouping === 'health') return project.health
+  if (grouping === 'status') return project.status || 'No status'
+  if (grouping === 'priority') return project.priority || 'No priority'
+  if (grouping === 'lead') return project.lead || 'Unassigned'
+  return 'Projects'
+}
+
+function getProjectGroupingRank(label: string, grouping: ProjectGroupingFieldId): number {
+  if (grouping === 'health') {
+    if (label === 'At risk') return 0
+    if (label === 'On track') return 1
+    if (label === 'Completed') return 2
+  }
+
+  if (grouping === 'priority') {
+    return getPriorityRank(label)
+  }
+
+  return 0
+}
+
 function getProjectStatusType(project: ProjectRow): StatusTypeValue {
   if (project.health === 'Completed') return 'completed'
   if (project.status.trim().toLowerCase() === 'backlog') return 'backlog'
@@ -3157,15 +3240,30 @@ function toggleIssueRowField(fieldId: IssueRowFieldId) {
 }
 
 function resetIssueDisplayOptions() {
-  listGrouping.value = 'none'
-  listSubGrouping.value = 'none'
-  listOrdering.value = 'status'
-  listGroupingDirection.value = 'asc'
-  listOrderingDirection.value = 'asc'
-  orderCompletedByRecency.value = false
-  showSubIssueContext.value = true
-  showEmptyGroups.value = false
-  visibleIssueRowFields.value = ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created']
+  const defaults = getDefaultViewDisplay()
+  listGrouping.value = normalizeIssueGroupingFieldId(defaults.grouping)
+  listSubGrouping.value = normalizeIssueGroupingFieldId(defaults.subGrouping)
+  listOrdering.value = normalizeIssueOrderingFieldId(defaults.ordering)
+  listGroupingDirection.value = defaults.groupingDirection
+  listOrderingDirection.value = defaults.orderingDirection
+  completedRange.value = normalizeIssueVisibilityRange(defaults.completedRange)
+  orderCompletedByRecency.value = defaults.orderCompletedByRecency
+  showSubIssueContext.value = defaults.showSubIssueContext
+  showSubIssuesRange.value = normalizeIssueVisibilityRange(defaults.showSubIssuesRange)
+  showTriageIssuesRange.value = normalizeIssueVisibilityRange(defaults.showTriageIssuesRange)
+  showEmptyGroups.value = defaults.showEmptyGroups
+  issueGroupOrders.value = copyIssueGroupConfigMap(defaults.issueGroupOrders)
+  hiddenIssueGroupIds.value = copyIssueGroupConfigMap(defaults.hiddenIssueGroupIds)
+  collapsedIssueSectionIds.value = [...defaults.collapsedIssueSectionIds]
+  visibleIssueRowFields.value = normalizeIssueRowFields(defaults.visibleIssueRowFields)
+}
+
+function resetProjectDisplayOptions() {
+  projectGrouping.value = 'none'
+  projectOrdering.value = 'manual'
+  projectClosedRange.value = 'all'
+  collapsedProjectSectionIds.value = []
+  visibleProjectRowFields.value = normalizeProjectRowFields(getDefaultViewDisplay().visibleProjectRowFields)
 }
 
 function openGroupOrdering() {
@@ -4009,6 +4107,23 @@ function getExpandedSectionTickets(section: IssueSection): JiraTicket[] {
   return isIssueSectionCollapsed(section) ? [] : section.tickets
 }
 
+function getProjectSectionCollapseId(section: ProjectSection): string {
+  return `${currentView.value}:${projectGrouping.value}:${section.id}`
+}
+
+function isProjectSectionCollapsed(section: ProjectSection): boolean {
+  if (projectGrouping.value === 'none') return false
+
+  return collapsedProjectSectionIds.value.includes(getProjectSectionCollapseId(section))
+}
+
+function toggleProjectSection(section: ProjectSection): void {
+  const sectionId = getProjectSectionCollapseId(section)
+  collapsedProjectSectionIds.value = isProjectSectionCollapsed(section)
+    ? collapsedProjectSectionIds.value.filter(id => id !== sectionId)
+    : [...collapsedProjectSectionIds.value, sectionId]
+}
+
 function getFlatVisibleTickets(): JiraTicket[] {
   return issueSections.value.flatMap(getExpandedSectionTickets)
 }
@@ -4302,7 +4417,7 @@ onBeforeUnmount(() => {
               <span v-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
                 {{ initiativeRows.length }} {{ initiativeRows.length === 1 ? 'initiative' : 'initiatives' }}
               </span>
-              <span v-else-if="isViewsDirectory || currentTeamSection === 'views'" class="shrink-0 text-[12px] text-[#777a83]">
+              <span v-else-if="isViewsDirectory" class="shrink-0 text-[12px] text-[#777a83]">
                 {{ displayedSavedViewRows.length }} {{ displayedSavedViewRows.length === 1 ? 'view' : 'views' }}
               </span>
               <span v-else-if="currentView === 'inbox'" class="shrink-0 text-[12px] text-[#777a83]">
@@ -4392,6 +4507,18 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="min-w-0 flex-1 py-1.5">
+                <div class="mb-1 flex h-8 items-center justify-between gap-3 border-b border-white/[0.06] px-3 pb-1">
+                  <span class="text-[12px] font-medium text-[#d7d8dc]">Filters</span>
+                  <button
+                    type="button"
+                    class="rounded px-1.5 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4] disabled:cursor-not-allowed disabled:opacity-40"
+                    :disabled="!hasCurrentViewFilters"
+                    @click="clearCurrentViewFilters"
+                  >
+                    Reset
+                  </button>
+                </div>
+
                 <template v-if="activeFilterEntryId === 'dates'">
                   <div class="border-b border-white/[0.06] px-2 pb-1">
                     <button
@@ -4632,21 +4759,47 @@ onBeforeUnmount(() => {
               </div>
 
               <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-2">
+                <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
+                  <span class="text-[12px] text-[#bfc1c8]">Completed issues</span>
+                  <select v-model="completedRange" name="completed-issues-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                    <option v-for="option in issueVisibilityRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                  </select>
+                </label>
+
                 <button
                   type="button"
                   class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
                   role="switch"
-                  :aria-checked="showSubIssueContext"
-                  @click="showSubIssueContext = !showSubIssueContext"
+                  :aria-checked="showSubIssues"
+                  @click="showSubIssues = !showSubIssues"
                 >
                   <span class="text-[12px] text-[#bfc1c8]">Show sub-issues</span>
                   <span
                     class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
-                    :class="showSubIssueContext ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                    :class="showSubIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
                   >
                     <span
                       class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
-                      :class="showSubIssueContext ? 'translate-x-3' : 'translate-x-0'"
+                      :class="showSubIssues ? 'translate-x-3' : 'translate-x-0'"
+                    ></span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
+                  role="switch"
+                  :aria-checked="showTriageAndBacklogIssues"
+                  @click="showTriageAndBacklogIssues = !showTriageAndBacklogIssues"
+                >
+                  <span class="text-[12px] text-[#bfc1c8]">Show triage (backlog)</span>
+                  <span
+                    class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
+                    :class="showTriageAndBacklogIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                  >
+                    <span
+                      class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
+                      :class="showTriageAndBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
                     ></span>
                   </span>
                 </button>
@@ -4704,6 +4857,29 @@ onBeforeUnmount(() => {
               </div>
 
               <div v-else-if="!groupOrderingOpen && isProjectDisplayView" class="border-t border-white/[0.06] p-3">
+                <div class="space-y-2 pb-3">
+                  <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1">
+                    <span class="text-[12px] text-[#8f9198]">Grouping</span>
+                    <select v-model="projectGrouping" name="project-grouping" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in projectGroupingOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+
+                  <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1">
+                    <span class="text-[12px] text-[#8f9198]">Ordering</span>
+                    <select v-model="projectOrdering" name="project-ordering" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in projectOrderingOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+
+                  <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1">
+                    <span class="text-[12px] text-[#8f9198]">Show closed projects</span>
+                    <select v-model="projectClosedRange" name="project-closed-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in projectClosedRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+                </div>
+
                 <div class="mb-2 flex items-center justify-between gap-3">
                   <span class="text-[12px] text-[#8f9198]">Visible properties</span>
                   <span class="text-[11px] text-[#6f727b]">{{ visibleProjectRowFields.length }} shown</span>
@@ -4727,6 +4903,15 @@ onBeforeUnmount(() => {
                       ✓
                     </span>
                     <span>{{ field.label }}</span>
+                  </button>
+                </div>
+                <div class="mt-3 flex items-center justify-end border-t border-white/[0.06] pt-2">
+                  <button
+                    type="button"
+                    class="rounded px-1.5 py-1 text-[12px] text-[#d7d8dc] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
+                    @click="resetProjectDisplayOptions"
+                  >
+                    Reset
                   </button>
                 </div>
               </div>
@@ -5333,7 +5518,7 @@ onBeforeUnmount(() => {
               type="button"
               class="linear-row grid min-h-12 w-full items-center px-4 py-2 text-left"
               :style="{ gridTemplateColumns: initiativeGridTemplate }"
-              @click="handleViewChange('project-views')"
+              @click="handleViewChange('projects')"
             >
               <span class="min-w-0 pr-4">
                 <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{ initiative.name }}</span>
@@ -5382,46 +5567,68 @@ onBeforeUnmount(() => {
             <span v-if="isProjectRowFieldVisible('status')">Status</span>
           </div>
 
-          <div v-if="displayedProjectRows.length">
-            <button
-              v-for="project in displayedProjectRows"
-              :key="project.key"
-              type="button"
-              class="linear-row grid min-h-12 w-full items-center gap-0 px-4 py-2 text-left"
-              :style="{ gridTemplateColumns: projectGridTemplate }"
-              @mouseenter="prefetchTicket(project.key)"
-              @click="openTicket(project.key)"
-            >
-              <span class="min-w-0 pr-4">
-                <span class="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#e6e7ea]">
-                  <Icon name="lucide:rocket" class="h-3.5 w-3.5 shrink-0 text-[#9aa8c7]" aria-hidden="true" />
-                  <span class="truncate">{{ project.name }}</span>
-                </span>
-                <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
-              </span>
+          <div v-if="visibleProjectCount > 0">
+            <section v-for="section in projectSections" :key="section.id">
+              <div v-if="projectGrouping !== 'none'" class="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.025] px-4 text-[12px] font-medium text-[#aeb0b7]">
+                <button
+                  type="button"
+                  class="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-[#d7d8dc]"
+                  :aria-expanded="!isProjectSectionCollapsed(section)"
+                  @click="toggleProjectSection(section)"
+                >
+                  <Icon
+                    name="lucide:chevron-down"
+                    class="h-3 w-3 shrink-0 text-[#777a83] transition-transform"
+                    :class="isProjectSectionCollapsed(section) ? '-rotate-90' : ''"
+                    aria-hidden="true"
+                  />
+                  <span class="truncate">{{ section.label }}</span>
+                  <span class="text-[#6f727b]">{{ section.projects.length }}</span>
+                </button>
+              </div>
 
-              <span v-if="isProjectRowFieldVisible('health')">
-                <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px]" :class="getProjectHealthClass(project.health)">
-                  {{ project.health }}
-                </span>
-              </span>
+              <template v-if="!isProjectSectionCollapsed(section)">
+                <button
+                  v-for="project in section.projects"
+                  :key="project.key"
+                  type="button"
+                  class="linear-row grid min-h-12 w-full items-center gap-0 px-4 py-2 text-left"
+                  :style="{ gridTemplateColumns: projectGridTemplate }"
+                  @mouseenter="prefetchTicket(project.key)"
+                  @click="openTicket(project.key)"
+                >
+                  <span class="min-w-0 pr-4">
+                    <span class="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#e6e7ea]">
+                      <Icon name="lucide:rocket" class="h-3.5 w-3.5 shrink-0 text-[#9aa8c7]" aria-hidden="true" />
+                      <span class="truncate">{{ project.name }}</span>
+                    </span>
+                    <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
+                  </span>
 
-              <span v-if="isProjectRowFieldVisible('priority')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.priority }}</span>
-              <span v-if="isProjectRowFieldVisible('lead')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ project.lead }}</span>
-              <span v-if="isProjectRowFieldVisible('targetDate')" class="truncate text-[12px] text-[#8f9198]">{{ project.targetDate }}</span>
+                  <span v-if="isProjectRowFieldVisible('health')">
+                    <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px]" :class="getProjectHealthClass(project.health)">
+                      {{ project.health }}
+                    </span>
+                  </span>
 
-              <span v-if="isProjectRowFieldVisible('issues')" class="pr-5">
-                <span class="flex items-center justify-between gap-2 text-[11px] text-[#8f9198]">
-                  <span>{{ project.completedCount }}/{{ project.issueCount }}</span>
-                  <span>{{ project.progress }}%</span>
-                </span>
-                <span class="mt-1 block h-1 overflow-hidden rounded-full bg-white/[0.06]">
-                  <span class="block h-full rounded-full" :class="getProgressBarClass(project.health)" :style="{ width: `${project.progress}%` }"></span>
-                </span>
-              </span>
+                  <span v-if="isProjectRowFieldVisible('priority')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.priority }}</span>
+                  <span v-if="isProjectRowFieldVisible('lead')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{ project.lead }}</span>
+                  <span v-if="isProjectRowFieldVisible('targetDate')" class="truncate text-[12px] text-[#8f9198]">{{ project.targetDate }}</span>
 
-              <span v-if="isProjectRowFieldVisible('status')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.status }}</span>
-            </button>
+                  <span v-if="isProjectRowFieldVisible('issues')" class="pr-5">
+                    <span class="flex items-center justify-between gap-2 text-[11px] text-[#8f9198]">
+                      <span>{{ project.completedCount }}/{{ project.issueCount }}</span>
+                      <span>{{ project.progress }}%</span>
+                    </span>
+                    <span class="mt-1 block h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                      <span class="block h-full rounded-full" :class="getProgressBarClass(project.health)" :style="{ width: `${project.progress}%` }"></span>
+                    </span>
+                  </span>
+
+                  <span v-if="isProjectRowFieldVisible('status')" class="truncate text-[12px] text-[#aeb0b7]">{{ project.status }}</span>
+                </button>
+              </template>
+            </section>
           </div>
 
           <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
@@ -5432,7 +5639,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else-if="isViewsDirectory || currentTeamSection === 'views'" class="min-h-0 flex-1 overflow-y-auto">
+        <div v-else-if="isViewsDirectory" class="min-h-0 flex-1 overflow-y-auto">
           <div class="grid border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]" :style="{ gridTemplateColumns: savedViewGridTemplate }">
             <span>Name</span>
             <span v-if="isSavedViewRowFieldVisible('type')">Type</span>
@@ -5468,7 +5675,7 @@ onBeforeUnmount(() => {
           <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
             <div class="max-w-sm">
               <p class="text-[13px] font-medium text-[#d7d8dc]">No saved views found</p>
-              <p class="mt-1 text-[12px] text-[#777a83]">Views derived from enabled Jira spaces will appear here.</p>
+              <p class="mt-1 text-[12px] text-[#777a83]">Create a custom issue or project view to see it here.</p>
             </div>
           </div>
         </div>

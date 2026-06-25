@@ -497,7 +497,7 @@ const teamTriageRows = computed<SettingsDetailRow[]>(() => [
   {
     label: 'Ready for QA',
     value: formatCount(readyForQaIssueCount.value, 'issue', 'issues'),
-    detail: 'Issues with a Ready for QA status are exposed as a workspace and team saved view.',
+    detail: 'Issues with a Ready for QA status are exposed as workspace and team issue views.',
   },
   {
     label: 'Routing',

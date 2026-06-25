@@ -46,6 +46,40 @@ export interface FavoriteView {
   filters: FavoriteViewFilter[]
 }
 
+export interface CustomViewFilter {
+  id: string
+  fieldId: string
+  fieldLabel: string
+  value: string
+  valueLabel: string
+}
+
+export interface CustomViewDisplay {
+  grouping: string
+  subGrouping: string
+  ordering: string
+  groupingDirection: 'asc' | 'desc'
+  orderingDirection: 'asc' | 'desc'
+  completedRange: string
+  showSubIssueContext: boolean
+  orderCompletedByRecency: boolean
+  showEmptyGroups: boolean
+  issueGroupOrders: Record<string, string[]>
+  hiddenIssueGroupIds: Record<string, string[]>
+  collapsedIssueSectionIds: string[]
+  visibleIssueRowFields: string[]
+  visibleProjectRowFields: string[]
+}
+
+export interface CustomView {
+  id: string
+  name: string
+  description: string
+  contextKey: string
+  filters: CustomViewFilter[]
+  display: CustomViewDisplay
+}
+
 export type LabelColors = Record<string, string>
 
 export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
@@ -55,6 +89,7 @@ export type SidebarTicketScope = 'currentSprint' | 'all'
 export interface SidebarSettings {
   pinnedTicketKeys: string[]
   favoriteViews: FavoriteView[]
+  customViews: CustomView[]
   filterTypeKeys: string[]
   filterStatuses: string[]
   filterAssignees: string[]
@@ -80,6 +115,7 @@ export interface UpdateAiConnectionInput {
 export interface UpdateSidebarSettingsInput {
   pinnedTicketKeys?: string[]
   favoriteViews?: FavoriteView[]
+  customViews?: CustomView[]
   filterTypeKeys?: string[]
   filterStatuses?: string[]
   filterAssignees?: string[]
@@ -220,6 +256,29 @@ function normalizeStringList(value: unknown): string[] {
   return [...normalizedValues]
 }
 
+function normalizeStringListRecord(value: unknown): Record<string, string[]> {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const normalizedRecord: Record<string, string[]> = {}
+
+  for (const [key, entry] of Object.entries(recordValue)) {
+    const normalizedKey = key.trim()
+    if (!normalizedKey) {
+      continue
+    }
+
+    const normalizedList = normalizeStringList(entry)
+    if (normalizedList.length > 0) {
+      normalizedRecord[normalizedKey] = normalizedList
+    }
+  }
+
+  return normalizedRecord
+}
+
 function normalizeFavoriteViewFilter(value: unknown): FavoriteViewFilter | null {
   if (typeof value !== 'object' || value === null) {
     return null
@@ -277,6 +336,113 @@ function normalizeFavoriteViews(value: unknown): FavoriteView[] {
   }
 
   return [...favoriteViewsById.values()]
+}
+
+function getDefaultCustomViewDisplay(): CustomViewDisplay {
+  return {
+    grouping: 'status',
+    subGrouping: 'none',
+    ordering: 'status',
+    groupingDirection: 'asc',
+    orderingDirection: 'asc',
+    completedRange: 'hidden',
+    showSubIssueContext: true,
+    orderCompletedByRecency: false,
+    showEmptyGroups: false,
+    issueGroupOrders: {},
+    hiddenIssueGroupIds: {},
+    collapsedIssueSectionIds: [],
+    visibleIssueRowFields: ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created'],
+    visibleProjectRowFields: ['health', 'priority', 'lead', 'targetDate', 'issues', 'status'],
+  }
+}
+
+function normalizeDirectionValue(value: unknown): 'asc' | 'desc' {
+  return value === 'desc' ? 'desc' : 'asc'
+}
+
+function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
+  const defaults = getDefaultCustomViewDisplay()
+
+  if (typeof value !== 'object' || value === null) {
+    return defaults
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const visibleIssueRowFields = normalizeStringList(recordValue.visibleIssueRowFields)
+  const visibleProjectRowFields = normalizeStringList(recordValue.visibleProjectRowFields)
+
+  return {
+    grouping: typeof recordValue.grouping === 'string' && recordValue.grouping.trim() ? recordValue.grouping.trim() : defaults.grouping,
+    subGrouping: typeof recordValue.subGrouping === 'string' && recordValue.subGrouping.trim() ? recordValue.subGrouping.trim() : defaults.subGrouping,
+    ordering: typeof recordValue.ordering === 'string' && recordValue.ordering.trim() ? recordValue.ordering.trim() : defaults.ordering,
+    groupingDirection: normalizeDirectionValue(recordValue.groupingDirection),
+    orderingDirection: normalizeDirectionValue(recordValue.orderingDirection),
+    completedRange: typeof recordValue.completedRange === 'string' && recordValue.completedRange.trim() ? recordValue.completedRange.trim() : defaults.completedRange,
+    showSubIssueContext: normalizeBoolean(recordValue.showSubIssueContext, defaults.showSubIssueContext),
+    orderCompletedByRecency: normalizeBoolean(recordValue.orderCompletedByRecency, defaults.orderCompletedByRecency),
+    showEmptyGroups: normalizeBoolean(recordValue.showEmptyGroups, defaults.showEmptyGroups),
+    issueGroupOrders: normalizeStringListRecord(recordValue.issueGroupOrders),
+    hiddenIssueGroupIds: normalizeStringListRecord(recordValue.hiddenIssueGroupIds),
+    collapsedIssueSectionIds: normalizeStringList(recordValue.collapsedIssueSectionIds),
+    visibleIssueRowFields: visibleIssueRowFields.length > 0 ? visibleIssueRowFields : defaults.visibleIssueRowFields,
+    visibleProjectRowFields: visibleProjectRowFields.length > 0 ? visibleProjectRowFields : defaults.visibleProjectRowFields,
+  }
+}
+
+function normalizeCustomViewFilter(value: unknown): CustomViewFilter | null {
+  const filter = normalizeFavoriteViewFilter(value)
+  if (!filter) {
+    return null
+  }
+
+  return {
+    id: filter.id,
+    fieldId: filter.fieldId,
+    fieldLabel: filter.fieldLabel,
+    value: filter.value,
+    valueLabel: filter.valueLabel,
+  }
+}
+
+function normalizeCustomViews(value: unknown): CustomView[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const customViewsById = new Map<string, CustomView>()
+
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) {
+      continue
+    }
+
+    const recordValue: Record<string, unknown> = entry
+    const id = typeof recordValue.id === 'string' ? recordValue.id.trim() : ''
+    const name = typeof recordValue.name === 'string' ? recordValue.name.trim() : ''
+    const contextKey = typeof recordValue.contextKey === 'string' ? recordValue.contextKey.trim() : ''
+
+    if (!id || !name || !contextKey || customViewsById.has(id)) {
+      continue
+    }
+
+    const filters = Array.isArray(recordValue.filters)
+      ? recordValue.filters
+        .map(normalizeCustomViewFilter)
+        .filter((filter): filter is CustomViewFilter => filter !== null)
+      : []
+
+    customViewsById.set(id, {
+      id,
+      name,
+      description: typeof recordValue.description === 'string' ? recordValue.description.trim() : '',
+      contextKey,
+      filters,
+      display: normalizeCustomViewDisplay(recordValue.display),
+    })
+  }
+
+  return [...customViewsById.values()]
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -517,6 +683,7 @@ function getDefaultSidebarSettings(): SidebarSettings {
   return {
     pinnedTicketKeys: [],
     favoriteViews: [],
+    customViews: [],
     filterTypeKeys: [],
     filterStatuses: [],
     filterAssignees: [],
@@ -540,6 +707,7 @@ function normalizeSidebarSettings(value: unknown): SidebarSettings {
   return {
     pinnedTicketKeys: normalizeStringList(recordValue.pinnedTicketKeys),
     favoriteViews: normalizeFavoriteViews(recordValue.favoriteViews),
+    customViews: normalizeCustomViews(recordValue.customViews),
     filterTypeKeys: normalizeStringList(recordValue.filterTypeKeys),
     filterStatuses: normalizeStringList(recordValue.filterStatuses),
     filterAssignees: normalizeStringList(recordValue.filterAssignees),
@@ -606,6 +774,10 @@ function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSettingsIn
     nextSidebar.favoriteViews = normalizeFavoriteViews(recordValue.favoriteViews)
   }
 
+  if ('customViews' in recordValue) {
+    nextSidebar.customViews = normalizeCustomViews(recordValue.customViews)
+  }
+
   if ('filterTypeKeys' in recordValue) {
     nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
   }
@@ -645,6 +817,7 @@ function reconcileSidebarSettings(sidebar: SidebarSettings): SidebarSettings {
   return {
     pinnedTicketKeys: normalizeStringList(sidebar.pinnedTicketKeys),
     favoriteViews: normalizeFavoriteViews(sidebar.favoriteViews),
+    customViews: normalizeCustomViews(sidebar.customViews),
     filterTypeKeys: normalizeStringList(sidebar.filterTypeKeys),
     filterStatuses: normalizeStringList(sidebar.filterStatuses),
     filterAssignees: normalizeStringList(sidebar.filterAssignees),

@@ -1139,17 +1139,14 @@ async function submitMessage() {
             >
               {{ ticket.summary }}
             </button>
-          </div>
-
-          <div class="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.08] text-[13px] transition hover:bg-white/[0.04]"
-              :class="ticketIsPinned ? 'border-[#d7a543]/30 text-[#d7a543]' : 'text-slate-500 hover:text-[#d7a543]'"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition hover:bg-white/[0.04]"
+              :class="ticketIsPinned ? 'text-[#d7a543] hover:text-[#d7a543]' : 'text-slate-500 hover:text-[#d7a543]'"
               :aria-label="ticketIsPinned ? `Unpin ${ticket.key}` : `Pin ${ticket.key}`"
               @click="togglePinnedTicket(ticket.key)"
             >
-              ★
+              <span class="text-[14px] leading-none">★</span>
             </button>
           </div>
         </div>

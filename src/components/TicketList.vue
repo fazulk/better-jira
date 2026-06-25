@@ -10,14 +10,16 @@ import { useJiraTickets } from '@/composables/useJiraTickets'
 import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { useFavoriteViews } from '@/composables/useFavoriteViews'
+import { useCustomViews } from '@/composables/useCustomViews'
 import { getLinearIssueSubtype, getStatusGroup, type JiraTicket } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
-import type { FavoriteViewFilter } from '~/shared/settings'
+import type { CustomView, CustomViewDisplay, CustomViewFilter, FavoriteViewFilter } from '~/shared/settings'
 import AddSpaceModal from './AddSpaceModal.vue'
 import CreateTicketModal from './CreateTicketModal.vue'
 import IssueRow from './IssueRow.vue'
 import Sidebar from './Sidebar.vue'
 import TicketDetail from './TicketDetail.vue'
+import ViewEditorCard from './ViewEditorCard.vue'
 
 const { tickets, fetching, refreshing, refresh } = useJiraTickets()
 const queryClient = useQueryClient()
@@ -29,6 +31,7 @@ const {
   deleteSpace,
 } = useSpaceSettings()
 const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
+const { customViews, getCustomView, customViewsForContext, upsertCustomView, removeCustomView } = useCustomViews()
 const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
 
 const sidebarCollapsed = useLocalStorage('jira2.sidebar.collapsed', false)
@@ -106,6 +109,7 @@ const commandInputRef = ref<HTMLInputElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const filterMenuButtonRef = ref<HTMLButtonElement | null>(null)
 const filterMenuPanelRef = ref<HTMLDivElement | null>(null)
+const customViewContextMenuRef = ref<HTMLDivElement | null>(null)
 const draggedIssueGroupId = ref<string | null>(null)
 const pendingGotoKey = ref(false)
 const focusedIssueKey = ref<string | null>(null)
@@ -122,6 +126,19 @@ const activeProjectPropertyFilterId = ref<ProjectPropertyFilterFieldId>('project
 const filterFieldSearchQuery = ref('')
 const filterSearchQuery = ref('')
 const savedViewFilters = useLocalStorage<Record<string, ViewFilterClause[]>>('jira2.linear.viewFilters', {})
+const savedViewDisplays = useLocalStorage<Record<string, CustomViewDisplay>>('jira2.linear.viewDisplay', {})
+type ViewEditorMode = 'create' | 'edit'
+const viewEditorMode = ref<ViewEditorMode | null>(null)
+const viewEditorDraft = ref<CustomView | null>(null)
+const viewEditorPreviousViewId = ref<string | null>(null)
+const viewEditorPreviousDisplay = ref<CustomViewDisplay | null>(null)
+const suppressViewDisplaySync = ref(false)
+const customViewContextMenu = ref({
+  open: false,
+  viewId: '',
+  x: 0,
+  y: 0,
+})
 
 type SearchResultTab = 'all' | 'issues' | 'projects' | 'initiatives' | 'documents'
 type IssueRowFieldId =
@@ -215,6 +232,8 @@ interface IssueGroupOrderingRow {
 interface ViewTab {
   id: string
   label: string
+  custom?: boolean
+  draft?: boolean
 }
 
 interface FavoriteViewNavItem {
@@ -367,6 +386,292 @@ interface ViewFilterClause {
   fieldLabel: string
   value: string
   valueLabel: string
+}
+
+function getDefaultViewDisplay(): CustomViewDisplay {
+  return {
+    grouping: 'status',
+    subGrouping: 'none',
+    ordering: 'status',
+    groupingDirection: 'asc',
+    orderingDirection: 'asc',
+    completedRange: 'hidden',
+    showSubIssueContext: true,
+    orderCompletedByRecency: false,
+    showEmptyGroups: false,
+    issueGroupOrders: {},
+    hiddenIssueGroupIds: {},
+    collapsedIssueSectionIds: [],
+    visibleIssueRowFields: ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created'],
+    visibleProjectRowFields: ['health', 'priority', 'lead', 'targetDate', 'issues', 'status'],
+  }
+}
+
+function normalizeIssueGroupingFieldId(value: string): IssueGroupingFieldId {
+  switch (value) {
+    case 'none':
+    case 'status':
+    case 'assignee':
+    case 'agent':
+    case 'project':
+    case 'priority':
+    case 'label':
+      return value
+    default:
+      return 'status'
+  }
+}
+
+function parseIssueGroupingFieldId(value: string): IssueGroupingFieldId | null {
+  switch (value) {
+    case 'none':
+    case 'status':
+    case 'assignee':
+    case 'agent':
+    case 'project':
+    case 'priority':
+    case 'label':
+      return value
+    default:
+      return null
+  }
+}
+
+function normalizeIssueOrderingFieldId(value: string): IssueOrderingFieldId {
+  switch (value) {
+    case 'manual':
+    case 'title':
+    case 'status':
+    case 'priority':
+    case 'assignee':
+    case 'agent':
+    case 'estimate':
+    case 'updated':
+    case 'created':
+    case 'due':
+    case 'linkCount':
+    case 'timeInStatus':
+      return value
+    default:
+      return 'status'
+  }
+}
+
+function normalizeCompletedRange(value: string): 'hidden' | 'week' | 'month' | 'all' {
+  switch (value) {
+    case 'week':
+    case 'month':
+    case 'all':
+      return value
+    case 'hidden':
+    default:
+      return 'hidden'
+  }
+}
+
+function normalizeDirection(value: string): 'asc' | 'desc' {
+  return value === 'desc' ? 'desc' : 'asc'
+}
+
+function normalizeIssueRowFields(values: readonly string[]): IssueRowFieldId[] {
+  const normalizedValues: IssueRowFieldId[] = []
+
+  for (const value of values) {
+    switch (value) {
+      case 'id':
+      case 'status':
+      case 'assignee':
+      case 'priority':
+      case 'project':
+      case 'due':
+      case 'milestone':
+      case 'release':
+      case 'labels':
+      case 'links':
+      case 'timeInStatus':
+      case 'created':
+      case 'updated':
+        if (!normalizedValues.includes(value)) {
+          normalizedValues.push(value)
+        }
+        break
+    }
+  }
+
+  return normalizedValues.length > 0 ? normalizedValues : ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created']
+}
+
+function normalizeProjectRowFields(values: readonly string[]): ProjectRowFieldId[] {
+  const normalizedValues: ProjectRowFieldId[] = []
+
+  for (const value of values) {
+    switch (value) {
+      case 'health':
+      case 'priority':
+      case 'lead':
+      case 'targetDate':
+      case 'issues':
+      case 'status':
+        if (!normalizedValues.includes(value)) {
+          normalizedValues.push(value)
+        }
+        break
+    }
+  }
+
+  return normalizedValues.length > 0 ? normalizedValues : ['health', 'priority', 'lead', 'targetDate', 'issues', 'status']
+}
+
+function copyIssueGroupConfigMap(value: IssueGroupConfigMap | Record<string, string[]>): Record<string, string[]> {
+  const copy: Record<string, string[]> = {}
+
+  for (const [key, entries] of Object.entries(value)) {
+    if (entries && entries.length > 0) {
+      copy[key] = [...entries]
+    }
+  }
+
+  return copy
+}
+
+function normalizeIssueGroupConfigMap(value: Record<string, string[]>): IssueGroupConfigMap {
+  const normalizedValue: IssueGroupConfigMap = {}
+
+  for (const [key, entries] of Object.entries(value)) {
+    const fieldId = parseIssueGroupingFieldId(key)
+    if (!fieldId) {
+      continue
+    }
+
+    if (entries.length > 0) {
+      normalizedValue[fieldId] = [...entries]
+    }
+  }
+
+  return normalizedValue
+}
+
+function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
+  const defaults = getDefaultViewDisplay()
+
+  return {
+    grouping: display.grouping ?? defaults.grouping,
+    subGrouping: display.subGrouping ?? defaults.subGrouping,
+    ordering: display.ordering ?? defaults.ordering,
+    groupingDirection: display.groupingDirection ?? defaults.groupingDirection,
+    orderingDirection: display.orderingDirection ?? defaults.orderingDirection,
+    completedRange: display.completedRange ?? defaults.completedRange,
+    showSubIssueContext: display.showSubIssueContext ?? defaults.showSubIssueContext,
+    orderCompletedByRecency: display.orderCompletedByRecency ?? defaults.orderCompletedByRecency,
+    showEmptyGroups: display.showEmptyGroups ?? defaults.showEmptyGroups,
+    issueGroupOrders: copyIssueGroupConfigMap(display.issueGroupOrders ?? defaults.issueGroupOrders),
+    hiddenIssueGroupIds: copyIssueGroupConfigMap(display.hiddenIssueGroupIds ?? defaults.hiddenIssueGroupIds),
+    collapsedIssueSectionIds: [...(display.collapsedIssueSectionIds ?? defaults.collapsedIssueSectionIds)],
+    visibleIssueRowFields: [...(display.visibleIssueRowFields ?? defaults.visibleIssueRowFields)],
+    visibleProjectRowFields: [...(display.visibleProjectRowFields ?? defaults.visibleProjectRowFields)],
+  }
+}
+
+function captureDisplay(): CustomViewDisplay {
+  return {
+    grouping: listGrouping.value,
+    subGrouping: listSubGrouping.value,
+    ordering: listOrdering.value,
+    groupingDirection: listGroupingDirection.value,
+    orderingDirection: listOrderingDirection.value,
+    completedRange: completedRange.value,
+    showSubIssueContext: showSubIssueContext.value,
+    orderCompletedByRecency: orderCompletedByRecency.value,
+    showEmptyGroups: showEmptyGroups.value,
+    issueGroupOrders: copyIssueGroupConfigMap(issueGroupOrders.value),
+    hiddenIssueGroupIds: copyIssueGroupConfigMap(hiddenIssueGroupIds.value),
+    collapsedIssueSectionIds: [...collapsedIssueSectionIds.value],
+    visibleIssueRowFields: [...visibleIssueRowFields.value],
+    visibleProjectRowFields: [...visibleProjectRowFields.value],
+  }
+}
+
+function applyDisplay(display: CustomViewDisplay): void {
+  listGrouping.value = normalizeIssueGroupingFieldId(display.grouping)
+  listSubGrouping.value = normalizeIssueGroupingFieldId(display.subGrouping)
+  listOrdering.value = normalizeIssueOrderingFieldId(display.ordering)
+  listGroupingDirection.value = normalizeDirection(display.groupingDirection)
+  listOrderingDirection.value = normalizeDirection(display.orderingDirection)
+  completedRange.value = normalizeCompletedRange(display.completedRange)
+  showSubIssueContext.value = display.showSubIssueContext
+  orderCompletedByRecency.value = display.orderCompletedByRecency
+  showEmptyGroups.value = display.showEmptyGroups
+  issueGroupOrders.value = normalizeIssueGroupConfigMap(display.issueGroupOrders)
+  hiddenIssueGroupIds.value = normalizeIssueGroupConfigMap(display.hiddenIssueGroupIds)
+  collapsedIssueSectionIds.value = [...display.collapsedIssueSectionIds]
+  visibleIssueRowFields.value = normalizeIssueRowFields(display.visibleIssueRowFields)
+  visibleProjectRowFields.value = normalizeProjectRowFields(display.visibleProjectRowFields)
+}
+
+function normalizeFilterFieldId(value: string): FilterFieldId | null {
+  switch (value) {
+    case 'status':
+    case 'statusType':
+    case 'assignee':
+    case 'priority':
+    case 'labels':
+    case 'suggestedLabel':
+    case 'dueDate':
+    case 'createdDate':
+    case 'updatedDate':
+    case 'completedDate':
+    case 'project':
+    case 'projectStatus':
+    case 'projectPriority':
+    case 'projectLead':
+    case 'initiative':
+    case 'subscribers':
+    case 'shared':
+    case 'sharedWith':
+    case 'externalSource':
+      return value
+    default:
+      return null
+  }
+}
+
+function customViewFiltersToClauses(filters: readonly CustomViewFilter[]): ViewFilterClause[] {
+  const clauses: ViewFilterClause[] = []
+
+  for (const filter of filters) {
+    const fieldId = normalizeFilterFieldId(filter.fieldId)
+    if (!fieldId) {
+      continue
+    }
+
+    clauses.push({
+      id: filter.id,
+      fieldId,
+      fieldLabel: filter.fieldLabel,
+      value: filter.value,
+      valueLabel: filter.valueLabel,
+    })
+  }
+
+  return clauses
+}
+
+function clausesToCustomViewFilters(filters: readonly ViewFilterClause[]): CustomViewFilter[] {
+  return filters.map(filter => ({
+    id: filter.id,
+    fieldId: filter.fieldId,
+    fieldLabel: filter.fieldLabel,
+    value: filter.value,
+    valueLabel: filter.valueLabel,
+  }))
+}
+
+function copyCustomView(view: CustomView): CustomView {
+  return {
+    ...view,
+    filters: view.filters.map(filter => ({ ...filter })),
+    display: copyViewDisplay(view.display),
+  }
 }
 
 const issueRowFieldOptions: IssueRowFieldOption[] = [
@@ -563,8 +868,60 @@ const showInitialWorkspaceOverlay = computed(() => (
   && fetching.value
 ))
 
+const activeCustomView = computed(() => {
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
+    return viewEditorDraft.value
+  }
+
+  return getCustomView(currentView.value)
+})
+
+function getBaseViewIdForCustomContext(contextKey: string): string {
+  const [scope, key, section] = contextKey.split(':')
+
+  if (scope === 'team' && key) {
+    return section === 'projects' ? `team:${key}:projects` : `team:${key}:all`
+  }
+
+  return contextKey
+}
+
+const activeBaseViewId = computed(() => (
+  activeCustomView.value ? getBaseViewIdForCustomContext(activeCustomView.value.contextKey) : currentView.value
+))
+
+function getContextKeyForViewId(viewId: string): string | null {
+  const [scope, key, section] = viewId.split(':')
+
+  if (scope === 'team' && key) {
+    if (section === 'projects') {
+      return `team:${key}:projects`
+    }
+
+    if (section === 'all' || section === 'active' || section === 'backlog') {
+      return `team:${key}:issues`
+    }
+
+    return null
+  }
+
+  if (viewId === 'projects') {
+    return 'projects'
+  }
+
+  if (isMyIssuesView(viewId)) {
+    return 'my-issues'
+  }
+
+  return null
+}
+
+const activeCustomViewContextKey = computed(() => activeCustomView.value?.contextKey ?? null)
+const contextKeyForCurrentView = computed(() => activeCustomViewContextKey.value ?? getContextKeyForViewId(activeBaseViewId.value))
+const supportsCustomViews = computed(() => contextKeyForCurrentView.value !== null)
+
 const currentTeamKey = computed(() => {
-  const [scope, key] = currentView.value.split(':')
+  const [scope, key] = activeBaseViewId.value.split(':')
   return scope === 'team' ? key ?? null : null
 })
 
@@ -575,7 +932,7 @@ const currentTeamName = computed(() => {
 })
 
 const currentTeamSection = computed(() => {
-  const [scope, , section] = currentView.value.split(':')
+  const [scope, , section] = activeBaseViewId.value.split(':')
   return scope === 'team' ? section ?? 'active' : null
 })
 
@@ -584,7 +941,7 @@ const isViewsDirectory = computed(() => viewDirectoryIds.has(currentView.value))
 const activeViewsDirectoryTab = computed(() => (
   viewDirectoryIds.has(currentView.value) ? currentView.value : 'views'
 ))
-const isProjectDisplayView = computed(() => currentView.value === 'projects' || currentTeamSection.value === 'projects')
+const isProjectDisplayView = computed(() => activeBaseViewId.value === 'projects' || currentTeamSection.value === 'projects')
 const isInitiativeDisplayView = computed(() => currentView.value === 'initiatives')
 const isSavedViewDisplayView = computed(() => isViewsDirectory.value || currentTeamSection.value === 'views')
 const isIssueDisplayView = computed(() => (
@@ -614,10 +971,11 @@ function isMyIssuesView(viewId: string): viewId is MyIssuesViewId {
 
 const viewTitle = computed(() => {
   if (selectedTicket.value) return selectedTicket.value.key
+  if (activeCustomView.value) return activeCustomView.value.name
   if (currentView.value === 'inbox') return 'Inbox'
-  if (isMyIssuesView(currentView.value)) return 'My issues'
+  if (isMyIssuesView(activeBaseViewId.value)) return 'My issues'
   if (currentView.value === 'initiatives') return 'Initiatives'
-  if (currentView.value === 'projects') return 'Projects'
+  if (activeBaseViewId.value === 'projects') return 'Projects'
   if (isViewsDirectory.value) return 'Views'
   if (currentView.value === 'search') return 'Search'
   if (currentView.value === 'ready-qa') return 'Ready for QA'
@@ -625,13 +983,41 @@ const viewTitle = computed(() => {
   return 'Issues'
 })
 
+const customViewTabs = computed<ViewTab[]>(() => {
+  const contextKey = contextKeyForCurrentView.value
+  if (!contextKey) {
+    return []
+  }
+
+  const draft = viewEditorDraft.value
+  const tabs: ViewTab[] = customViewsForContext(contextKey)
+    .filter(view => view.id !== draft?.id)
+    .map(view => ({
+      id: view.id,
+      label: view.name,
+      custom: true,
+    }))
+
+  if (draft && draft.contextKey === contextKey) {
+    tabs.push({
+      id: draft.id,
+      label: draft.name.trim() || 'New view',
+      custom: true,
+      draft: true,
+    })
+  }
+
+  return tabs
+})
+
 const viewTabs = computed<ViewTab[]>(() => {
-  if (isMyIssuesView(currentView.value)) {
+  if (isMyIssuesView(activeBaseViewId.value)) {
     return [
       { id: 'my-issues', label: 'Assigned' },
       { id: 'my-created', label: 'Created' },
       { id: 'my-subscribed', label: 'Subscribed' },
       { id: 'my-activity', label: 'Activity' },
+      ...customViewTabs.value,
     ]
   }
 
@@ -643,6 +1029,14 @@ const viewTabs = computed<ViewTab[]>(() => {
       { id: `team:${currentTeamKey.value}:all`, label: 'All issues' },
       { id: `team:${currentTeamKey.value}:active`, label: 'Active' },
       { id: `team:${currentTeamKey.value}:backlog`, label: 'Backlog' },
+      ...customViewTabs.value,
+    ]
+  }
+
+  if (activeBaseViewId.value === 'projects' || currentTeamSection.value === 'projects') {
+    return [
+      { id: activeBaseViewId.value, label: 'All projects' },
+      ...customViewTabs.value,
     ]
   }
 
@@ -659,27 +1053,27 @@ const viewTabs = computed<ViewTab[]>(() => {
 })
 
 const scopedTickets = computed(() => {
-  if (currentView.value === 'inbox') {
+  if (activeBaseViewId.value === 'inbox') {
     return triageTickets.value
   }
 
-  if (currentView.value === 'ready-qa') {
+  if (activeBaseViewId.value === 'ready-qa') {
     return readyQaTickets.value
   }
 
-  if (currentView.value === 'my-created') {
+  if (activeBaseViewId.value === 'my-created') {
     return createdMyIssueTickets.value
   }
 
-  if (currentView.value === 'my-subscribed') {
+  if (activeBaseViewId.value === 'my-subscribed') {
     return subscribedMyIssueTickets.value
   }
 
-  if (currentView.value === 'my-activity') {
+  if (activeBaseViewId.value === 'my-activity') {
     return activityMyIssueTickets.value
   }
 
-  if (currentView.value === 'my-issues') {
+  if (activeBaseViewId.value === 'my-issues') {
     return assignedMyIssueTickets.value
   }
 
@@ -706,7 +1100,13 @@ const scopedTickets = computed(() => {
 const normalizedIssueSearch = computed(() => issueSearch.value.trim().toLowerCase())
 const normalizedFilterSearch = computed(() => filterSearchQuery.value.trim().toLowerCase())
 const normalizedFilterFieldSearch = computed(() => filterFieldSearchQuery.value.trim().toLowerCase())
-const currentViewFilters = computed(() => savedViewFilters.value[currentView.value] ?? [])
+const currentViewFilters = computed(() => {
+  if (activeCustomView.value) {
+    return customViewFiltersToClauses(activeCustomView.value.filters)
+  }
+
+  return savedViewFilters.value[currentView.value] ?? []
+})
 const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0)
 const visibleFilterMenuEntries = computed<FilterMenuEntry[]>(() => {
   const query = normalizedFilterFieldSearch.value
@@ -746,6 +1146,57 @@ const activeFilterOptions = computed<FilterOption[]>(() => {
   return options.filter(option => option.label.toLowerCase().includes(query))
 })
 const activeDateFilterOptions = computed<DateFilterOption[]>(() => getDateFilterOptions(activeDateFilterId.value))
+
+function resolveDisplayForView(viewId: string): CustomViewDisplay {
+  if (viewEditorDraft.value?.id === viewId) {
+    return copyViewDisplay(viewEditorDraft.value.display)
+  }
+
+  const customView = getCustomView(viewId)
+  if (customView) {
+    return copyViewDisplay(customView.display)
+  }
+
+  const savedDisplay = savedViewDisplays.value[viewId]
+  return savedDisplay ? copyViewDisplay(savedDisplay) : captureDisplay()
+}
+
+function persistDisplayForView(viewId: string, display: CustomViewDisplay): void {
+  if (viewEditorDraft.value?.id === viewId) {
+    viewEditorDraft.value = {
+      ...viewEditorDraft.value,
+      display: copyViewDisplay(display),
+    }
+    return
+  }
+
+  const customView = getCustomView(viewId)
+  if (customView) {
+    upsertCustomView({
+      ...customView,
+      filters: customView.filters.map(filter => ({ ...filter })),
+      display: copyViewDisplay(display),
+    })
+    return
+  }
+
+  savedViewDisplays.value = {
+    ...savedViewDisplays.value,
+    [viewId]: copyViewDisplay(display),
+  }
+}
+
+watch(currentView, (nextViewId, previousViewId) => {
+  if (suppressViewDisplaySync.value) {
+    return
+  }
+
+  if (previousViewId) {
+    persistDisplayForView(previousViewId, captureDisplay())
+  }
+
+  applyDisplay(resolveDisplayForView(nextViewId))
+})
 
 watch(visibleFilterMenuEntries, entries => {
   const firstEntry = entries[0]
@@ -1321,6 +1772,9 @@ function getTeamSectionLabel(section: string | undefined): string {
 }
 
 function deriveViewLabel(viewId: string): string {
+  const customView = getCustomView(viewId)
+  if (customView) return customView.name
+
   if (viewId === 'inbox') return 'Inbox'
   if (viewId === 'my-issues') return 'My issues · Assigned'
   if (viewId === 'my-created') return 'My issues · Created'
@@ -1805,7 +2259,7 @@ function getFilterFieldLabel(fieldId: FilterFieldId): string {
 }
 
 function getActiveFilterContext(): FilterContextKind {
-  if (currentView.value === 'projects' || currentTeamSection.value === 'projects') return 'projects'
+  if (isProjectDisplayView.value) return 'projects'
   if (currentView.value === 'initiatives') return 'initiatives'
   if (isViewsDirectory.value || currentTeamSection.value === 'views') return 'views'
   return 'issues'
@@ -2386,6 +2840,29 @@ function savedViewMatchesFilter(row: SavedViewRow, filter: ViewFilterClause): bo
   return false
 }
 
+function setActiveCustomViewFilters(filters: ViewFilterClause[]): void {
+  const customFilters = clausesToCustomViewFilters(filters)
+
+  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
+    viewEditorDraft.value = {
+      ...viewEditorDraft.value,
+      filters: customFilters,
+    }
+    return
+  }
+
+  const customView = activeCustomView.value
+  if (!customView) {
+    return
+  }
+
+  upsertCustomView({
+    ...customView,
+    filters: customFilters,
+    display: copyViewDisplay(customView.display),
+  })
+}
+
 function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string) {
   const fieldLabel = getFilterFieldLabel(fieldId)
   const existingFilters = currentViewFilters.value.filter(filter => !(filter.fieldId === fieldId && filter.value === value))
@@ -2396,6 +2873,15 @@ function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: stri
     value,
     valueLabel,
   }
+
+  if (activeCustomView.value) {
+    setActiveCustomViewFilters([...existingFilters, nextFilter])
+    filterMenuOpen.value = false
+    filterFieldSearchQuery.value = ''
+    filterSearchQuery.value = ''
+    return
+  }
+
   savedViewFilters.value = {
     ...savedViewFilters.value,
     [currentView.value]: [...existingFilters, nextFilter],
@@ -2406,6 +2892,11 @@ function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: stri
 }
 
 function removeFilterClause(filterId: string) {
+  if (activeCustomView.value) {
+    setActiveCustomViewFilters(currentViewFilters.value.filter(filter => filter.id !== filterId))
+    return
+  }
+
   savedViewFilters.value = {
     ...savedViewFilters.value,
     [currentView.value]: currentViewFilters.value.filter(filter => filter.id !== filterId),
@@ -2413,6 +2904,11 @@ function removeFilterClause(filterId: string) {
 }
 
 function clearCurrentViewFilters() {
+  if (activeCustomView.value) {
+    setActiveCustomViewFilters([])
+    return
+  }
+
   savedViewFilters.value = {
     ...savedViewFilters.value,
     [currentView.value]: [],
@@ -2420,6 +2916,7 @@ function clearCurrentViewFilters() {
 }
 
 function openFilterMenu() {
+  closeCustomViewContextMenu()
   filterMenuOpen.value = true
   displayOptionsOpen.value = false
 }
@@ -2439,6 +2936,11 @@ function toggleFilterMenu() {
 }
 
 function saveCurrentViewFilters() {
+  if (activeCustomView.value) {
+    setActiveCustomViewFilters(currentViewFilters.value)
+    return
+  }
+
   savedViewFilters.value = {
     ...savedViewFilters.value,
     [currentView.value]: [...currentViewFilters.value],
@@ -3018,6 +3520,229 @@ function openSettings() {
   void navigateTo('/settings')
 }
 
+function generateCustomViewId(): string {
+  return `custom-view-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function startCreateView(): void {
+  const contextKey = contextKeyForCurrentView.value
+  if (!contextKey) {
+    return
+  }
+
+  const display = captureDisplay()
+  viewEditorPreviousViewId.value = currentView.value
+  viewEditorPreviousDisplay.value = copyViewDisplay(display)
+  viewEditorDraft.value = {
+    id: generateCustomViewId(),
+    name: '',
+    description: '',
+    contextKey,
+    filters: [],
+    display: copyViewDisplay(display),
+  }
+  viewEditorMode.value = 'create'
+  currentView.value = viewEditorDraft.value.id
+  focusedIssueKey.value = null
+  clearCheckedIssues()
+  closeTicket()
+}
+
+function startEditView(viewId: string): void {
+  const customView = getCustomView(viewId)
+  if (!customView) {
+    return
+  }
+
+  const display = currentView.value === viewId ? captureDisplay() : customView.display
+  viewEditorPreviousViewId.value = currentView.value
+  viewEditorPreviousDisplay.value = captureDisplay()
+  viewEditorDraft.value = {
+    ...copyCustomView(customView),
+    display: copyViewDisplay(display),
+  }
+  viewEditorMode.value = 'edit'
+  currentView.value = viewId
+  focusedIssueKey.value = null
+  clearCheckedIssues()
+  closeTicket()
+}
+
+function finishViewEditor(): void {
+  viewEditorMode.value = null
+  viewEditorDraft.value = null
+  viewEditorPreviousViewId.value = null
+  viewEditorPreviousDisplay.value = null
+}
+
+function saveViewEditor(): void {
+  const draft = viewEditorDraft.value
+  if (!draft) {
+    return
+  }
+
+  const name = draft.name.trim()
+  if (!name) {
+    return
+  }
+
+  const savedView: CustomView = {
+    ...draft,
+    name,
+    description: draft.description.trim(),
+    filters: clausesToCustomViewFilters(currentViewFilters.value),
+    display: captureDisplay(),
+  }
+
+  upsertCustomView(savedView)
+  finishViewEditor()
+  currentView.value = savedView.id
+}
+
+function cancelViewEditor(): void {
+  const previousViewId = viewEditorPreviousViewId.value
+  const previousDisplay = viewEditorPreviousDisplay.value
+
+  suppressViewDisplaySync.value = true
+  if (previousDisplay) {
+    applyDisplay(previousDisplay)
+  }
+
+  finishViewEditor()
+
+  if (previousViewId) {
+    currentView.value = previousViewId
+  }
+
+  nextTick(() => {
+    suppressViewDisplaySync.value = false
+  })
+}
+
+function discardViewEditorAndSwitch(viewId: string): void {
+  suppressViewDisplaySync.value = true
+  finishViewEditor()
+  currentView.value = viewId
+  applyDisplay(resolveDisplayForView(viewId))
+  nextTick(() => {
+    suppressViewDisplaySync.value = false
+  })
+}
+
+function activateCustomView(viewId: string): void {
+  if (!getCustomView(viewId) && viewEditorDraft.value?.id !== viewId) {
+    return
+  }
+
+  if (viewEditorMode.value && viewEditorDraft.value?.id !== viewId) {
+    discardViewEditorAndSwitch(viewId)
+    focusedIssueKey.value = null
+    clearCheckedIssues()
+    closeTicket()
+    return
+  }
+
+  currentView.value = viewId
+  focusedIssueKey.value = null
+  clearCheckedIssues()
+  closeTicket()
+}
+
+function updateViewEditorName(value: string): void {
+  if (!viewEditorDraft.value) {
+    return
+  }
+
+  viewEditorDraft.value = {
+    ...viewEditorDraft.value,
+    name: value,
+  }
+}
+
+function updateViewEditorDescription(value: string): void {
+  if (!viewEditorDraft.value) {
+    return
+  }
+
+  viewEditorDraft.value = {
+    ...viewEditorDraft.value,
+    description: value,
+  }
+}
+
+function openViewEditorFilters(): void {
+  openFilterMenu()
+}
+
+function openViewEditorSettings(): void {
+  displayOptionsOpen.value = true
+  filterMenuOpen.value = false
+}
+
+function handleViewTabClick(tab: ViewTab): void {
+  closeCustomViewContextMenu()
+
+  if (tab.custom) {
+    activateCustomView(tab.id)
+    return
+  }
+
+  handleViewChange(tab.id)
+}
+
+function closeCustomViewContextMenu(): void {
+  customViewContextMenu.value = {
+    ...customViewContextMenu.value,
+    open: false,
+  }
+}
+
+function handleViewTabContextMenu(tab: ViewTab, event: MouseEvent): void {
+  if (!tab.custom || tab.draft) {
+    closeCustomViewContextMenu()
+    return
+  }
+
+  customViewContextMenu.value = {
+    open: true,
+    viewId: tab.id,
+    x: event.clientX,
+    y: event.clientY,
+  }
+}
+
+function editContextCustomView(): void {
+  const viewId = customViewContextMenu.value.viewId
+  closeCustomViewContextMenu()
+  if (viewId) {
+    startEditView(viewId)
+  }
+}
+
+function deleteContextCustomView(): void {
+  const viewId = customViewContextMenu.value.viewId
+  const customView = getCustomView(viewId)
+  closeCustomViewContextMenu()
+
+  if (!customView) {
+    return
+  }
+
+  if (isFavoriteView(viewId)) {
+    toggleFavoriteView(viewId, [])
+  }
+
+  removeCustomView(viewId)
+
+  if (viewEditorDraft.value?.id === viewId) {
+    finishViewEditor()
+  }
+
+  if (currentView.value === viewId) {
+    handleViewChange(getBaseViewIdForCustomContext(customView.contextKey))
+  }
+}
+
 function handleViewChange(viewId: string) {
   if (viewId === 'command') {
     openCommandMenu()
@@ -3026,6 +3751,22 @@ function handleViewChange(viewId: string) {
 
   if (viewId === 'create') {
     openGlobalCreate()
+    return
+  }
+
+  if (viewEditorMode.value) {
+    discardViewEditorAndSwitch(viewId)
+    focusedIssueKey.value = null
+    clearCheckedIssues()
+    closeTicket()
+
+    if (viewId === 'search') {
+      searchResultTab.value = 'all'
+      nextTick(() => {
+        searchInputRef.value?.focus()
+      })
+    }
+
     return
   }
 
@@ -3093,6 +3834,7 @@ function handleTicketCreated(ticketKey: string, keepOpen = false) {
 }
 
 function openCommandMenu(initialQuery = '') {
+  closeCustomViewContextMenu()
   commandQuery.value = initialQuery
   commandActiveIndex.value = 0
   commandMenuOpen.value = true
@@ -3112,6 +3854,7 @@ function closeDisplayOptions() {
 }
 
 function toggleDisplayOptions() {
+  closeCustomViewContextMenu()
   if (!displayOptionsOpen.value) {
     closeFilterMenu()
     groupOrderingOpen.value = false
@@ -3122,6 +3865,10 @@ function toggleDisplayOptions() {
 function handleDocumentPointerDown(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node)) return
+
+  if (customViewContextMenu.value.open && !customViewContextMenuRef.value?.contains(target)) {
+    closeCustomViewContextMenu()
+  }
 
   if (displayOptionsOpen.value) {
     if (
@@ -3427,6 +4174,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (!suppressViewDisplaySync.value) {
+    persistDisplayForView(currentView.value, captureDisplay())
+  }
+
   stopSidebarResize()
   window.removeEventListener('pointermove', handleSidebarResize)
   window.removeEventListener('pointerup', handleSidebarResizeEnd)
@@ -3481,7 +4232,7 @@ onBeforeUnmount(() => {
           <div class="min-w-0">
             <div class="flex min-w-0 items-baseline gap-2">
               <h1 class="truncate text-[20px] font-semibold text-[#f0f1f4]">{{ viewTitle }}</h1>
-              <span v-if="currentView === 'projects' || currentTeamSection === 'projects'" class="shrink-0 text-[12px] text-[#777a83]">
+              <span v-if="isProjectDisplayView" class="shrink-0 text-[12px] text-[#777a83]">
                 {{ displayedProjectRows.length }} {{ displayedProjectRows.length === 1 ? 'project' : 'projects' }}
               </span>
               <span v-else-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
@@ -3496,29 +4247,25 @@ onBeforeUnmount(() => {
                <span v-else-if="currentView !== 'search' && !currentTeamKey" class="shrink-0 text-[12px] text-[#777a83]">
                  {{ visibleIssueCount }} {{ visibleIssueCount === 1 ? 'issue' : 'issues' }}
                </span>
+               <button
+                 v-if="currentViewIsFavoritable"
+                 type="button"
+                 class="ml-1 flex h-6 w-6 shrink-0 self-center items-center justify-center rounded-md text-[#8f9198] transition hover:bg-white/[0.04] hover:text-[#f0f1f4]"
+                 :class="isFavoriteView(currentView) ? 'text-[#d7a543] hover:text-[#d7a543]' : ''"
+                 :aria-pressed="isFavoriteView(currentView)"
+                 :title="isFavoriteView(currentView) ? 'Remove view from favorites' : 'Add view to favorites'"
+                 @click="toggleCurrentViewFavorite"
+               >
+                 <span class="text-[14px] leading-none">★</span>
+               </button>
             </div>
           </div>
 
-          <div class="relative flex shrink-0 items-center gap-1.5">
-            <button
-              v-if="currentViewIsFavoritable"
-              type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-md border transition"
-              :class="isFavoriteView(currentView) ? 'border-[#d7a543]/40 bg-[#d7a543]/10 text-[#d7a543] hover:bg-[#d7a543]/15' : 'border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]'"
-              :aria-pressed="isFavoriteView(currentView)"
-              :title="isFavoriteView(currentView) ? 'Remove view from favorites' : 'Add view to favorites'"
-              @click="toggleCurrentViewFavorite"
-            >
-              <Icon
-                name="lucide:star"
-                class="h-4 w-4"
-                :class="isFavoriteView(currentView) ? 'fill-[#d7a543]' : ''"
-                aria-hidden="true"
-              />
-            </button>
+          <div class="relative z-20 flex shrink-0 items-center gap-1.5">
+            <div class="flex items-center gap-1.5">
             <button
               type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4] disabled:opacity-50"
+              class="flex h-8 w-8 items-center justify-center rounded-md text-[#8f9198] transition hover:bg-white/[0.04] hover:text-[#f0f1f4] disabled:opacity-50"
               :disabled="refreshing"
               title="Refresh"
               @click="handleRefresh"
@@ -3530,8 +4277,11 @@ onBeforeUnmount(() => {
                 aria-hidden="true"
               />
             </button>
+            </div>
+
+            <div class="absolute top-12 right-0 flex items-center gap-1.5">
             <button
-              v-if="!selectedTicket"
+              v-if="false && !selectedTicket"
               ref="filterMenuButtonRef"
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
@@ -3671,7 +4421,7 @@ onBeforeUnmount(() => {
             </div>
 
             <button
-              v-if="!selectedTicket"
+              v-if="false && !selectedTicket"
               ref="displayOptionsButtonRef"
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
@@ -3980,24 +4730,104 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
         </header>
 
-        <div v-if="!selectedTicket && viewTabs.length" class="flex h-10 shrink-0 items-center gap-1 px-3">
-          <button
-            v-for="tab in viewTabs"
-            :key="tab.id"
-            type="button"
-            class="rounded-full px-3 py-1.5 text-[12px] transition"
-            :class="currentView === tab.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]'"
-            @click="handleViewChange(tab.id)"
-          >
-            {{ tab.label }}
-          </button>
+        <div v-if="!selectedTicket && (viewTabs.length || supportsCustomViews)" class="flex h-10 shrink-0 items-center justify-between gap-3 px-3">
+          <div class="flex min-w-0 items-center gap-1">
+            <button
+              v-for="tab in viewTabs"
+              :key="tab.id"
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] transition"
+              :class="[
+                currentView === tab.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#8f9198] hover:bg-white/[0.045] hover:text-[#d7d8dc]',
+                tab.draft ? 'border border-dashed border-white/[0.16]' : '',
+              ]"
+              @click="handleViewTabClick(tab)"
+              @contextmenu.prevent="handleViewTabContextMenu(tab, $event)"
+            >
+              <Icon v-if="tab.custom" name="lucide:layers" class="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{{ tab.label }}</span>
+              <Icon v-if="tab.draft" name="lucide:square-pen" class="h-3 w-3 text-[#777a83]" aria-hidden="true" />
+            </button>
+
+            <button
+              v-if="supportsCustomViews"
+              type="button"
+              class="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6f727b] transition hover:bg-white/[0.045] hover:text-[#d7d8dc] disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="viewEditorMode !== null"
+              title="Create view"
+              @click="startCreateView"
+            >
+              <Icon name="lucide:layers" class="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div class="flex shrink-0 items-center gap-1.5">
+            <button
+              ref="filterMenuButtonRef"
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              :class="hasCurrentViewFilters || filterMenuOpen ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]' : 'border-white/[0.08] bg-white/[0.035]'"
+              title="Filter"
+              @click="toggleFilterMenu"
+            >
+              <Icon name="lucide:list-filter" class="h-4 w-4" aria-hidden="true" />
+            </button>
+
+            <button
+              ref="displayOptionsButtonRef"
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+              title="Display options"
+              @click="toggleDisplayOptions"
+            >
+              <Icon name="lucide:sliders-horizontal" class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div
-          v-if="!selectedTicket && currentViewFilters.length"
+          v-if="customViewContextMenu.open"
+          ref="customViewContextMenuRef"
+          class="fixed z-50 w-36 overflow-hidden rounded-lg border border-white/[0.08] bg-[#15161a] py-1 shadow-xl shadow-black/40"
+          :style="{ left: `${customViewContextMenu.x}px`, top: `${customViewContextMenu.y}px` }"
+        >
+          <button
+            type="button"
+            class="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] text-[#d7d8dc] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+            @click="editContextCustomView"
+          >
+            <Icon name="lucide:square-pen" class="h-3.5 w-3.5 text-[#8f9198]" aria-hidden="true" />
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            class="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] text-[#e06c75] hover:bg-[#e06c75]/10 hover:text-[#ff8a93]"
+            @click="deleteContextCustomView"
+          >
+            <Icon name="lucide:trash-2" class="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Delete</span>
+          </button>
+        </div>
+
+        <ViewEditorCard
+          v-if="!selectedTicket && viewEditorDraft"
+          :name="viewEditorDraft.name"
+          :description="viewEditorDraft.description"
+          :save-disabled="viewEditorDraft.name.trim().length === 0"
+          @update:name="updateViewEditorName"
+          @update:description="updateViewEditorDescription"
+          @open-filters="openViewEditorFilters"
+          @open-settings="openViewEditorSettings"
+          @save="saveViewEditor"
+          @cancel="cancelViewEditor"
+        />
+
+        <div
+          v-if="!selectedTicket && currentViewFilters.length && (!activeCustomView || viewEditorMode)"
           class="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2"
         >
           <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -4029,7 +4859,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="flex shrink-0 items-center gap-2">
+          <div v-if="!viewEditorMode" class="flex shrink-0 items-center gap-2">
             <button
               type="button"
               class="rounded-md px-2 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
@@ -4478,7 +5308,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else-if="currentView === 'projects' || currentTeamSection === 'projects'" class="min-h-0 flex-1 overflow-y-auto">
+        <div v-else-if="isProjectDisplayView" class="min-h-0 flex-1 overflow-y-auto">
           <div class="grid border-b border-white/[0.06] px-4 py-2 text-[12px] text-[#777a83]" :style="{ gridTemplateColumns: projectGridTemplate }">
             <span>Name</span>
             <span v-if="isProjectRowFieldVisible('health')">Health</span>

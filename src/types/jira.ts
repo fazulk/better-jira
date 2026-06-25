@@ -18,6 +18,10 @@ export interface JiraTicket {
   spaceName: string
   assignee: string
   assigneeAccountId?: string
+  reporter?: string
+  reporterAccountId?: string
+  isWatching?: boolean
+  watchCount?: number
   description?: string
   descriptionAdf?: JiraAdfDocument
   self: string
@@ -40,6 +44,23 @@ export interface JiraMessage {
   body: string
   parentMessageId?: string | null
 }
+
+export interface JiraActivityComment extends JiraMessage {
+  kind: 'comment'
+}
+
+export interface JiraActivityHistory {
+  kind: 'history'
+  id: string
+  author: string
+  createdAt: string
+  body: string
+  field: string
+  from?: string
+  to?: string
+}
+
+export type JiraActivityItem = JiraActivityComment | JiraActivityHistory
 
 export interface JiraTransition {
   id: string
@@ -64,9 +85,17 @@ export interface CreateJiraTicketInput {
 }
 
 export type StatusGroup = 'new' | 'indeterminate' | 'done'
+export type LinearIssueSubtype = 'Bug' | 'Story' | 'Task'
 
 export function getStatusGroup(statusCategory: string): StatusGroup {
   if (statusCategory === 'done') return 'done'
   if (statusCategory === 'new') return 'new'
   return 'indeterminate'
+}
+
+export function getLinearIssueSubtype(issueType: string): LinearIssueSubtype {
+  const normalized = issueType.trim().toLowerCase()
+  if (normalized.includes('bug')) return 'Bug'
+  if (normalized.includes('story')) return 'Story'
+  return 'Task'
 }

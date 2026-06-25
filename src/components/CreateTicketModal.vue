@@ -13,13 +13,15 @@ import {
   LOCAL_ISSUE_TYPE,
   LOCAL_PRIORITY_NAMES,
   LOCAL_SPACE_KEY,
+  isLocalPriorityName,
 } from '~/shared/localTickets'
-import type {
-  JiraAssignableUser,
-  JiraCreateFieldValue,
-  JiraCreateIssueType,
-  JiraPriority,
-  JiraTicket,
+import {
+  getLinearIssueSubtype,
+  type JiraAssignableUser,
+  type JiraCreateFieldValue,
+  type JiraCreateIssueType,
+  type JiraPriority,
+  type JiraTicket,
 } from '@/types/jira'
 
 const props = withDefaults(defineProps<{
@@ -38,7 +40,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   close: []
-  created: [key: string]
+  created: [key: string, keepOpen: boolean]
 }>()
 
 const priorityConfig: Record<string, { bg: string }> = {
@@ -50,11 +52,9 @@ const priorityConfig: Record<string, { bg: string }> = {
 }
 
 const avatarColors = [
-  'bg-indigo-500/20 text-indigo-300 border-indigo-500/20',
-  'bg-amber-500/20 text-amber-300 border-amber-500/20',
-  'bg-emerald-500/20 text-emerald-300 border-emerald-500/20',
-  'bg-rose-500/20 text-rose-300 border-rose-500/20',
-  'bg-sky-500/20 text-sky-300 border-sky-500/20',
+  'bg-white/[0.045] text-slate-300 border-white/[0.08]',
+  'bg-white/[0.035] text-slate-400 border-white/[0.08]',
+  'bg-surface-3 text-slate-300 border-white/[0.08]',
 ]
 
 type HardcodedCreateFieldKey = 'summary' | 'description' | 'assignee' | 'priority' | 'duedate'
@@ -92,6 +92,8 @@ const selectedSpaceKey = ref<string | null>(null)
 const parentKey = ref<string | null>(props.initialParentKey)
 const fieldValues = ref<Record<string, JiraCreateFieldValue>>({})
 const submitError = ref<string | null>(null)
+const createMore = ref(false)
+const attachmentNotice = ref<string | null>(null)
 
 const createMutation = useCreateTicket()
 const createLocalMutation = useCreateLocalTicket()
@@ -111,6 +113,8 @@ const parentSearch = ref('')
 const parentHighlightIndex = ref(0)
 const parentInputRef = ref<HTMLInputElement | null>(null)
 const parentComboRef = ref<HTMLDivElement | null>(null)
+const spaceSelectRef = ref<HTMLSelectElement | null>(null)
+const prioritySelectRef = ref<HTMLSelectElement | null>(null)
 const isEditingAssignee = ref(false)
 const assigneeSearch = ref('')
 const assigneeHighlightIndex = ref(0)
@@ -137,6 +141,14 @@ const effectiveSpaceKey = computed<string | null>(() => (
 ))
 
 const isLocalSpace = computed(() => effectiveSpaceKey.value === LOCAL_SPACE_KEY)
+const createObjectTypeLabel = computed(() => (
+  activeIssueType.value?.toLowerCase().includes('epic') ? 'Project' : 'Issue'
+))
+const createSubtypeLabel = computed(() => {
+  if (isLocalSpace.value) return getLinearIssueSubtype(LOCAL_ISSUE_TYPE)
+  if (!selectedIssueType.value || createObjectTypeLabel.value === 'Project') return null
+  return getLinearIssueSubtype(selectedIssueType.value)
+})
 
 const jiraFieldQueriesEnabled = computed(() => props.open && !isLocalSpace.value && hasJiraCredentialsConfigured.value)
 
@@ -147,6 +159,12 @@ const createPrioritiesQuery = useCreatePriorities(activeIssueType, effectivePare
 
 const jiraMeQueryEnabled = computed(() => props.open && isLocalSpace.value && hasJiraCredentialsConfigured.value)
 const jiraMeQuery = useJiraCurrentUser(jiraMeQueryEnabled)
+const canSubmit = computed(() => (
+  !isCreatePending.value
+  && Boolean(selectedIssueType.value)
+  && Boolean(effectiveSpaceKey.value)
+  && !(isLocalSpace.value && (jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value))
+))
 
 function isAvailableCreateSpace(spaceKey: string | null): boolean {
   if (!spaceKey) {
@@ -185,7 +203,7 @@ function syncSelectedSpaceKey() {
 
 function getAllowedIssueTypesForParent(parentIssueType: string | null): JiraCreateIssueType[] {
   if (!parentIssueType) {
-    return ['Epic', 'Story', 'Task', 'Bug']
+    return ['Story', 'Task', 'Bug']
   }
 
   const normalizedParentIssueType = parentIssueType.toLowerCase()
@@ -202,7 +220,7 @@ function getAllowedIssueTypesForParent(parentIssueType: string | null): JiraCrea
 
 const issueTypeOptions = computed<JiraCreateIssueType[]>(() => {
   if (isLocalSpace.value) {
-    return [LOCAL_ISSUE_TYPE as JiraCreateIssueType]
+    return [LOCAL_ISSUE_TYPE]
   }
 
   return getAllowedIssueTypesForParent(selectedParentTicket.value?.issueType ?? null)
@@ -246,6 +264,12 @@ const supportedParentType = computed(() => {
     ? 'Issue'
     : null
 })
+const selectedParentIsProject = computed(() => (
+  selectedParentTicket.value?.issueType.toLowerCase().includes('epic') === true
+))
+const supportedParentDisplayLabel = computed(() => (
+  selectedParentIsProject.value ? 'Project' : supportedParentType.value
+))
 
 const supportedParentTickets = computed(() => {
   if (!selectedIssueType.value || selectedIssueType.value.toLowerCase().includes('epic')) return []
@@ -265,11 +289,11 @@ const primaryFields = computed(() => fields.value.filter((field) => field.key ==
 
 function getIssueTypeBadgeClass(issueType: JiraCreateIssueType): string {
   const normalizedType = issueType.toLowerCase()
-  if (normalizedType.includes('epic')) return 'issue-badge-epic'
-  if (normalizedType.includes('story')) return 'issue-badge-story'
-  if (normalizedType.includes('bug')) return 'issue-badge-bug'
-  if (normalizedType.includes('sub')) return 'issue-badge-subtask'
-  return 'issue-badge-task'
+  if (normalizedType.includes('bug')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('epic')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('story')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('sub')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
 }
 
 function resetForm() {
@@ -284,11 +308,12 @@ function resetForm() {
     || initialParentTicket?.spaceKey === LOCAL_SPACE_KEY
 
   selectedIssueType.value = spaceIsLocal
-    ? (LOCAL_ISSUE_TYPE as JiraCreateIssueType)
+    ? LOCAL_ISSUE_TYPE
     : getDefaultIssueType(initialParentTicket?.issueType ?? null, props.initialIssueType)
 
   fieldValues.value = {}
   submitError.value = null
+  attachmentNotice.value = null
   stopEditingParent()
   stopEditingAssignee()
 }
@@ -352,6 +377,125 @@ function syncSelectedIssueType() {
 function closeModal() {
   if (isCreatePending.value) return
   emit('close')
+}
+
+function resetAfterSuccessfulCreate() {
+  const previousSpaceKey = effectiveSpaceKey.value
+  resetForm()
+  if (previousSpaceKey && isAvailableCreateSpace(previousSpaceKey)) {
+    selectedSpaceKey.value = previousSpaceKey
+  }
+  focusElementById('create-field-summary')
+}
+
+function finishSuccessfulCreate(key: string) {
+  emit('created', key, createMore.value)
+  if (createMore.value) {
+    resetAfterSuccessfulCreate()
+  }
+}
+
+function showAttachmentNotice() {
+  attachmentNotice.value = 'Attachments are not available in this first pass.'
+}
+
+function focusElementById(id: string) {
+  nextTick(() => {
+    const element = document.getElementById(id)
+    if (element instanceof HTMLElement) {
+      element.focus()
+    }
+  })
+}
+
+function isEditableShortcutTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+
+  const tagName = target.tagName.toLowerCase()
+  return target.isContentEditable
+    || tagName === 'input'
+    || tagName === 'textarea'
+    || tagName === 'select'
+}
+
+function focusSpaceSelect() {
+  nextTick(() => {
+    spaceSelectRef.value?.focus()
+  })
+}
+
+function focusPrioritySelect() {
+  nextTick(() => {
+    prioritySelectRef.value?.focus()
+  })
+}
+
+function selectNextIssueType() {
+  if (isCreatePending.value || props.issueTypeLocked || isLocalSpace.value) return
+
+  const options = issueTypeOptions.value
+  if (options.length <= 1) return
+
+  const currentIndex = options.findIndex((issueType) => issueType === selectedIssueType.value)
+  const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % options.length
+  selectedIssueType.value = options[nextIndex] ?? selectedIssueType.value
+}
+
+function handleComposerKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented) return
+
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    event.preventDefault()
+    if (canSubmit.value) {
+      void submit()
+    }
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeModal()
+    return
+  }
+
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+  if (isEditableShortcutTarget(event.target)) return
+
+  const key = event.key.toLowerCase()
+  if (key === 's') {
+    event.preventDefault()
+    focusSpaceSelect()
+    return
+  }
+
+  if (key === 'i') {
+    event.preventDefault()
+    selectNextIssueType()
+    return
+  }
+
+  if (key === 'p') {
+    event.preventDefault()
+    focusPrioritySelect()
+    return
+  }
+
+  if (key === 'a') {
+    event.preventDefault()
+    startEditingAssignee()
+    return
+  }
+
+  if (key === 'd') {
+    event.preventDefault()
+    focusElementById('create-field-duedate')
+    return
+  }
+
+  if (key === 't') {
+    event.preventDefault()
+    focusElementById('create-field-summary')
+  }
 }
 
 function updateFieldValue(key: string, value: string) {
@@ -426,8 +570,18 @@ function getSelectedParentTicket(): JiraTicket | null {
 
 function getSelectedParentLabel(): string {
   const ticket = getSelectedParentTicket()
-  if (!ticket) return `No parent ${supportedParentType.value ?? ''}`.trim()
+  if (!ticket) return selectedParentIsProject.value ? 'No project' : `No parent ${supportedParentType.value ?? ''}`.trim()
+  if (ticket.issueType.toLowerCase().includes('epic')) return ticket.summary
   return `${ticket.key} · ${ticket.summary}`
+}
+
+function getSupportedParentTypeLabel(): string {
+  return supportedParentDisplayLabel.value?.toLowerCase() ?? 'parent'
+}
+
+function getSupportedParentArticleLabel(): string {
+  const label = getSupportedParentTypeLabel()
+  return /^[aeiou]/.test(label) ? `an ${label}` : `a ${label}`
 }
 
 function getSelectedSpaceName(): string {
@@ -766,7 +920,7 @@ async function submit() {
       lastCreatedSpaceKey.value = LOCAL_SPACE_KEY
       localStorage.setItem(LAST_CREATED_SPACE_KEY, LOCAL_SPACE_KEY)
 
-      emit('created', createdTicket.key)
+      finishSuccessfulCreate(createdTicket.key)
     } catch (err) {
       submitError.value = err instanceof Error ? err.message : 'Failed to create ticket.'
     }
@@ -788,15 +942,21 @@ async function submit() {
     lastCreatedSpaceKey.value = persistedSpaceKey
     localStorage.setItem(LAST_CREATED_SPACE_KEY, persistedSpaceKey)
 
-    emit('created', createdTicket.key)
+    finishSuccessfulCreate(createdTicket.key)
   } catch (err) {
     submitError.value = err instanceof Error ? err.message : 'Failed to create ticket.'
   }
 }
 
 watch(() => props.open, (isOpen) => {
-  if (!isOpen) return
+  if (!isOpen) {
+    document.removeEventListener('keydown', handleComposerKeydown)
+    return
+  }
+
+  document.addEventListener('keydown', handleComposerKeydown)
   resetForm()
+  focusElementById('create-field-summary')
 })
 
 watch(() => props.initialIssueType, (issueType) => {
@@ -864,9 +1024,9 @@ watch(isLocalSpace, (local) => {
   if (!props.open) return
 
   if (local) {
-    selectedIssueType.value = LOCAL_ISSUE_TYPE as JiraCreateIssueType
+    selectedIssueType.value = LOCAL_ISSUE_TYPE
     const p = getTextValue('priority')
-    if (!(LOCAL_PRIORITY_NAMES as readonly string[]).includes(p)) {
+    if (!isLocalPriorityName(p)) {
       updateFieldValue('priority', 'Medium')
     }
     updateFieldValue('assignee', '')
@@ -887,6 +1047,7 @@ watch(fields, (definitions) => {
 }, { immediate: true })
 
 onUnmounted(() => {
+  document.removeEventListener('keydown', handleComposerKeydown)
   document.removeEventListener('mousedown', handleParentClickOutside)
   document.removeEventListener('mousedown', handleAssigneeClickOutside)
 })
@@ -897,180 +1058,59 @@ onUnmounted(() => {
     <Transition name="fade">
       <div
         v-if="open"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-3 py-[9vh] backdrop-blur-sm"
         @click.self="closeModal"
-      >
-        <div class="w-full max-w-2xl rounded-3xl border border-white/[0.08] bg-surface-1 shadow-2xl shadow-black/50">
-          <div class="flex items-start justify-between border-b border-white/[0.06] px-6 py-5">
-            <div>
-              <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                {{ isLocalSpace ? 'Local ticket' : 'Create issue' }}
-              </p>
-              <h2 class="mt-1 text-lg font-semibold text-white">
-                {{ isLocalSpace ? 'New local ticket' : `New ${selectedIssueType || 'Issue'}` }}
-              </h2>
+        >
+        <div
+          class="w-full max-w-[42rem] overflow-hidden rounded-lg border border-white/[0.08] bg-surface-1 shadow-xl shadow-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create issue"
+          @keydown="handleComposerKeydown"
+        >
+          <div class="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+            <div class="flex min-w-0 items-center gap-2">
+              <span class="truncate rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-xs text-slate-300">
+                {{ getSelectedSpaceName() }}
+              </span>
+              <span
+                class="rounded-md px-2 py-1 text-xs font-medium"
+                :class="createObjectTypeLabel === 'Project' ? 'issue-badge-epic' : 'issue-badge-issue'"
+              >
+                {{ createObjectTypeLabel }}
+              </span>
+              <span
+                v-if="createSubtypeLabel"
+                class="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-xs font-medium text-slate-500"
+              >
+                {{ createSubtypeLabel }}
+              </span>
             </div>
             <button
               type="button"
-              class="rounded-xl border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
+              class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-sm text-slate-500 transition hover:border-white/[0.08] hover:bg-white/[0.04] hover:text-slate-200"
               :disabled="isCreatePending.value"
+              aria-label="Close"
               @click="closeModal"
             >
-              Close
+              <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path stroke-linecap="round" d="M4.25 4.25l7.5 7.5M11.75 4.25l-7.5 7.5" />
+              </svg>
             </button>
           </div>
 
-          <div class="space-y-5 px-6 py-5">
-            <div class="space-y-2">
-              <label for="create-space" class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Space</label>
-              <select
-                id="create-space"
-                :value="effectiveSpaceKey ?? ''"
-                class="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="isCreatePending.value || isSpaceLocked || createSpaceOptions.length === 0"
-                @change="selectedSpaceKey = getInputValue($event) || null"
-              >
-                <option value="" disabled>
-                  {{ createSpaceOptions.length === 0 ? 'No enabled spaces available' : 'Choose a space' }}
-                </option>
-                <option
-                  v-for="space in createSpaceOptions"
-                  :key="space.key"
-                  :value="space.key"
-                >
-                  {{ space.name }} ({{ space.key }})
-                </option>
-              </select>
-              <p v-if="isSpaceLocked" class="text-xs text-slate-500">
-                Space is fixed by the selected parent: {{ getSelectedSpaceName() }}.
-              </p>
-              <p v-else-if="createSpaceOptions.length === 0" class="text-xs text-amber-200">
-                Enable at least one space in settings before creating a top-level issue.
-              </p>
-              <p v-else class="text-xs text-slate-500">
-                New top-level issues default to your last used space. Choose Local for app-only tickets.
-              </p>
-            </div>
-
-            <div v-if="!isLocalSpace" class="space-y-2">
-              <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Issue Type</p>
-              <p v-if="issueTypeOptions.length === 0" class="text-xs text-slate-500">
-                No issue types are available for this parent.
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="issueType in issueTypeOptions"
-                  :key="issueType"
-                  type="button"
-                  class="rounded-full border px-3 py-1.5 text-xs font-medium transition"
-                  :class="selectedIssueType === issueType
-                    ? getIssueTypeBadgeClass(issueType)
-                    : `${getIssueTypeBadgeClass(issueType)} opacity-60 hover:opacity-100`"
-                  :disabled="issueTypeLocked || isCreatePending.value"
-                  @click="selectedIssueType = issueType"
-                >
-                  {{ issueType }}
-                </button>
-              </div>
-            </div>
-
-            <div v-else class="space-y-2">
-              <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Issue Type</p>
-              <div
-                class="inline-flex rounded-full border px-3 py-1.5 text-xs font-medium issue-badge-task"
-              >
-                Task
-              </div>
-              <p class="text-xs text-slate-500">
-                Local tickets are always tasks.
-              </p>
-            </div>
-
-            <div v-if="supportedParentType" class="space-y-2">
-              <label class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Parent {{ supportedParentType }}</label>
-              <div
-                ref="parentComboRef"
-                class="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition"
-                :class="[
-                  isEditingParent ? 'border-indigo-500/40' : 'hover:border-white/[0.12]',
-                  parentLocked
-                    ? 'cursor-not-allowed border-white/[0.04] bg-white/[0.015] text-slate-500 opacity-60'
-                    : '',
-                  isCreatePending.value ? 'opacity-70' : '',
-                ]"
-              >
-                <div v-if="isEditingParent" class="space-y-2">
-                  <div class="relative">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.35-4.35" />
-                    </svg>
-                    <input
-                      ref="parentInputRef"
-                      v-model="parentSearch"
-                      class="w-full rounded-xl border border-white/[0.08] bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-indigo-400"
-                  :placeholder="`Search ${supportedParentType.toLowerCase()}s...`"
-                      @keydown="handleParentKeydown"
-                    />
-                  </div>
-                  <div class="max-h-56 overflow-y-auto rounded-xl border border-white/[0.08] bg-slate-950 py-1 shadow-xl shadow-black/30">
-                    <button
-                      type="button"
-                      data-parent-idx="0"
-                      class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
-                      :class="parentHighlightIndex === 0 ? 'bg-indigo-500/20 text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
-                      @click="selectParentOption(null)"
-                      @mouseenter="parentHighlightIndex = 0"
-                    >
-                      No parent
-                    </button>
-                    <button
-                      v-for="(ticket, index) in filteredParentOptions"
-                      :key="ticket.key"
-                      type="button"
-                      :data-parent-idx="index + 1"
-                      class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors"
-                      :class="parentHighlightIndex === index + 1 ? 'bg-indigo-500/20 text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
-                      @click="selectParentOption(ticket.key)"
-                      @mouseenter="parentHighlightIndex = index + 1"
-                    >
-                      <span class="mt-0.5 shrink-0 rounded-full border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-slate-500">{{ ticket.key }}</span>
-                      <span class="min-w-0 text-xs leading-5">{{ ticket.summary }}</span>
-                    </button>
-                    <div v-if="filteredParentOptions.length === 0" class="px-3 py-2 text-xs italic text-slate-600">
-                      No matching {{ supportedParentType.toLowerCase() }}s
-                    </div>
-                  </div>
-                </div>
-                <button
-                  v-else
-                  type="button"
-                  class="flex w-full items-center justify-between gap-3 text-left"
-                  :disabled="parentLocked || isCreatePending.value"
-                  @click="startEditingParent"
-                >
-                  <div class="min-w-0">
-                    <div class="text-sm text-slate-200 truncate">{{ getSelectedParentLabel() }}</div>
-                    <div class="text-xs text-slate-500">
-                      {{ effectiveParentKey ? `Change ${supportedParentType.toLowerCase()}` : `Choose a ${supportedParentType.toLowerCase()} or leave empty` }}
-                    </div>
-                  </div>
-                  <svg class="h-4 w-4 shrink-0 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-              <p v-if="parentLocked && effectiveParentKey" class="text-xs text-slate-500">
-                Parent is fixed for this create flow.
-              </p>
-            </div>
-
-            <div class="space-y-4">
+          <div class="max-h-[68vh] space-y-4 overflow-y-auto px-4 py-4">
+            <div class="space-y-3">
               <div
                 v-for="field in primaryFields"
                 :key="field.key"
-                class="space-y-2"
+                class="space-y-1.5"
               >
-                <label :for="`create-field-${field.key}`" class="flex items-center gap-2 text-sm font-medium text-slate-200">
+                <label
+                  v-if="field.key !== 'summary' && field.key !== 'description'"
+                  :for="`create-field-${field.key}`"
+                  class="flex items-center gap-2 text-sm font-medium text-slate-200"
+                >
                   <span>{{ field.label }}</span>
                   <span v-if="field.required" class="text-xs uppercase tracking-[0.12em] text-rose-300">Required</span>
                 </label>
@@ -1078,9 +1118,12 @@ onUnmounted(() => {
                 <input
                   v-if="field.type === 'text'"
                   :id="`create-field-${field.key}`"
+                  :name="`create-${field.key}`"
+                  aria-label="Issue title"
                   :value="getTextValue(field.key)"
                   type="text"
-                  class="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-indigo-500/40"
+                  class="w-full rounded-md border border-transparent bg-transparent px-1 py-1.5 text-xl font-medium text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/[0.08] focus:bg-white/[0.02]"
+                  placeholder="Issue title"
                   :disabled="isCreatePending.value"
                   @input="updateFieldValue(field.key, getInputValue($event))"
                 />
@@ -1088,9 +1131,12 @@ onUnmounted(() => {
                 <textarea
                   v-else-if="field.type === 'textarea'"
                   :id="`create-field-${field.key}`"
+                  :name="`create-${field.key}`"
+                  aria-label="Issue description"
                   :value="getTextValue(field.key)"
-                  rows="5"
-                  class="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-indigo-500/40"
+                  rows="4"
+                  class="w-full resize-y rounded-md border border-transparent bg-transparent px-1 py-1.5 text-sm leading-6 text-slate-300 outline-none transition placeholder:text-slate-600 focus:border-white/[0.08] focus:bg-white/[0.02]"
+                  placeholder="Add description..."
                   :disabled="isCreatePending.value"
                   @input="updateFieldValue(field.key, getInputValue($event))"
                 />
@@ -1100,7 +1146,7 @@ onUnmounted(() => {
                   :id="`create-field-${field.key}`"
                   :value="getTextValue(field.key)"
                   type="date"
-                  class="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-indigo-500/40"
+                  class="w-full rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16]"
                   :disabled="isCreatePending.value"
                   @input="updateFieldValue(field.key, getInputValue($event))"
                 />
@@ -1109,7 +1155,7 @@ onUnmounted(() => {
                   v-else
                   :id="`create-field-${field.key}`"
                   :value="getTextValue(field.key)"
-                  class="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-indigo-500/40"
+                  class="w-full rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16]"
                   :disabled="isCreatePending.value || isCreateFieldLoading(field.key)"
                   @change="updateFieldValue(field.key, getInputValue($event))"
                 >
@@ -1128,10 +1174,154 @@ onUnmounted(() => {
                 <p v-else-if="getCreateFieldError(field.key)" class="text-xs text-rose-300">
                   {{ getCreateFieldError(field.key) }}
                 </p>
+              </div>
+            </div>
 
+            <div class="grid gap-3 border-t border-white/[0.06] pt-4 md:grid-cols-[minmax(0,1fr)_auto]">
+              <div class="space-y-1.5">
+                <label for="create-space" class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Team</label>
+                <select
+                  id="create-space"
+                  ref="spaceSelectRef"
+                  name="create-space"
+                  :value="effectiveSpaceKey ?? ''"
+                  class="w-full rounded-md border border-white/[0.08] bg-white/[0.025] px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16] disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="isCreatePending.value || isSpaceLocked || createSpaceOptions.length === 0"
+                  @change="selectedSpaceKey = getInputValue($event) || null"
+                >
+                  <option value="" disabled>
+                    {{ createSpaceOptions.length === 0 ? 'No enabled spaces available' : 'Choose a space' }}
+                  </option>
+                  <option
+                    v-for="space in createSpaceOptions"
+                    :key="space.key"
+                    :value="space.key"
+                  >
+                    {{ space.name }} ({{ space.key }})
+                  </option>
+                </select>
+                <p v-if="isSpaceLocked" class="text-xs text-slate-500">
+                  Fixed by parent: {{ getSelectedSpaceName() }}.
+                </p>
+                <p v-else-if="createSpaceOptions.length === 0" class="text-xs text-amber-200">
+                  Enable at least one space in settings before creating a top-level issue.
+                </p>
               </div>
 
-              <div class="flex flex-wrap items-start gap-3">
+              <div v-if="!isLocalSpace" class="space-y-1.5">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Subtype</p>
+                <p v-if="issueTypeOptions.length === 0" class="text-xs text-slate-500">
+                  No issue types are available for this parent.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="issueType in issueTypeOptions"
+                    :key="issueType"
+                    type="button"
+                    class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                    :class="selectedIssueType === issueType
+                      ? getIssueTypeBadgeClass(issueType)
+                      : `${getIssueTypeBadgeClass(issueType)} opacity-60 hover:opacity-100`"
+                    :disabled="issueTypeLocked || isCreatePending.value"
+                    @click="selectedIssueType = issueType"
+                  >
+                    {{ getLinearIssueSubtype(issueType) }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-else class="space-y-1.5">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Subtype</p>
+                <div
+                  class="inline-flex rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-xs font-medium text-slate-300"
+                >
+                  Task
+                </div>
+              </div>
+            </div>
+
+            <div v-if="supportedParentType" class="space-y-1.5">
+              <label class="text-[11px] uppercase tracking-[0.14em] text-slate-500">{{ supportedParentDisplayLabel }}</label>
+              <div
+                ref="parentComboRef"
+                class="relative rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 transition"
+                :class="[
+                  isEditingParent ? 'border-white/[0.14] bg-white/[0.035]' : 'hover:border-white/[0.12]',
+                  parentLocked
+                    ? 'cursor-not-allowed border-white/[0.04] bg-white/[0.015] text-slate-500 opacity-60'
+                    : '',
+                  isCreatePending.value ? 'opacity-70' : '',
+                ]"
+              >
+                <div v-if="isEditingParent" class="space-y-2">
+                  <div class="relative">
+                    <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input
+                      ref="parentInputRef"
+                      v-model="parentSearch"
+                      name="create-parent-search"
+                      :aria-label="`Search ${getSupportedParentTypeLabel()}s`"
+                      class="w-full rounded-md border border-white/[0.08] bg-surface-0 py-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
+                      :placeholder="`Search ${getSupportedParentTypeLabel()}s...`"
+                      @keydown="handleParentKeydown"
+                    />
+                  </div>
+                  <div class="max-h-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/30">
+                    <button
+                      type="button"
+                      data-parent-idx="0"
+                      class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
+                      :class="parentHighlightIndex === 0 ? 'bg-white/[0.06] text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
+                      @click="selectParentOption(null)"
+                      @mouseenter="parentHighlightIndex = 0"
+                    >
+                      No parent
+                    </button>
+                    <button
+                      v-for="(ticket, index) in filteredParentOptions"
+                      :key="ticket.key"
+                      type="button"
+                      :data-parent-idx="index + 1"
+                      class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors"
+                      :class="parentHighlightIndex === index + 1 ? 'bg-white/[0.06] text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
+                      @click="selectParentOption(ticket.key)"
+                      @mouseenter="parentHighlightIndex = index + 1"
+                    >
+                      <span class="mt-0.5 shrink-0 rounded-full border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-slate-500">{{ ticket.key }}</span>
+                      <span class="min-w-0 text-xs leading-5">{{ ticket.summary }}</span>
+                    </button>
+                    <div v-if="filteredParentOptions.length === 0" class="px-3 py-2 text-xs italic text-slate-600">
+                      No matching {{ getSupportedParentTypeLabel() }}s
+                    </div>
+                  </div>
+                </div>
+                <button
+                  v-else
+                  type="button"
+                  class="flex w-full items-center justify-between gap-3 text-left"
+                  :disabled="parentLocked || isCreatePending.value"
+                  @click="startEditingParent"
+                >
+                  <div class="min-w-0">
+                    <div class="text-sm text-slate-200 truncate">{{ getSelectedParentLabel() }}</div>
+                    <div class="text-xs text-slate-500">
+                      {{ effectiveParentKey ? `Change ${getSupportedParentTypeLabel()}` : `Choose ${getSupportedParentArticleLabel()} or leave empty` }}
+                    </div>
+                  </div>
+                  <svg class="h-4 w-4 shrink-0 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+              <p v-if="parentLocked && effectiveParentKey" class="text-xs text-slate-500">
+                Parent is fixed for this create flow.
+              </p>
+            </div>
+
+            <div class="space-y-4">
+              <div class="flex flex-wrap items-start gap-3 border-t border-white/[0.06] pt-4">
                 <div class="space-y-2">
                   <label for="create-field-priority" class="flex items-center gap-2 text-sm font-medium text-slate-200">
                     <span>Priority</span>
@@ -1140,8 +1330,10 @@ onUnmounted(() => {
                     <div class="flex items-center gap-2">
                       <select
                         id="create-field-priority"
+                        ref="prioritySelectRef"
+                        name="create-priority"
                         :value="getTextValue('priority')"
-                        class="rounded-full border border-white/[0.08] bg-slate-950 px-3 py-1 text-xs text-slate-200 outline-none transition focus:border-indigo-400"
+                        class="rounded-md border border-white/[0.08] bg-surface-0 px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
                         :disabled="isCreatePending.value || isCreateFieldLoading('priority')"
                         @change="updateFieldValue('priority', getInputValue($event))"
                       >
@@ -1153,7 +1345,7 @@ onUnmounted(() => {
                           {{ option.label }}
                         </option>
                       </select>
-                      <div class="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-1">
+                      <div class="flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5">
                         <span
                           class="h-1.5 w-1.5 rounded-full"
                           :class="priorityConfig[getSelectedPriorityName()]?.bg || 'bg-slate-500'"
@@ -1176,10 +1368,10 @@ onUnmounted(() => {
                   </label>
                   <div
                     v-if="isLocalSpace"
-                    class="rounded-2xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5"
+                    class="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5"
                   >
                     <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                      <span class="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-200">You</span>
+                      <span class="rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">You</span>
                       <span v-if="jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value" class="text-slate-500">Loading your Jira name…</span>
                       <span v-else-if="jiraMeQuery.data.value">{{ jiraMeQuery.data.value.displayName }}</span>
                       <span v-else-if="jiraMeQuery.isError.value" class="text-rose-300">Could not load Jira profile</span>
@@ -1190,7 +1382,7 @@ onUnmounted(() => {
                     <button
                       v-if="jiraMeQuery.isError.value"
                       type="button"
-                      class="mt-2 text-[11px] text-indigo-400/90 hover:text-indigo-300"
+                      class="mt-2 text-[11px] text-slate-400 hover:text-slate-200"
                       @click="jiraMeQuery.refetch()"
                     >
                       Retry
@@ -1198,7 +1390,7 @@ onUnmounted(() => {
                   </div>
                   <div
                     v-else
-                    class="group relative flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] py-1 pl-1.5 pr-2.5 transition hover:border-white/[0.1] hover:bg-white/[0.04]"
+                    class="group relative flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] py-1.5 pl-1.5 pr-2.5 transition hover:border-white/[0.1] hover:bg-white/[0.04]"
                   >
                     <div v-if="isEditingAssignee" ref="assigneeComboRef" class="relative">
                       <div class="flex items-center gap-2">
@@ -1210,7 +1402,9 @@ onUnmounted(() => {
                             id="create-field-assignee"
                             ref="assigneeInputRef"
                             v-model="assigneeSearch"
-                            class="w-48 rounded-lg border border-white/[0.08] bg-slate-950 py-1.5 pl-8 pr-3 text-xs text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-indigo-400"
+                            name="create-assignee-search"
+                            aria-label="Search assignees"
+                            class="w-48 rounded-md border border-white/[0.08] bg-surface-0 py-1.5 pl-8 pr-3 text-xs text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
                             placeholder="Search assignees..."
                             @keydown="handleAssigneeKeydown"
                           />
@@ -1225,7 +1419,7 @@ onUnmounted(() => {
                         <span v-if="isCreateFieldLoading('assignee')" class="text-[11px] text-slate-500">Loading...</span>
                         <span v-if="getCreateFieldError('assignee')" class="text-[11px] text-rose-300">{{ getCreateFieldError('assignee') }}</span>
                       </div>
-                      <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-slate-950 py-1 shadow-xl shadow-black/40">
+                      <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/40">
                         <template v-if="recentComboOptions.length">
                           <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">Recent</div>
                           <button
@@ -1234,7 +1428,7 @@ onUnmounted(() => {
                             type="button"
                             :data-idx="i"
                             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
-                            :class="assigneeHighlightIndex === i ? 'bg-indigo-500/20 text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
+                            :class="assigneeHighlightIndex === i ? 'bg-white/[0.06] text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
                             @click="selectAssigneeOption(option.accountId)"
                             @mouseenter="assigneeHighlightIndex = i"
                           >
@@ -1249,7 +1443,7 @@ onUnmounted(() => {
                             type="button"
                             :data-idx="recentComboOptions.length + j"
                             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
-                            :class="assigneeHighlightIndex === recentComboOptions.length + j ? 'bg-indigo-500/20 text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
+                            :class="assigneeHighlightIndex === recentComboOptions.length + j ? 'bg-white/[0.06] text-white' : 'text-slate-300 hover:bg-white/[0.04]'"
                             @click="selectAssigneeOption(option.accountId)"
                             @mouseenter="assigneeHighlightIndex = recentComboOptions.length + j"
                           >
@@ -1279,9 +1473,10 @@ onUnmounted(() => {
                   </label>
                   <input
                     id="create-field-duedate"
+                    name="create-due-date"
                     :value="getTextValue('duedate')"
                     type="date"
-                    class="rounded-full border border-white/[0.08] bg-slate-950 px-3 py-1 text-xs text-slate-200 outline-none transition focus:border-indigo-400"
+                    class="rounded-md border border-white/[0.08] bg-surface-0 px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
                     :disabled="isCreatePending.value"
                     @input="updateFieldValue('duedate', getInputValue($event))"
                   />
@@ -1289,32 +1484,59 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div v-if="submitError" class="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            <div v-if="submitError" class="rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
               {{ submitError }}
+            </div>
+            <div v-if="attachmentNotice" class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 py-3 text-xs text-slate-500">
+              {{ attachmentNotice }}
             </div>
           </div>
 
-          <div class="flex items-center justify-end gap-3 border-t border-white/[0.06] px-6 py-4">
-            <button
-              type="button"
-              class="rounded-2xl border border-white/[0.08] px-4 py-2 text-sm text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
-              :disabled="isCreatePending.value"
-              @click="closeModal"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="rounded-2xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isCreatePending.value || !selectedIssueType || !effectiveSpaceKey || (isLocalSpace && (jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value))"
-              @click="submit"
-            >
-              {{
-                isCreatePending.value
-                  ? 'Creating...'
-                  : (isLocalSpace ? 'Create local ticket' : `Create ${selectedIssueType || 'Issue'}`)
-              }}
-            </button>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] px-4 py-3">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.08] text-slate-500 transition hover:border-white/[0.14] hover:bg-white/[0.04] hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="isCreatePending.value"
+                aria-label="Add attachment"
+                @click="showAttachmentNotice"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.82l8.48-8.49" />
+                </svg>
+              </button>
+              <label class="inline-flex h-7 items-center gap-2 rounded-md px-2 text-[12px] text-slate-500 transition hover:bg-white/[0.035] hover:text-slate-300">
+                <input
+                  v-model="createMore"
+                  type="checkbox"
+                  class="h-3.5 w-3.5 rounded border-white/[0.14] bg-white/[0.04] accent-[#5e6ad2]"
+                  :disabled="isCreatePending.value"
+                >
+                <span>Create more</span>
+              </label>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-md border border-white/[0.08] px-3 py-1.5 text-sm text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
+                :disabled="isCreatePending.value"
+                @click="closeModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="rounded-md bg-accent-indigo px-3 py-1.5 text-sm font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!canSubmit"
+                @click="submit"
+              >
+                {{
+                  isCreatePending.value
+                    ? 'Creating...'
+                    : (isLocalSpace ? 'Create local issue' : 'Create issue')
+                }}
+              </button>
+            </div>
           </div>
         </div>
       </div>

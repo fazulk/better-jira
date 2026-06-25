@@ -1,8 +1,9 @@
 import { computed, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { fetchTicketMessages } from '@/api/jira'
+import { fetchTicketActivity, fetchTicketMessages } from '@/api/jira'
 
 export const ticketMessagesQueryKey = (ticketKey: string | null) => ['ticket-messages', ticketKey] as const
+export const ticketActivityQueryKey = (ticketKey: string | null) => ['ticket-activity', ticketKey]
 
 export function useJiraMessages(
   ticketKey: Ref<string | null>,
@@ -14,6 +15,25 @@ export function useJiraMessages(
       const [, key] = queryKey
       if (!key) throw new Error('Ticket key is required')
       return fetchTicketMessages(key)
+    },
+    enabled: computed(() => {
+      if (!ticketKey.value) return false
+      if (options?.queryEnabled && !options.queryEnabled.value) return false
+      return true
+    }),
+  })
+}
+
+export function useJiraActivity(
+  ticketKey: Ref<string | null>,
+  options?: { queryEnabled?: Ref<boolean> },
+) {
+  return useQuery({
+    queryKey: computed(() => ticketActivityQueryKey(ticketKey.value)),
+    queryFn: ({ queryKey }) => {
+      const [, key] = queryKey
+      if (!key) throw new Error('Ticket key is required')
+      return fetchTicketActivity(key)
     },
     enabled: computed(() => {
       if (!ticketKey.value) return false

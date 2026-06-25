@@ -293,8 +293,8 @@ function applyBlockType(value: string) {
 
 function buttonClass(isActive: boolean): string {
   return isActive
-    ? 'border-indigo-400/50 bg-indigo-500/20 text-indigo-100'
-    : 'border-white/[0.08] bg-white/[0.03] text-slate-300 hover:border-white/[0.14] hover:bg-white/[0.05]'
+    ? 'border-white/[0.16] bg-white/[0.09] text-slate-100'
+    : 'border-white/[0.08] bg-transparent text-slate-400 hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200'
 }
 
 function markButtonDisabled(commandSupported: boolean): boolean {
@@ -378,13 +378,13 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col space-y-3">
+  <div class="flex h-full min-h-0 flex-col space-y-2">
     <div
-      class="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2"
+      class="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.015] px-2 py-2"
       :class="unsupported ? 'opacity-70' : ''"
     >
       <select
-        class="rounded-lg border border-white/[0.08] bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-indigo-400"
+        class="h-7 rounded-md border border-white/[0.08] bg-surface-0 px-2 text-xs text-slate-300 outline-none transition focus:border-white/[0.16]"
         :disabled="disabled || unsupported"
         :value="currentBlockType"
         @change="applyBlockType(getSelectValue($event))"
@@ -399,7 +399,7 @@ defineExpose({
 
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition"
+        class="h-7 rounded-md border px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('bold'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBold().run())"
         @click="toggleMark('bold')"
@@ -408,7 +408,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs italic transition"
+        class="h-7 rounded-md border px-2 text-xs italic transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('italic'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleItalic().run())"
         @click="toggleMark('italic')"
@@ -417,7 +417,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs underline transition"
+        class="h-7 rounded-md border px-2 text-xs underline transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('underline'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleUnderline().run())"
         @click="toggleMark('underline')"
@@ -426,7 +426,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs line-through transition"
+        class="h-7 rounded-md border px-2 text-xs line-through transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('strike'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleStrike().run())"
         @click="toggleMark('strike')"
@@ -435,7 +435,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs font-mono transition"
+        class="h-7 rounded-md border px-2 text-xs font-mono transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('code'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCode().run())"
         @click="toggleMark('code')"
@@ -444,7 +444,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs transition"
+        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('bulletList'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBulletList().run())"
         @click="toggleNode('bulletList')"
@@ -453,7 +453,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs transition"
+        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('orderedList'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleOrderedList().run())"
         @click="toggleNode('orderedList')"
@@ -462,7 +462,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs transition"
+        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('blockquote'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBlockquote().run())"
         @click="toggleNode('blockquote')"
@@ -471,7 +471,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs transition"
+        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('codeBlock'))"
         :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCodeBlock().run())"
         @click="toggleNode('codeBlock')"
@@ -480,7 +480,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border px-2.5 py-1.5 text-xs transition"
+        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         :class="buttonClass(!!editor?.isActive('link'))"
         :disabled="disabled || unsupported"
         @click="openLinkMenu"
@@ -489,7 +489,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-slate-300 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+        class="h-7 rounded-md border border-white/[0.08] px-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="disabled || unsupported || !editor?.can().undo()"
         @click="editor?.chain().focus().undo().run()"
       >
@@ -497,7 +497,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-slate-300 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+        class="h-7 rounded-md border border-white/[0.08] px-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="disabled || unsupported || !editor?.can().redo()"
         @click="editor?.chain().focus().redo().run()"
       >
@@ -505,11 +505,11 @@ defineExpose({
       </button>
     </div>
 
-    <div v-if="linkMenuOpen" class="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-3 py-2">
+    <div v-if="linkMenuOpen" class="flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2">
       <input
         v-model="linkDraft"
         type="text"
-        class="min-w-[16rem] flex-1 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-violet-400"
+        class="h-8 min-w-[16rem] flex-1 rounded-md border border-white/[0.08] bg-surface-0 px-3 text-[13px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
         placeholder="Paste or type a URL"
         :disabled="disabled || unsupported"
         @keydown.enter.prevent="applyLink"
@@ -517,7 +517,7 @@ defineExpose({
       >
       <button
         type="button"
-        class="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+        class="h-8 rounded-md bg-accent-indigo px-3 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="disabled || unsupported"
         @click="applyLink"
       >
@@ -525,7 +525,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 transition hover:border-white/[0.14] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
+        class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="disabled || unsupported"
         @click="removeLink"
       >
@@ -533,7 +533,7 @@ defineExpose({
       </button>
       <button
         type="button"
-        class="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+        class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200"
         @click="closeLinkMenu"
       >
         Cancel
@@ -541,7 +541,7 @@ defineExpose({
     </div>
 
     <div
-      class="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-indigo-500/30 bg-white/[0.04] transition focus-within:border-indigo-400 focus-within:bg-white/[0.06]"
+      class="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.018] transition focus-within:border-white/[0.16] focus-within:bg-white/[0.03]"
       :class="unsupported ? 'opacity-70' : ''"
     >
       <EditorContent

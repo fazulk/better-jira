@@ -49,10 +49,10 @@ function textNodeClass(node: JiraAdfNode): string {
   if (hasMark(node, 'em')) classes.push('italic')
   if (hasMark(node, 'underline')) classes.push('underline', 'underline-offset-2')
   if (hasMark(node, 'strike')) classes.push('line-through')
-  if (hasMark(node, 'code')) classes.push('rounded', 'bg-slate-950/80', 'px-1.5', 'py-0.5', 'font-mono', 'text-[13px]', 'text-emerald-200')
+  if (hasMark(node, 'code')) classes.push('rounded-md', 'border', 'border-white/[0.08]', 'bg-white/[0.04]', 'px-1.5', 'py-0.5', 'font-mono', 'text-[13px]', 'text-slate-200')
 
   if (linkHref(node)) {
-    classes.push('text-violet-300', 'underline', 'underline-offset-2', 'decoration-violet-300/60')
+    classes.push('text-slate-200', 'underline', 'underline-offset-2', 'decoration-slate-500/70', 'transition', 'hover:text-white', 'hover:decoration-slate-300')
   }
 
   return classes.join(' ')
@@ -128,12 +128,12 @@ function headingClass(node: JiraAdfNode): string {
 
       <pre
         v-else-if="node.type === 'codeBlock'"
-        class="overflow-x-auto rounded-lg border border-white/[0.06] bg-slate-950/70 px-4 py-3 text-sm leading-relaxed text-slate-300"
+        class="overflow-x-auto rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2.5 text-sm leading-relaxed text-slate-300"
       ><code>{{ childNodes(node).map((child) => child.text ?? '').join('') }}</code></pre>
 
       <blockquote
         v-else-if="node.type === 'blockquote'"
-        class="border-l-2 border-indigo-400/50 pl-4 text-sm leading-relaxed text-slate-300"
+        class="border-l border-white/[0.14] pl-4 text-sm leading-relaxed text-slate-300"
       >
         <JiraAdfRenderer :nodes="childNodes(node)" nested />
       </blockquote>

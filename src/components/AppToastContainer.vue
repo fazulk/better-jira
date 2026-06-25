@@ -9,40 +9,47 @@ async function copyToastMessage(message: string): Promise<void> {
 </script>
 
 <template>
-  <div class="pointer-events-none fixed right-4 bottom-4 z-[90] flex w-full max-w-sm flex-col gap-3">
+  <div class="pointer-events-none fixed bottom-4 right-4 z-[90] flex w-full max-w-sm flex-col gap-2">
     <TransitionGroup name="toast">
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        class="pointer-events-auto rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md"
-        :class="toast.kind === 'success'
-          ? 'border-emerald-400/25 bg-emerald-500/15 text-emerald-100'
-          : 'border-rose-400/25 bg-rose-500/15 text-rose-100'"
+        class="pointer-events-auto overflow-hidden rounded-lg border border-white/[0.08] bg-surface-1/95 text-slate-200 shadow-xl shadow-black/35 backdrop-blur"
       >
-        <div class="flex items-start gap-3">
-          <p class="min-w-0 flex-1 text-sm leading-6">
-            {{ toast.message }}
-          </p>
-          <div class="flex items-center gap-1">
-            <button
-              v-if="toast.kind === 'error'"
-              type="button"
-              class="rounded-lg px-2 py-1 text-xs font-medium text-current/80 transition hover:bg-white/10 hover:text-current"
-              aria-label="Copy notification message"
-              @click="copyToastMessage(toast.message)"
-            >
-              Copy
-            </button>
-            <button
-              type="button"
-              class="rounded-full p-1 text-current/70 transition hover:bg-white/10 hover:text-current"
-              aria-label="Dismiss notification"
-              @click="removeToast(toast.id)"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <path stroke-linecap="round" d="M4 4l8 8M12 4 4 12" />
-              </svg>
-            </button>
+        <div class="flex items-stretch">
+          <div
+            class="w-1 shrink-0"
+            :class="toast.kind === 'success' ? 'bg-white/[0.24]' : 'bg-rose-400/80'"
+          ></div>
+          <div class="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5">
+            <div
+              class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+              :class="toast.kind === 'success' ? 'bg-slate-400' : 'bg-rose-300/90'"
+            ></div>
+            <p class="min-w-0 flex-1 text-[13px] leading-5 text-slate-300">
+              {{ toast.message }}
+            </p>
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                v-if="toast.kind === 'error'"
+                type="button"
+                class="h-6 rounded-md px-2 text-[12px] text-slate-500 transition hover:bg-white/[0.05] hover:text-slate-200"
+                aria-label="Copy notification message"
+                @click="copyToastMessage(toast.message)"
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/[0.05] hover:text-slate-200"
+                aria-label="Dismiss notification"
+                @click="removeToast(toast.id)"
+              >
+                <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                  <path stroke-linecap="round" d="M4.25 4.25l7.5 7.5M11.75 4.25l-7.5 7.5" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

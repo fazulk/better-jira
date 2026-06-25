@@ -14,6 +14,7 @@ import {
   getPriorities,
   getJiraCurrentUser,
   getTicket,
+  getTicketActivity,
   getTicketMessages,
   getTransitions,
   searchTickets,
@@ -22,6 +23,7 @@ import {
   updateTicketPriority,
   updateTicketStatus,
   updateTicketTitle,
+  updateTicketWatching,
 } from '../jira'
 import { getAiProviderAvailability } from '../ai/catalog'
 import { generateTicketDescription } from '../ai/generateDescription'
@@ -453,6 +455,11 @@ export default defineEventHandler(async (event) => {
         return Response.json(messages, { headers: API_HEADERS })
       }
 
+      if (segments.length === 3 && segments[2] === 'activity' && method === 'GET') {
+        const activity = await getTicketActivity(ticketKey)
+        return Response.json(activity, { headers: API_HEADERS })
+      }
+
       if (segments.length === 3 && segments[2] === 'messages' && method === 'POST') {
         const body = await readBody<unknown>(event)
         const messageText = isRecord(body) && typeof body.body === 'string' ? body.body : ''
@@ -571,6 +578,13 @@ export default defineEventHandler(async (event) => {
         const body = await readBody<unknown>(event)
         const transitionId = isRecord(body) && typeof body.transitionId === 'string' ? body.transitionId : ''
         const ticket = await updateTicketStatus(ticketKey, transitionId)
+        return Response.json(ticket, { headers: API_HEADERS })
+      }
+
+      if (segments.length === 3 && segments[2] === 'watching' && method === 'PUT') {
+        const body = await readBody<unknown>(event)
+        const watching = isRecord(body) && body.watching === true
+        const ticket = await updateTicketWatching(ticketKey, watching)
         return Response.json(ticket, { headers: API_HEADERS })
       }
     }

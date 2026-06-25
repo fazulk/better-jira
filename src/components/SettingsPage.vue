@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { AiInstructionPresetDraft } from '@/composables/useAiInstructionPresets'
 import { useAvailableSpaces } from '@/composables/useAvailableSpaces'
 import { useAiInstructionPresets } from '@/composables/useAiInstructionPresets'
 import { useAiSettings } from '@/composables/useAiSettings'
+import { useJiraTickets } from '@/composables/useJiraTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { getStatusGroup, type StatusGroup } from '@/types/jira'
 import { getProviderLabel, isAiProvider, type AiProviderAvailability } from '~/shared/ai'
 import type { AppSpaceSetting, JiraSpaceDirectoryEntry } from '~/shared/settings'
 
@@ -45,15 +47,19 @@ const {
   errorMessage: availableSpacesErrorMessage,
   isLoading: isLoadingAvailableSpaces,
 } = useAvailableSpaces(hasJiraCredentialsConfigured)
+const { tickets } = useJiraTickets()
 
 const newPreset = ref<AiInstructionPresetDraft>({
   label: '',
   text: '',
 })
 const newSpaceKey = ref('')
+const jiraBaseUrlDraft = ref('')
+const jiraEmailDraft = ref('')
 const cerebrasApiKey = ref('')
 const jiraApiToken = ref('')
 const spaceSearchQuery = ref('')
+const settingsSearchQuery = ref('')
 const spaceFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
 const aiFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
 const jiraFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
@@ -65,6 +71,129 @@ const editingPresetId = ref<string | null>(null)
 const editingPreset = ref<AiInstructionPresetDraft>({
   label: '',
   text: '',
+})
+
+type SettingsSectionId =
+  | 'account'
+  | 'preferences'
+  | 'workspace'
+  | 'members'
+  | 'integrations'
+  | 'ai'
+  | 'instructions'
+  | 'team-overview'
+  | 'team-members'
+  | 'team-statuses'
+  | 'team-workflows'
+  | 'team-triage'
+  | 'team-cycles'
+  | 'team-ai'
+  | 'danger'
+
+interface SettingsNavigationItem {
+  id: SettingsSectionId
+  label: string
+  description: string
+}
+
+interface SettingsNavigationGroup {
+  label: string
+  items: SettingsNavigationItem[]
+}
+
+interface SettingsSummaryRow {
+  label: string
+  value: string
+  detail: string
+}
+
+interface SettingsDetailRow {
+  label: string
+  value: string
+  detail: string
+}
+
+interface TeamStatusSettingsRow {
+  status: string
+  group: StatusGroup
+  issueCount: number
+  spaces: string
+}
+
+interface WorkspaceMemberSettingsRow {
+  name: string
+  accountId: string | null
+  issueCount: number
+  spaces: string
+}
+
+interface TeamMemberSettingsRow {
+  teamKey: string
+  teamName: string
+  memberCount: number
+  issueCount: number
+  topMembers: string
+}
+
+const activeSettingsSection = ref<SettingsSectionId>('workspace')
+
+const settingsNavigationGroups: SettingsNavigationGroup[] = [
+  {
+    label: 'Personal',
+    items: [
+      { id: 'account', label: 'Account', description: 'Profile and identity' },
+      { id: 'preferences', label: 'Preferences', description: 'Theme and interface defaults' },
+    ],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'workspace', label: 'Jira connection', description: 'Credentials and spaces' },
+      { id: 'members', label: 'Members', description: 'Assignees and local presence' },
+      { id: 'integrations', label: 'Integrations', description: 'Connected tools' },
+    ],
+  },
+  {
+    label: 'Teams',
+    items: [
+      { id: 'team-overview', label: 'Overview', description: 'Enabled Jira spaces' },
+      { id: 'team-members', label: 'Members', description: 'Per-space ownership' },
+      { id: 'team-statuses', label: 'Issue statuses', description: 'Workflow columns' },
+      { id: 'team-workflows', label: 'Workflows', description: 'Automation mapping' },
+      { id: 'team-triage', label: 'Triage', description: 'New issue routing' },
+      { id: 'team-cycles', label: 'Cycles', description: 'Deferred sprint parity' },
+      { id: 'team-ai', label: 'AI & Agents', description: 'Assistant boundaries' },
+    ],
+  },
+  {
+    label: 'Features',
+    items: [
+      { id: 'ai', label: 'AI provider', description: 'Models and local keys' },
+      { id: 'instructions', label: 'AI instructions', description: 'Prompt presets' },
+    ],
+  },
+  {
+    label: 'Administration',
+    items: [
+      { id: 'danger', label: 'Danger zone', description: 'Local data boundaries' },
+    ],
+  },
+]
+
+const filteredSettingsNavigationGroups = computed<SettingsNavigationGroup[]>(() => {
+  const query = settingsSearchQuery.value.trim().toLowerCase()
+  if (!query) return settingsNavigationGroups
+
+  return settingsNavigationGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => [
+        group.label,
+        item.label,
+        item.description,
+      ].some(value => value.toLowerCase().includes(query))),
+    }))
+    .filter(group => group.items.length > 0)
 })
 
 const canAddPreset = computed<boolean>(() =>
@@ -144,7 +273,7 @@ async function handleProviderChange(event: Event): Promise<void> {
 
 function getProviderStatusClass(status: AiProviderAvailability): string {
   return status.available
-    ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+    ? 'border-white/[0.08] bg-white/[0.035] text-slate-300'
     : 'border-white/[0.06] bg-white/[0.02] text-slate-500'
 }
 
@@ -277,6 +406,305 @@ const visibleSpaceItems = computed<ResolvedSpaceItem[]>(() => [
 const hiddenDirectoryMatchCount = computed(() => (
   Math.max(filteredDirectorySpaces.value.length - visibleDirectorySpaces.value.length, 0)
 ))
+const enabledSpaceItems = computed(() => spaces.value
+  .filter(space => space.enabled)
+  .map(space => ({
+    key: space.key,
+    name: getResolvedSpaceName(space),
+  })))
+const enabledSpaceKeySet = computed(() => new Set(enabledSpaceItems.value.map(space => space.key)))
+const teamSettingsRows = computed<SettingsSummaryRow[]>(() => enabledSpaceItems.value.map(space => ({
+  label: space.name,
+  value: space.key,
+  detail: directorySpaceByKey.value.has(space.key) ? 'Synced from Jira directory' : 'Manual Jira space',
+})))
+const workspaceSummaryRows = computed<SettingsSummaryRow[]>(() => [
+  {
+    label: 'Connection',
+    value: hasJiraCredentialsConfigured.value ? 'Configured' : 'Incomplete',
+    detail: jiraConnection.value.baseUrl || 'No Jira base URL saved',
+  },
+  {
+    label: 'Enabled spaces',
+    value: String(enabledSpaceItems.value.length),
+    detail: enabledSpaceItems.value.length === 1 ? '1 space visible in the sidebar' : `${enabledSpaceItems.value.length} spaces visible in the sidebar`,
+  },
+  {
+    label: 'AI provider',
+    value: getProviderLabel(aiSettings.value.provider),
+    detail: aiSettings.value.model,
+  },
+])
+
+const enabledTickets = computed(() => tickets.value.filter(ticket => enabledSpaceKeySet.value.has(ticket.spaceKey)))
+
+const statusGroupLabels: Record<StatusGroup, string> = {
+  new: 'Todo',
+  indeterminate: 'In progress',
+  done: 'Done',
+}
+
+const statusGroupRank: Record<StatusGroup, number> = {
+  new: 0,
+  indeterminate: 1,
+  done: 2,
+}
+
+const teamStatusRows = computed<TeamStatusSettingsRow[]>(() => {
+  const rows = new Map<string, {
+    status: string
+    group: StatusGroup
+    issueCount: number
+    spaceKeys: Set<string>
+  }>()
+
+  for (const ticket of tickets.value) {
+    if (!enabledSpaceKeySet.value.has(ticket.spaceKey)) {
+      continue
+    }
+
+    const status = ticket.status.trim() || 'No status'
+    const group = getStatusGroup(ticket.statusCategory)
+    const key = `${group}:${status.toLowerCase()}`
+    const current = rows.get(key)
+
+    if (current) {
+      current.issueCount += 1
+      current.spaceKeys.add(ticket.spaceKey)
+      continue
+    }
+
+    rows.set(key, {
+      status,
+      group,
+      issueCount: 1,
+      spaceKeys: new Set([ticket.spaceKey]),
+    })
+  }
+
+  return [...rows.values()]
+    .sort((left, right) => (
+      statusGroupRank[left.group] - statusGroupRank[right.group]
+      || left.status.localeCompare(right.status)
+    ))
+    .map(row => ({
+      status: row.status,
+      group: row.group,
+      issueCount: row.issueCount,
+      spaces: [...row.spaceKeys].sort().join(', '),
+    }))
+})
+
+const workspaceMemberRows = computed<WorkspaceMemberSettingsRow[]>(() => {
+  const rows = new Map<string, {
+    name: string
+    accountId: string | null
+    issueCount: number
+    spaceKeys: Set<string>
+  }>()
+
+  for (const ticket of tickets.value) {
+    if (!enabledSpaceKeySet.value.has(ticket.spaceKey)) {
+      continue
+    }
+
+    const name = ticket.assignee.trim() || 'Unassigned'
+    const accountId = ticket.assigneeAccountId ?? null
+    const key = accountId ?? name.toLowerCase()
+    const current = rows.get(key)
+
+    if (current) {
+      current.issueCount += 1
+      current.spaceKeys.add(ticket.spaceKey)
+      continue
+    }
+
+    rows.set(key, {
+      name,
+      accountId,
+      issueCount: 1,
+      spaceKeys: new Set([ticket.spaceKey]),
+    })
+  }
+
+  return [...rows.values()]
+    .sort((left, right) => right.issueCount - left.issueCount || left.name.localeCompare(right.name))
+    .map(row => ({
+      name: row.name,
+      accountId: row.accountId,
+      issueCount: row.issueCount,
+      spaces: [...row.spaceKeys].sort().join(', '),
+    }))
+})
+
+const teamMemberRows = computed<TeamMemberSettingsRow[]>(() => enabledSpaceItems.value.map(space => {
+  const teamTickets = tickets.value.filter(ticket => ticket.spaceKey === space.key)
+  const memberIssueCounts = new Map<string, number>()
+
+  for (const ticket of teamTickets) {
+    const name = ticket.assignee.trim() || 'Unassigned'
+    memberIssueCounts.set(name, (memberIssueCounts.get(name) ?? 0) + 1)
+  }
+
+  const topMembers = [...memberIssueCounts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 3)
+    .map(([name, issueCount]) => `${name} (${issueCount})`)
+    .join(', ')
+
+  return {
+    teamKey: space.key,
+    teamName: space.name,
+    memberCount: memberIssueCounts.size,
+    issueCount: teamTickets.length,
+    topMembers: topMembers || 'No assignees yet',
+  }
+}))
+
+const activeIssueCount = computed(() => (
+  enabledTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done').length
+))
+const triageIssueCount = computed(() => (
+  enabledTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new').length
+))
+const backlogIssueCount = computed(() => (
+  enabledTickets.value.filter(ticket => !ticket.inCurrentSprint && getStatusGroup(ticket.statusCategory) !== 'done').length
+))
+const currentSprintIssueCount = computed(() => (
+  enabledTickets.value.filter(ticket => ticket.inCurrentSprint && getStatusGroup(ticket.statusCategory) !== 'done').length
+))
+const readyForQaIssueCount = computed(() => (
+  enabledTickets.value.filter(ticket => ticket.status.toLowerCase().includes('ready for qa')).length
+))
+const enabledInstructionPresetCount = computed(() => (
+  allInstructionPresets.value.filter(preset => preset.enabled).length
+))
+
+function formatCount(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+const teamWorkflowRows = computed<SettingsDetailRow[]>(() => [
+  {
+    label: 'Workflow statuses',
+    value: formatCount(teamStatusRows.value.length, 'status', 'statuses'),
+    detail: 'Loaded from Jira and grouped into Linear-style Todo, In progress, and Done categories.',
+  },
+  {
+    label: 'Active work',
+    value: formatCount(activeIssueCount.value, 'issue', 'issues'),
+    detail: 'Issues from enabled spaces that are not in a completed Jira status category.',
+  },
+  {
+    label: 'Status transitions',
+    value: 'Jira managed',
+    detail: 'Issue status changes continue to use Jira transitions from the selected issue.',
+  },
+])
+const teamTriageRows = computed<SettingsDetailRow[]>(() => [
+  {
+    label: 'Triage source',
+    value: formatCount(triageIssueCount.value, 'issue', 'issues'),
+    detail: 'Issues in Jira Todo status categories appear in team triage views.',
+  },
+  {
+    label: 'Ready for QA',
+    value: formatCount(readyForQaIssueCount.value, 'issue', 'issues'),
+    detail: 'Issues with a Ready for QA status are exposed as a workspace and team saved view.',
+  },
+  {
+    label: 'Routing',
+    value: 'By team',
+    detail: 'Jira spaces define the Linear-style team boundary for intake and issue views.',
+  },
+])
+const teamCycleRows = computed<SettingsDetailRow[]>(() => [
+  {
+    label: 'Current sprint',
+    value: formatCount(currentSprintIssueCount.value, 'issue', 'issues'),
+    detail: 'Jira sprint membership is surfaced as issue metadata and filters only.',
+  },
+  {
+    label: 'Backlog',
+    value: formatCount(backlogIssueCount.value, 'issue', 'issues'),
+    detail: 'Active issues outside the current Jira sprint appear in backlog-style views.',
+  },
+  {
+    label: 'Linear cycles',
+    value: 'Deferred',
+    detail: 'Full cycle planning remains out of scope until this app has a dedicated cycle model.',
+  },
+])
+const teamAiRows = computed<SettingsDetailRow[]>(() => [
+  {
+    label: 'Description assistant',
+    value: formatCount(enabledInstructionPresetCount.value, 'preset', 'presets'),
+    detail: 'Enabled prompt presets are available from the issue description assistant.',
+  },
+  {
+    label: 'Provider',
+    value: getProviderLabel(aiSettings.value.provider),
+    detail: aiSettings.value.model,
+  },
+  {
+    label: 'Agent chat',
+    value: 'Out of scope',
+    detail: 'Linear-style agent chat is intentionally excluded from the first pass.',
+  },
+])
+const dangerRows = computed<SettingsDetailRow[]>(() => [
+  {
+    label: 'Credential storage',
+    value: '.data/settings.json',
+    detail: 'Jira and AI credentials stay in the existing local settings boundary.',
+  },
+  {
+    label: 'Local issue state',
+    value: 'Browser storage',
+    detail: 'Pinned tickets, inbox read state, and archived notifications remain local to this workspace.',
+  },
+  {
+    label: 'Destructive actions',
+    value: 'Not exposed',
+    detail: 'No reset or delete workspace action is available from this first-pass settings shell.',
+  },
+])
+const constrainedSettingsSectionTitle = computed(() => {
+  if (activeSettingsSection.value === 'team-workflows') return 'Workflows'
+  if (activeSettingsSection.value === 'team-triage') return 'Triage'
+  if (activeSettingsSection.value === 'team-cycles') return 'Cycles'
+  if (activeSettingsSection.value === 'team-ai') return 'AI & Agents'
+  return 'Danger zone'
+})
+const constrainedSettingsSectionDescription = computed(() => {
+  if (activeSettingsSection.value === 'team-workflows') return 'Workflow behavior inferred from enabled Jira spaces.'
+  if (activeSettingsSection.value === 'team-triage') return 'How intake-like issue views are derived from Jira data.'
+  if (activeSettingsSection.value === 'team-cycles') return 'Sprint-backed metadata without full Linear cycle planning.'
+  if (activeSettingsSection.value === 'team-ai') return 'Assistant capabilities available in this first pass.'
+  return 'Local storage and destructive action boundaries.'
+})
+const constrainedSettingsRows = computed<SettingsDetailRow[]>(() => {
+  if (activeSettingsSection.value === 'team-workflows') return teamWorkflowRows.value
+  if (activeSettingsSection.value === 'team-triage') return teamTriageRows.value
+  if (activeSettingsSection.value === 'team-cycles') return teamCycleRows.value
+  if (activeSettingsSection.value === 'team-ai') return teamAiRows.value
+  return dangerRows.value
+})
+
+watch(jiraConnection, (connection) => {
+  jiraBaseUrlDraft.value = connection.baseUrl
+  jiraEmailDraft.value = connection.email
+}, { immediate: true })
+
+const canSaveJiraConnectionDetails = computed(() => (
+  !isSavingSpaceSettings.value
+  && jiraBaseUrlDraft.value.trim().length > 0
+  && jiraEmailDraft.value.trim().length > 0
+  && (
+    jiraBaseUrlDraft.value.trim() !== jiraConnection.value.baseUrl
+    || jiraEmailDraft.value.trim() !== jiraConnection.value.email
+  )
+))
 
 async function saveSpaceMutation(action: () => Promise<void>, successMessage: string): Promise<void> {
   try {
@@ -363,6 +791,24 @@ async function saveJiraApiToken(): Promise<void> {
   }
 }
 
+async function saveJiraConnectionDetails(): Promise<void> {
+  if (!jiraBaseUrlDraft.value.trim() || !jiraEmailDraft.value.trim()) {
+    setJiraFeedback('error', 'Enter a Jira URL and email to save connection details.')
+    return
+  }
+
+  try {
+    await updateJiraCredentials({
+      baseUrl: jiraBaseUrlDraft.value.trim(),
+      email: jiraEmailDraft.value.trim(),
+    })
+    setJiraFeedback('success', 'Saved Jira connection details.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save Jira connection details.'
+    setJiraFeedback('error', message)
+  }
+}
+
 onBeforeUnmount(() => {
   clearSpaceFeedbackTimeout()
   clearAiFeedbackTimeout()
@@ -371,86 +817,203 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="animate-fade-in">
-    <div class="mb-8 flex items-center justify-between">
-      <div>
-        <h1 class="font-display text-2xl text-white">Settings</h1>
-        <p class="mt-1 text-sm text-slate-400">Configure your BetterJira experience</p>
-      </div>
+  <div class="min-h-full animate-fade-in bg-surface-0">
+    <div class="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-white/[0.06] bg-surface-0/95 px-4 backdrop-blur">
       <button
-        class="flex items-center gap-2 rounded-xl glass-card px-3 py-2 text-xs font-medium text-slate-400 transition hover:text-white"
+        class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-100"
         @click="emit('close')"
       >
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 18l-6-6 6-6" />
         </svg>
-        Close
+        Back to app
       </button>
+      <div class="text-xs font-medium text-slate-300">Settings</div>
+      <div class="w-20"></div>
     </div>
 
-    <div class="space-y-8">
-      <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
-        <div class="mb-4">
-          <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">AI Provider</h2>
-          <p class="mt-2 text-xs text-slate-500">Choose the default model used by the AI description assistant. Your selection is saved in <code>.data/settings.json</code> so it survives restarts and app updates. Codex and Claude Code are detected from local CLI installs and run with low reasoning/effort for faster description generation.</p>
+    <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside class="border-b border-white/[0.06] px-4 py-5 lg:border-b-0 lg:border-r lg:border-white/[0.06]">
+        <div class="mb-5 px-2">
+          <h1 class="text-lg font-semibold text-slate-100">Settings</h1>
+          <p class="mt-1 text-xs text-slate-500">LifeMD workspace</p>
         </div>
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="block">
-            <span class="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Provider</span>
-            <select
-              :value="aiSettings.provider"
-              class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
-              @change="handleProviderChange"
-            >
-              <option
-                v-for="provider in providers"
-                :key="provider"
-                :value="provider"
-              >
-                {{ getProviderLabel(provider) }}
-              </option>
-            </select>
-          </label>
-
-          <label class="block">
-            <span class="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Model</span>
-            <select
-              :value="aiSettings.model"
-              class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
-              @change="handleModelChange"
-            >
-              <option
-                v-for="model in availableModels"
-                :key="model.id"
-                :value="model.id"
-              >
-                {{ model.label }}
-              </option>
-            </select>
-          </label>
-        </div>
-
-        <div class="mt-4 grid gap-2 md:grid-cols-2">
-          <div
-            v-for="providerStatus in providerAvailability"
-            :key="providerStatus.provider"
-            class="rounded-lg border px-3 py-2 text-xs"
-            :class="getProviderStatusClass(providerStatus)"
+        <label class="mb-4 block px-2">
+          <span class="sr-only">Search settings</span>
+          <input
+            v-model="settingsSearchQuery"
+            type="search"
+            name="settings-search"
+            placeholder="Search settings"
+            class="w-full rounded-md border border-white/[0.06] bg-white/[0.035] px-2.5 py-1.5 text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16] focus:bg-white/[0.05]"
           >
-            <div class="flex items-center justify-between gap-3">
-              <span class="font-medium text-slate-200">{{ getProviderLabel(providerStatus.provider) }}</span>
-              <span class="text-[10px] uppercase tracking-[0.16em]">{{ providerStatus.available ? 'Available' : 'Unavailable' }}</span>
+        </label>
+        <nav class="space-y-5">
+          <section v-for="group in filteredSettingsNavigationGroups" :key="group.label">
+            <h2 class="mb-1.5 px-2.5 text-[11px] font-medium text-slate-600">{{ group.label }}</h2>
+            <div class="space-y-0.5">
+              <button
+                v-for="item in group.items"
+                :key="item.id"
+                type="button"
+                class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition"
+                :class="activeSettingsSection === item.id
+                  ? 'bg-white/[0.06] text-slate-100'
+                  : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-300'"
+                @click="activeSettingsSection = item.id"
+              >
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="activeSettingsSection === item.id ? 'bg-accent-indigo' : 'bg-slate-700'"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[13px] font-medium">{{ item.label }}</span>
+                  <span class="mt-0.5 block truncate text-[11px] text-slate-600">{{ item.description }}</span>
+                </span>
+              </button>
             </div>
-            <p class="mt-1 text-[11px] leading-relaxed opacity-80">{{ providerStatus.detail }}</p>
+          </section>
+          <p
+            v-if="!filteredSettingsNavigationGroups.length"
+            class="px-2.5 py-2 text-[12px] text-slate-600"
+          >
+            No settings found.
+          </p>
+        </nav>
+      </aside>
+
+      <main class="min-w-0 px-5 py-8 lg:px-10">
+        <section v-show="activeSettingsSection === 'account'" class="mx-auto max-w-3xl space-y-5">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-100">Account</h2>
+            <p class="mt-1 text-sm text-slate-500">Local identity used across this workspace.</p>
+          </div>
+
+          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+            <div class="flex items-center gap-4 border-b border-white/[0.06] px-4 py-4">
+              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-indigo/[0.18] text-sm font-semibold text-slate-100">
+                {{ jiraConnection.email ? jiraConnection.email.slice(0, 2).toUpperCase() : 'BJ' }}
+              </div>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-slate-100">{{ jiraConnection.email || 'No Jira email saved' }}</p>
+                <p class="mt-0.5 text-xs text-slate-500">{{ jiraConnection.baseUrl || 'Jira workspace not connected' }}</p>
+              </div>
+            </div>
+            <div class="divide-y divide-white/[0.06]">
+              <div class="grid gap-1 px-4 py-3 md:grid-cols-[10rem_minmax(0,1fr)]">
+                <p class="text-sm text-slate-400">Profile source</p>
+                <p class="text-sm text-slate-200">Jira connection</p>
+              </div>
+              <div class="grid gap-1 px-4 py-3 md:grid-cols-[10rem_minmax(0,1fr)]">
+                <p class="text-sm text-slate-400">Workspace role</p>
+                <p class="text-sm text-slate-200">Local administrator</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-show="activeSettingsSection === 'preferences'" class="mx-auto max-w-3xl space-y-5">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-100">Preferences</h2>
+            <p class="mt-1 text-sm text-slate-500">Interface defaults aligned with the Linear workspace shell.</p>
+          </div>
+
+          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+            <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
+              <div>
+                <p class="text-sm font-medium text-slate-200">Theme</p>
+                <p class="mt-0.5 text-xs text-slate-500">Dark</p>
+              </div>
+              <span class="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-500">System locked</span>
+            </div>
+            <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
+              <div>
+                <p class="text-sm font-medium text-slate-200">Default view</p>
+                <p class="mt-0.5 text-xs text-slate-500">My issues</p>
+              </div>
+              <span class="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-500">Local</span>
+            </div>
+            <div class="flex items-center justify-between gap-4 px-4 py-3">
+              <div>
+                <p class="text-sm font-medium text-slate-200">Command menu</p>
+                <p class="mt-0.5 text-xs text-slate-500">Global navigation and issue actions</p>
+              </div>
+              <span class="rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-xs text-slate-300">Enabled</span>
+            </div>
+          </div>
+        </section>
+
+        <section v-show="activeSettingsSection === 'ai'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">AI provider</h2>
+          <p class="mt-1 text-sm text-slate-500">Choose the model used by the AI description assistant.</p>
+        </div>
+
+        <div class="rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div class="grid gap-0 divide-y divide-white/[0.06] md:grid-cols-2 md:divide-x md:divide-y-0">
+            <label class="block p-4">
+              <span class="mb-2 block text-xs font-medium text-slate-500">Provider</span>
+              <select
+                :value="aiSettings.provider"
+                name="ai-provider"
+                class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
+                @change="handleProviderChange"
+              >
+                <option
+                  v-for="provider in providers"
+                  :key="provider"
+                  :value="provider"
+                >
+                  {{ getProviderLabel(provider) }}
+                </option>
+              </select>
+            </label>
+
+            <label class="block p-4">
+              <span class="mb-2 block text-xs font-medium text-slate-500">Model</span>
+              <select
+                :value="aiSettings.model"
+                name="ai-model"
+                class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
+                @change="handleModelChange"
+              >
+                <option
+                  v-for="model in availableModels"
+                  :key="model.id"
+                  :value="model.id"
+                >
+                  {{ model.label }}
+                </option>
+              </select>
+            </label>
           </div>
         </div>
-        <p v-if="isLoadingProviders" class="mt-3 text-xs text-slate-500">Checking local AI providers…</p>
-        <p v-else-if="providerAvailabilityError" class="mt-3 text-xs text-rose-300">Unable to refresh local AI provider detection.</p>
 
-        <div class="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Local Cerebras key</p>
-          <p class="mt-2 text-xs text-slate-500">
+        <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-medium text-slate-200">Provider availability</h3>
+              <p class="mt-0.5 text-xs text-slate-500">Local CLI detection for AI enhancement.</p>
+            </div>
+            <span v-if="isLoadingProviders" class="text-xs text-slate-500">Checking...</span>
+          </div>
+          <div class="grid gap-2 md:grid-cols-2">
+            <div
+              v-for="providerStatus in providerAvailability"
+              :key="providerStatus.provider"
+              class="rounded-md border px-3 py-2 text-xs"
+              :class="getProviderStatusClass(providerStatus)"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-medium text-slate-200">{{ getProviderLabel(providerStatus.provider) }}</span>
+                <span class="text-[10px] uppercase tracking-[0.16em]">{{ providerStatus.available ? 'Available' : 'Unavailable' }}</span>
+              </div>
+              <p class="mt-1 text-[11px] leading-relaxed opacity-80">{{ providerStatus.detail }}</p>
+            </div>
+          </div>
+          <p v-if="providerAvailabilityError" class="mt-3 text-xs text-rose-300">Unable to refresh local AI provider detection.</p>
+        </div>
+
+        <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+          <p class="text-sm font-medium text-slate-200">Local Cerebras key</p>
+          <p class="mt-1 text-xs text-slate-500">
             Optional. Store a local Cerebras API key in <code>.data/settings.json</code> for the Cerebras provider.
             <span v-if="aiConnection.hasCerebrasApiKey"> A key is already saved.</span>
           </p>
@@ -458,12 +1021,13 @@ onBeforeUnmount(() => {
             <input
               v-model="cerebrasApiKey"
               type="password"
+              name="cerebras-api-key"
               autocomplete="new-password"
               placeholder="Paste a new Cerebras API key"
-              class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+              class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
             >
             <button
-              class="rounded-lg border border-sky-400/20 bg-sky-400/15 px-4 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-300/35 hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              class="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-white/[0.14] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:text-slate-500"
               :disabled="isSavingSpaceSettings || !cerebrasApiKey.trim()"
               @click="saveCerebrasApiKey"
             >
@@ -472,9 +1036,9 @@ onBeforeUnmount(() => {
           </div>
           <p
             v-if="aiFeedback"
-            class="mt-3 rounded-lg px-3 py-2 text-xs"
+            class="mt-3 rounded-md px-3 py-2 text-xs"
             :class="aiFeedback.kind === 'success'
-              ? 'border border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+              ? 'border border-white/[0.08] bg-white/[0.035] text-slate-300'
               : 'border border-rose-400/20 bg-rose-500/10 text-rose-200'"
           >
             {{ aiFeedback.message }}
@@ -482,43 +1046,79 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
-        <div class="mb-4">
-          <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">Spaces</h2>
-          <p class="mt-2 text-xs text-slate-500">Toggle spaces on to load their tickets. Sidebar space filters still work separately against the enabled spaces.</p>
+      <section v-show="activeSettingsSection === 'workspace'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Workspace</h2>
+          <p class="mt-1 text-sm text-slate-500">Manage Jira connection details and loaded spaces.</p>
         </div>
 
-        <div class="space-y-6">
-          <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <p class="text-sm text-slate-200">Jira connection</p>
+        <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+            <p class="text-sm font-medium text-slate-200">Jira connection</p>
             <p class="mt-1 text-xs text-slate-500">
               {{ jiraConnectionSummary }}
             </p>
             <p class="mt-2 text-xs text-slate-500">
-              Saved Jira credentials live in <code>.data/settings.json</code>. This screen shows the configured URL and email; the API token stays hidden.
+              Saved Jira credentials live in <code>.data/settings.json</code>. The API token stays hidden after saving.
             </p>
-            <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-500">Jira URL</span>
+                <input
+                  v-model="jiraBaseUrlDraft"
+                  type="url"
+                  name="jira-base-url"
+                  autocomplete="url"
+                  placeholder="https://example.atlassian.net"
+                  class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/[0.16] focus:bg-white/[0.06]"
+                  @keydown.enter.prevent="saveJiraConnectionDetails"
+                >
+              </label>
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-500">Atlassian email</span>
+                <input
+                  v-model="jiraEmailDraft"
+                  type="email"
+                  name="jira-email"
+                  autocomplete="email"
+                  placeholder="you@example.com"
+                  class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/[0.16] focus:bg-white/[0.06]"
+                  @keydown.enter.prevent="saveJiraConnectionDetails"
+                >
+              </label>
+            </div>
+            <div class="mt-3 flex justify-end">
+              <button
+                type="button"
+                class="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-white/[0.14] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:text-slate-500"
+                :disabled="!canSaveJiraConnectionDetails"
+                @click="saveJiraConnectionDetails"
+              >
+                Save connection
+              </button>
+            </div>
+            <div class="mt-4 flex flex-col gap-3 border-t border-white/[0.06] pt-4 md:flex-row md:items-center">
               <div class="w-full space-y-2">
                 <input
                   v-model="jiraApiToken"
                   type="password"
+                  name="jira-api-token"
                   autocomplete="new-password"
                   placeholder="Paste a new Jira API token"
-                  class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                  class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
                   @keydown.enter.prevent="saveJiraApiToken"
                 >
                 <a
                   href="https://id.atlassian.com/manage-profile/security/api-tokens"
                   target="_blank"
                   rel="noreferrer"
-                  class="inline-flex text-xs text-sky-300 transition hover:text-sky-200"
+                  class="inline-flex text-xs text-slate-400 transition hover:text-slate-200"
                 >
                   Create a Jira API token
                 </a>
               </div>
               <button
                 type="button"
-                class="rounded-lg border border-sky-400/20 bg-sky-400/15 px-4 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-300/35 hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+                class="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-white/[0.14] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:text-slate-500"
                 :disabled="isSavingSpaceSettings || !jiraApiToken.trim()"
                 @click="saveJiraApiToken"
               >
@@ -527,20 +1127,20 @@ onBeforeUnmount(() => {
             </div>
             <p
               v-if="jiraFeedback"
-              class="mt-3 rounded-lg px-3 py-2 text-xs"
-              :class="jiraFeedback.kind === 'success'
-                ? 'border border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+              class="mt-3 rounded-md px-3 py-2 text-xs"
+            :class="jiraFeedback.kind === 'success'
+                ? 'border border-white/[0.08] bg-white/[0.035] text-slate-300'
                 : 'border border-rose-400/20 bg-rose-500/10 text-rose-200'"
             >
               {{ jiraFeedback.message }}
             </p>
           </div>
 
-          <div class="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div class="flex items-start justify-between gap-4">
+          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+            <div class="flex items-start justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
               <div>
-                <p class="text-sm text-slate-200">Manage spaces</p>
-                <p class="mt-0.5 text-xs text-slate-500">Search Jira spaces, turn them on or off, and remove saved entries you no longer need.</p>
+                <p class="text-sm font-medium text-slate-200">Spaces</p>
+                <p class="mt-0.5 text-xs text-slate-500">Search Jira spaces and choose which spaces load into the workspace.</p>
                 <p v-if="!hasJiraCredentialsConfigured" class="mt-2 text-xs text-amber-300/80">
                   Complete Jira setup first to browse remote spaces.
                 </p>
@@ -550,42 +1150,41 @@ onBeforeUnmount(() => {
               </p>
             </div>
 
-            <label class="block">
-              <span class="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Search Jira spaces</span>
+            <label class="block border-b border-white/[0.06] px-4 py-3">
+              <span class="mb-2 block text-xs font-medium text-slate-500">Search Jira spaces</span>
               <input
                 v-model="spaceSearchQuery"
                 type="text"
+                name="space-search"
                 placeholder="Search by space name or key"
-                class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/[0.16] focus:bg-white/[0.06]"
               />
             </label>
 
-            <div v-if="isLoadingAvailableSpaces" class="rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
-              Loading Jira spaces…
+            <div v-if="isLoadingAvailableSpaces" class="border-b border-white/[0.06] px-4 py-3 text-xs text-slate-500">
+              Loading Jira spaces...
             </div>
 
-            <div v-if="availableSpacesErrorMessage" class="rounded-lg border border-rose-500/20 bg-rose-500/[0.08] px-4 py-3 text-xs text-rose-300">
+            <div v-if="availableSpacesErrorMessage" class="border-b border-rose-500/20 bg-rose-500/[0.08] px-4 py-3 text-xs text-rose-300">
               {{ availableSpacesErrorMessage }}
             </div>
 
-            <div v-if="visibleSpaceItems.length" class="space-y-2">
+            <div v-if="visibleSpaceItems.length">
               <div
                 v-for="space in visibleSpaceItems"
                 :key="space.key"
-                class="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 transition-colors"
-                :class="space.enabled
-                  ? 'border-indigo-500/20 bg-indigo-500/[0.08]'
-                  : 'border-white/[0.06] bg-white/[0.03]'"
+                class="flex items-center justify-between gap-3 border-b border-white/[0.05] px-4 py-3"
+                :class="space.enabled ? 'bg-accent-indigo/[0.06]' : 'bg-white/[0.015]'"
               >
                 <div class="min-w-0">
                   <div class="flex items-baseline gap-2 truncate">
-                    <p class="truncate text-sm" :class="space.enabled ? 'text-indigo-100' : 'text-slate-200'">{{ space.name }}</p>
-                    <p class="shrink-0 text-[11px] uppercase tracking-[0.14em]" :class="space.enabled ? 'text-indigo-300/70' : 'text-slate-500'">{{ space.key }}</p>
+                    <p class="truncate text-sm" :class="space.enabled ? 'text-slate-100' : 'text-slate-300'">{{ space.name }}</p>
+                    <p class="shrink-0 text-[11px] uppercase tracking-[0.14em]" :class="space.enabled ? 'text-accent-indigo/80' : 'text-slate-500'">{{ space.key }}</p>
                   </div>
                   <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                     <span
                       v-if="!space.availableInDirectory"
-                      class="rounded-full border border-amber-500/20 bg-amber-500/[0.08] px-2 py-0.5 uppercase tracking-[0.14em] text-amber-200"
+                      class="rounded-md border border-amber-500/20 bg-amber-500/[0.08] px-2 py-0.5 uppercase tracking-[0.14em] text-amber-200"
                     >
                       Manual
                     </span>
@@ -595,7 +1194,7 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="relative h-6 w-11 rounded-full transition-colors duration-200"
-                  :class="space.enabled ? 'bg-indigo-500' : 'bg-white/[0.08]'"
+                  :class="space.enabled ? 'bg-accent-indigo' : 'bg-white/[0.08]'"
                   role="switch"
                   :aria-checked="space.enabled"
                   :disabled="isSavingSpaceSettings"
@@ -607,19 +1206,19 @@ onBeforeUnmount(() => {
                   />
                 </button>
               </div>
-
-              <p v-if="hiddenDirectoryMatchCount > 0" class="text-xs text-slate-500">
-                Showing all saved spaces and the first {{ visibleDirectorySpaces.length }} Jira matches. Refine the search to narrow the list.
-              </p>
             </div>
 
-            <p v-else class="rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
+            <p v-if="hiddenDirectoryMatchCount > 0" class="border-b border-white/[0.06] px-4 py-3 text-xs text-slate-500">
+              Showing all saved spaces and the first {{ visibleDirectorySpaces.length }} Jira matches. Refine the search to narrow the list.
+            </p>
+
+            <p v-if="!visibleSpaceItems.length" class="border-b border-white/[0.06] px-4 py-3 text-xs text-slate-500">
               No saved or accessible Jira spaces matched your search.
             </p>
 
-            <div class="space-y-3 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-4">
+            <div class="space-y-3 px-4 py-3">
               <div>
-                <p class="text-sm text-slate-200">Manual fallback</p>
+                <p class="text-sm font-medium text-slate-200">Manual fallback</p>
                 <p class="mt-0.5 text-xs text-slate-500">Use this if the Jira picker does not include the space you need.</p>
               </div>
 
@@ -627,71 +1226,227 @@ onBeforeUnmount(() => {
                 <input
                   v-model="newSpaceKey"
                   type="text"
+                  name="new-space-key"
                   placeholder="Add Jira space key"
-                  class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm uppercase text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                  class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm uppercase text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-white/[0.16] focus:bg-white/[0.06]"
                   @keydown.enter.prevent="addManualSpace"
                 />
                 <button
                   type="button"
-                  class="rounded-xl border px-4 py-2 text-xs font-medium transition-all"
+                  class="rounded-md border px-3 py-2 text-xs font-medium transition-all"
                   :class="canAddManualSpace
-                    ? 'border-indigo-500/20 bg-indigo-500/[0.1] text-indigo-200 hover:border-indigo-400/30 hover:text-white'
+                    ? 'border-accent-indigo/30 bg-accent-indigo/[0.12] text-slate-100 hover:border-accent-indigo/50'
                     : 'border-white/[0.06] bg-white/[0.03] text-slate-500'"
                   :disabled="!canAddManualSpace || isSavingSpaceSettings"
                   @click="addManualSpace"
                 >
-                  {{ isSavingSpaceSettings ? 'Saving…' : manualAddButtonLabel }}
+                  {{ isSavingSpaceSettings ? 'Saving...' : manualAddButtonLabel }}
                 </button>
               </div>
             </div>
 
             <p
               v-if="spaceFeedback"
-              class="text-xs"
-              :class="spaceFeedback.kind === 'success' ? 'text-emerald-300' : 'text-rose-300'"
+              class="border-t border-white/[0.06] px-4 py-3 text-xs"
+              :class="spaceFeedback.kind === 'success' ? 'text-slate-400' : 'text-rose-300'"
             >
               {{ spaceFeedback.message }}
             </p>
           </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'members'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Members</h2>
+          <p class="mt-1 text-sm text-slate-500">People surfaced from Jira assignee fields.</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div
+            v-for="member in workspaceMemberRows"
+            :key="member.accountId ?? member.name"
+            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_8rem_8rem]"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-slate-200">{{ member.name }}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-600">{{ member.accountId ?? 'No Jira account ID cached' }}</p>
+            </div>
+            <p class="truncate text-sm text-slate-500">{{ member.spaces }}</p>
+            <p class="text-right text-sm text-slate-500">
+              {{ member.issueCount }} {{ member.issueCount === 1 ? 'issue' : 'issues' }}
+            </p>
+          </div>
+          <p v-if="!workspaceMemberRows.length" class="px-4 py-6 text-sm text-slate-500">
+            No assignees found in enabled spaces.
+          </p>
         </div>
       </section>
 
-      <section class="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
-        <div class="mb-4">
-          <h2 class="font-display text-sm font-semibold uppercase tracking-widest text-slate-300">AI Instructions</h2>
-          <p class="mt-2 text-xs text-slate-500">Manage the prompt chips shown in the AI description assistant. Custom instructions are saved locally in <code>.data/settings.json</code>.</p>
+      <section v-show="activeSettingsSection === 'integrations'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Integrations</h2>
+          <p class="mt-1 text-sm text-slate-500">Connected systems available to the workspace.</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-200">Jira</p>
+              <p class="mt-0.5 text-xs text-slate-500">{{ jiraConnectionSummary }}</p>
+            </div>
+            <span class="rounded-md border px-2 py-1 text-xs" :class="hasJiraCredentialsConfigured ? 'border-white/[0.08] bg-white/[0.035] text-slate-300' : 'border-amber-400/20 bg-amber-500/10 text-amber-200'">
+              {{ hasJiraCredentialsConfigured ? 'Connected' : 'Incomplete' }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-200">Cerebras</p>
+              <p class="mt-0.5 text-xs text-slate-500">Used for issue description generation when configured.</p>
+            </div>
+            <span class="rounded-md border px-2 py-1 text-xs" :class="aiConnection.hasCerebrasApiKey ? 'border-white/[0.08] bg-white/[0.035] text-slate-300' : 'border-white/[0.06] text-slate-500'">
+              {{ aiConnection.hasCerebrasApiKey ? 'Connected' : 'Not connected' }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-4 px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-200">Import and export</p>
+              <p class="mt-0.5 text-xs text-slate-500">Not connected</p>
+            </div>
+            <span class="rounded-md border border-white/[0.06] px-2 py-1 text-xs text-slate-500">Unavailable</span>
+          </div>
+        </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'team-overview'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Teams</h2>
+          <p class="mt-1 text-sm text-slate-500">Enabled spaces organized as workspace teams.</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div
+            v-for="team in teamSettingsRows"
+            :key="team.value"
+            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_7rem_10rem]"
+          >
+            <p class="truncate text-sm font-medium text-slate-200">{{ team.label }}</p>
+            <p class="text-sm text-slate-500">{{ team.value }}</p>
+            <p class="text-sm text-slate-500">{{ team.detail }}</p>
+          </div>
+          <p v-if="!teamSettingsRows.length" class="px-4 py-6 text-sm text-slate-500">No enabled Jira spaces.</p>
+        </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'team-members'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Team members</h2>
+          <p class="mt-1 text-sm text-slate-500">Membership is inferred from Jira issue assignees and enabled spaces.</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div
+            v-for="team in teamMemberRows"
+            :key="team.teamKey"
+            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_7rem_8rem]"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-slate-200">{{ team.teamName }}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-500">{{ team.topMembers }}</p>
+            </div>
+            <p class="text-sm text-slate-500">{{ team.memberCount }} {{ team.memberCount === 1 ? 'member' : 'members' }}</p>
+            <p class="text-right text-sm text-slate-500">{{ team.issueCount }} {{ team.issueCount === 1 ? 'issue' : 'issues' }}</p>
+          </div>
+          <p v-if="!teamMemberRows.length" class="px-4 py-6 text-sm text-slate-500">
+            No enabled Jira spaces.
+          </p>
+        </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'team-statuses'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">Issue statuses</h2>
+          <p class="mt-1 text-sm text-slate-500">Statuses currently loaded from enabled Jira spaces.</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div
+            v-for="statusRow in teamStatusRows"
+            :key="`${statusRow.group}-${statusRow.status}`"
+            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[12rem_minmax(0,1fr)_7rem]"
+          >
+            <p class="truncate text-sm font-medium text-slate-200">{{ statusRow.status }}</p>
+            <p class="text-sm text-slate-500">
+              {{ statusGroupLabels[statusRow.group] }} · {{ statusRow.spaces || 'No space' }}
+            </p>
+            <p class="text-right text-xs text-slate-600">
+              {{ statusRow.issueCount }} {{ statusRow.issueCount === 1 ? 'issue' : 'issues' }}
+            </p>
+          </div>
+          <p v-if="!teamStatusRows.length" class="px-4 py-6 text-sm text-slate-500">
+            No issue statuses loaded yet.
+          </p>
+        </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'team-workflows' || activeSettingsSection === 'team-triage' || activeSettingsSection === 'team-cycles' || activeSettingsSection === 'team-ai' || activeSettingsSection === 'danger'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">{{ constrainedSettingsSectionTitle }}</h2>
+          <p class="mt-1 text-sm text-slate-500">{{ constrainedSettingsSectionDescription }}</p>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div
+            v-for="row in constrainedSettingsRows"
+            :key="row.label"
+            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_10rem]"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-slate-200">{{ row.label }}</p>
+              <p class="mt-0.5 text-xs leading-5 text-slate-500">{{ row.detail }}</p>
+            </div>
+            <p class="text-left text-sm text-slate-400 md:text-right">{{ row.value }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section v-show="activeSettingsSection === 'instructions'" class="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-100">AI instructions</h2>
+          <p class="mt-1 text-sm text-slate-500">Manage the prompt chips shown in the AI description assistant.</p>
         </div>
 
         <div class="space-y-3">
           <div
             v-for="preset in allInstructionPresets"
             :key="preset.id"
-            class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-4"
+            class="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-4"
           >
             <div v-if="editingPresetId === preset.id" class="space-y-3">
               <input
                 v-model="editingPreset.label"
                 type="text"
+                name="editing-preset-label"
                 placeholder="Instruction label"
-                class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
               />
               <textarea
                 v-model="editingPreset.text"
+                name="editing-preset-text"
                 rows="4"
                 placeholder="Instruction text"
-                class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+                class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
               />
               <div class="flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  class="rounded-xl border border-white/[0.08] px-3 py-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
+                  class="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
                   @click="cancelEditing"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  class="rounded-xl bg-indigo-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="rounded-md bg-accent-indigo px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="!canSaveEditedPreset"
                   @click="saveEditedPreset"
                 >
@@ -710,7 +1465,7 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="relative h-6 w-11 rounded-full transition-colors duration-200"
-                  :class="preset.enabled ? 'bg-indigo-500' : 'bg-white/[0.08]'"
+                  :class="preset.enabled ? 'bg-accent-indigo' : 'bg-white/[0.08]'"
                   role="switch"
                   :aria-checked="preset.enabled"
                   @click="togglePresetEnabled(preset.id)"
@@ -724,14 +1479,14 @@ onBeforeUnmount(() => {
                 <div class="flex items-center gap-2">
                   <button
                     type="button"
-                    class="rounded-xl border border-white/[0.08] px-3 py-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
+                    class="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/[0.14] hover:text-slate-200"
                     @click="startEditing(preset.id)"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="rounded-xl border border-rose-500/20 px-3 py-2 text-xs text-rose-300 transition hover:border-rose-500/40 hover:text-rose-200"
+                    class="rounded-md border border-rose-500/20 px-3 py-1.5 text-xs text-rose-300 transition hover:border-rose-500/40 hover:text-rose-200"
                     @click="removeLocalPreset(preset.id)"
                   >
                     Delete
@@ -742,25 +1497,27 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="mt-6 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-4">
-          <h3 class="text-sm text-slate-200">Add instruction</h3>
+        <div class="rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02] p-4">
+          <h3 class="text-sm font-medium text-slate-200">Add instruction</h3>
           <div class="mt-3 space-y-3">
             <input
               v-model="newPreset.label"
               type="text"
+              name="new-preset-label"
               placeholder="Instruction label"
-              class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+              class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
             />
             <textarea
               v-model="newPreset.text"
+              name="new-preset-text"
               rows="4"
               placeholder="Instruction text"
-              class="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-indigo-500/20"
+              class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
             />
             <div class="flex justify-end">
               <button
                 type="button"
-                class="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                class="rounded-md bg-accent-indigo px-3 py-1.5 text-sm font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!canAddPreset"
                 @click="saveNewPreset"
               >
@@ -770,6 +1527,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </section>
+
+      </main>
     </div>
   </div>
 </template>

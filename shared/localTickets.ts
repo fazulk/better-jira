@@ -100,6 +100,10 @@ export interface JiraTicketLike {
   spaceKey: string
   spaceName: string
   assignee: string
+  reporter?: string
+  reporterAccountId?: string
+  isWatching?: boolean
+  watchCount?: number
   description?: string
   descriptionAdf?: JiraAdfDocument
   self: string

@@ -1,6 +1,7 @@
 import type {
   CreateJiraTicketInput,
   JiraAdfDocument,
+  JiraActivityItem,
   JiraAssignableUser,
   JiraCreateIssueType,
   JiraMessage,
@@ -123,6 +124,7 @@ export async function fetchAllPriorities(): Promise<JiraPriority[]> {
 }
 
 export interface JiraMeResponse {
+  accountId: string
   displayName: string
 }
 
@@ -139,6 +141,12 @@ export async function fetchJiraCurrentUser(): Promise<JiraMeResponse> {
 export async function fetchTicketMessages(key: string): Promise<JiraMessage[]> {
   const res = await fetch(`${BASE}/tickets/${key}/messages`)
   if (!res.ok) throw new Error(`Failed to fetch messages: ${res.statusText}`)
+  return res.json()
+}
+
+export async function fetchTicketActivity(key: string): Promise<JiraActivityItem[]> {
+  const res = await fetch(`${BASE}/tickets/${key}/activity`)
+  if (!res.ok) throw new Error(`Failed to fetch activity: ${res.statusText}`)
   return res.json()
 }
 
@@ -280,6 +288,23 @@ export async function updateTicketStatus(key: string, transitionId: string): Pro
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`Failed to update status: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
+  }
+
+  return res.json()
+}
+
+export async function updateTicketWatching(key: string, watching: boolean): Promise<JiraTicket> {
+  const res = await fetch(`${BASE}/tickets/${key}/watching`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ watching }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Failed to update watch state: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
   }
 
   return res.json()

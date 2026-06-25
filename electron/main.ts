@@ -1,3 +1,4 @@
+// hello
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";

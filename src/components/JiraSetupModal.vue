@@ -103,97 +103,111 @@ async function continueToSettings(): Promise<void> {
 <template>
   <div
     v-if="isVisible"
-    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-sm"
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm"
   >
-    <div class="glass-card animate-slide-up w-full max-w-xl overflow-hidden rounded-[28px] border border-white/10 bg-surface-1/95 shadow-2xl shadow-black/40">
+    <div class="animate-slide-up flex max-h-[calc(100vh-4rem)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-white/[0.08] bg-surface-0 shadow-xl shadow-black/40">
       <template v-if="setupStep === 'form'">
-        <div class="border-b border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_42%),radial-gradient(circle_at_top_right,rgba(245,166,35,0.14),transparent_38%)] px-7 py-6">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.34em] text-sky-300/80">Jira Setup</p>
-          <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight text-white">Connect BetterJira to your workspace</h2>
-          <p class="mt-3 max-w-lg text-sm leading-6 text-slate-300">
-            Jira credentials are now stored locally in <code>.data/settings.json</code>. Enter your Jira site URL, Atlassian email, and API token to unlock remote tickets.
-          </p>
-          <p class="mt-4 max-w-lg text-xs leading-5 text-slate-400">
-            These settings are local only and not tracked. BetterJira runs on your machine.
+        <div class="flex min-h-12 items-center justify-between gap-4 border-b border-white/[0.06] px-4">
+          <div class="flex min-w-0 items-center gap-2 text-xs text-slate-500">
+            <span class="inline-flex h-5 w-5 items-center justify-center rounded-md border border-white/[0.08] text-[11px] text-slate-400">B</span>
+            <span>Workspace setup</span>
+            <span class="text-slate-700">/</span>
+            <span class="font-medium text-slate-300">Jira</span>
+          </div>
+        </div>
+
+        <div class="border-b border-white/[0.06] px-4 py-3">
+          <h2 class="text-[15px] font-semibold text-slate-100">Connect workspace to Jira</h2>
+          <p class="mt-1 max-w-lg text-[12px] leading-5 text-slate-500">
+            Store local credentials, verify the Atlassian account, then choose the spaces that should load in the sidebar.
           </p>
         </div>
 
-        <form class="space-y-5 px-7 py-6" @submit.prevent="saveCredentials">
-          <label class="block space-y-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Jira Base URL</span>
-            <input
-              v-model="baseUrl"
-              type="url"
-              autocomplete="url"
-              placeholder="https://your-team.atlassian.net"
-              class="filter-input w-full rounded-2xl px-4 py-3 text-sm text-slate-100"
-            >
-          </label>
+        <form class="min-h-0 flex-1 overflow-y-auto px-4 py-3" @submit.prevent="saveCredentials">
+          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.015]">
+            <label class="grid gap-2 border-b border-white/[0.05] px-3 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-center">
+              <span class="text-[12px] text-slate-500">Jira base URL</span>
+              <input
+                v-model="baseUrl"
+                type="url"
+                autocomplete="url"
+                placeholder="https://your-team.atlassian.net"
+                class="w-full rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[13px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16] focus:bg-white/[0.04]"
+              >
+            </label>
 
-          <label class="block space-y-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Atlassian Email</span>
-            <input
-              v-model="email"
-              type="email"
-              autocomplete="email"
-              placeholder="you@company.com"
-              class="filter-input w-full rounded-2xl px-4 py-3 text-sm text-slate-100"
-            >
-          </label>
+            <label class="grid gap-2 border-b border-white/[0.05] px-3 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-center">
+              <span class="text-[12px] text-slate-500">Atlassian email</span>
+              <input
+                v-model="email"
+                type="email"
+                autocomplete="email"
+                placeholder="you@company.com"
+                class="w-full rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[13px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16] focus:bg-white/[0.04]"
+              >
+            </label>
 
-          <label class="block space-y-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">API Token</span>
-            <a
-              href="https://id.atlassian.com/manage-profile/security/api-tokens"
-              target="_blank"
-              rel="noreferrer"
-              class="inline-flex text-xs text-sky-300 transition hover:text-sky-200"
-            >
-              Create an Atlassian API token
-            </a>
-            <input
-              v-model="apiToken"
-              type="password"
-              autocomplete="new-password"
-              placeholder="Paste an Atlassian API token"
-              class="filter-input w-full rounded-2xl px-4 py-3 text-sm text-slate-100"
-            >
-          </label>
+            <label class="grid gap-2 border-b border-white/[0.05] px-3 py-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+              <span class="pt-2 text-[12px] text-slate-500">API token</span>
+              <div class="min-w-0 space-y-2">
+                <input
+                  v-model="apiToken"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Paste an Atlassian API token"
+                  class="w-full rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[13px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16] focus:bg-white/[0.04]"
+                >
+                <a
+                  href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex text-[12px] text-slate-400 transition hover:text-slate-200"
+                >
+                  Create an Atlassian API token
+                </a>
+              </div>
+            </label>
 
-          <label class="block space-y-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Cerebras API Key</span>
-            <a
-              href="https://cloud.cerebras.ai/"
-              target="_blank"
-              rel="noreferrer"
-              class="inline-flex text-xs text-sky-300 transition hover:text-sky-200"
-            >
-              Open the Cerebras console
-            </a>
-            <p class="text-xs leading-5 text-slate-400">
-              Optional. Add this if you want to use the Cerebras AI provider for description generation.
-              <span v-if="aiConnection.hasCerebrasApiKey"> A local Cerebras key is already saved.</span>
-            </p>
-            <input
-              v-model="cerebrasApiKey"
-              type="password"
-              autocomplete="new-password"
-              placeholder="Optional. Leave blank to keep the current local key."
-              class="filter-input w-full rounded-2xl px-4 py-3 text-sm text-slate-100"
-            >
-          </label>
+            <label class="grid gap-2 px-3 py-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+              <span class="pt-2 text-[12px] text-slate-500">Cerebras key</span>
+              <div class="min-w-0 space-y-2">
+                <input
+                  v-model="cerebrasApiKey"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Optional. Leave blank to keep the current local key."
+                  class="w-full rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[13px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16] focus:bg-white/[0.04]"
+                >
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-500">
+                  <span>Optional description generation provider.</span>
+                  <span v-if="aiConnection.hasCerebrasApiKey" class="text-slate-400">A local key is already saved.</span>
+                  <a
+                    href="https://cloud.cerebras.ai/"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="text-slate-400 transition hover:text-slate-200"
+                  >
+                    Open Cerebras
+                  </a>
+                </div>
+              </div>
+            </label>
+          </div>
 
-          <p v-if="errorMessage" class="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          <p v-if="errorMessage" class="mt-4 rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[13px] leading-5 text-rose-200">
             {{ errorMessage }}
           </p>
 
-          <div class="flex items-center justify-end gap-4 border-t border-white/[0.08] pt-5">
+          <div class="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
+            <p class="text-[11px] leading-4 text-slate-600">
+              Credentials are stored locally in .data/settings.json.
+            </p>
             <button
               type="submit"
               :disabled="!canSubmit"
-              class="rounded-2xl border border-sky-400/20 bg-sky-400/15 px-5 py-3 text-sm font-semibold text-sky-100 transition hover:border-sky-300/35 hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              class="inline-flex h-8 shrink-0 items-center rounded-md bg-accent-indigo px-3 text-[13px] font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {{ isSaving ? 'Saving…' : 'Connect Jira' }}
+              {{ isSaving ? 'Saving...' : 'Connect Jira' }}
             </button>
           </div>
         </form>
@@ -201,24 +215,16 @@ async function continueToSettings(): Promise<void> {
 
       <div
         v-else-if="setupStep === 'connecting'"
-        class="px-7 py-10"
+        class="px-4 py-6"
         aria-live="polite"
       >
-        <div class="mb-5 flex items-center justify-center">
-          <div class="relative flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.03]">
-            <div class="h-8 w-8 animate-spin rounded-full border-2 border-sky-300/20 border-t-sky-300"></div>
-            <div class="absolute h-11 w-11 rounded-full border border-sky-300/10"></div>
-          </div>
+        <div class="mx-auto mb-5 flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025]">
+          <div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-200"></div>
         </div>
 
-        <div class="space-y-3 text-center">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
-            Jira
-          </p>
-          <h2 class="font-display text-3xl font-semibold text-white">
-            Connecting to Jira
-          </h2>
-          <p class="mx-auto max-w-sm text-sm leading-6 text-slate-400">
+        <div class="space-y-2 text-center">
+          <h2 class="text-[15px] font-semibold text-slate-100">Connecting to Jira</h2>
+          <p class="mx-auto max-w-sm text-[12px] leading-5 text-slate-500">
             Saving your credentials and checking the workspace connection before you continue.
           </p>
         </div>
@@ -226,40 +232,33 @@ async function continueToSettings(): Promise<void> {
 
       <div
         v-else
-        class="px-7 py-10"
+        class="px-4 py-6"
         aria-live="polite"
       >
-        <div class="mb-5 flex items-center justify-center">
-          <div class="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-200 shadow-lg shadow-emerald-950/30">
-            <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
+        <div class="mx-auto mb-5 flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-slate-200">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </div>
 
-        <div class="space-y-3 text-center">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
-            Connected
-          </p>
-          <h2 class="font-display text-3xl font-semibold text-white">
-            Jira is connected
-          </h2>
-          <p class="mx-auto max-w-md text-sm leading-6 text-slate-300">
+        <div class="space-y-2 text-center">
+          <h2 class="text-[15px] font-semibold text-slate-100">Jira is connected</h2>
+          <p class="mx-auto max-w-md text-[12px] leading-5 text-slate-400">
             <span v-if="connectedDisplayName">{{ connectedDisplayName }} is signed in.</span>
-            Add the spaces you want BetterJira to load next, then continue into the workspace.
+            Add the spaces you want to load next, then continue into the workspace.
           </p>
-          <p class="mx-auto max-w-md text-xs leading-5 text-slate-400">
+          <p class="mx-auto max-w-md text-[12px] leading-5 text-slate-600">
             Open Settings and enable the spaces you want to see in the sidebar.
           </p>
         </div>
 
-        <div class="mt-8 flex items-center justify-center">
+        <div class="mt-6 flex items-center justify-center">
           <button
             type="button"
-            class="rounded-2xl border border-emerald-400/25 bg-emerald-400/15 px-5 py-3 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/40 hover:bg-emerald-400/25"
+            class="inline-flex h-8 items-center rounded-md bg-accent-indigo px-3 text-[13px] font-medium text-white transition hover:bg-accent-indigo/90"
             @click="continueToSettings"
           >
-            Continue to settings
+            Continue to Settings
           </button>
         </div>
       </div>

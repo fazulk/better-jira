@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-27',
+  modules: ['@nuxt/icon'],
   app: {
     head: {
       title: 'BetterJira!',

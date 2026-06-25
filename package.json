@@ -28,6 +28,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@iconify-json/lucide": "^1.2.114",
+    "@nuxt/icon": "^2.2.3",
     "@tanstack/query-persist-client-core": "^5.95.2",
     "@tanstack/query-sync-storage-persister": "^5.95.2",
     "@tanstack/vue-query": "^5.66.0",

@@ -3336,18 +3336,12 @@ onBeforeUnmount(() => {
               title="Refresh"
               @click="handleRefresh"
             >
-              <svg
+              <Icon
+                name="lucide:refresh-cw"
                 class="h-4 w-4"
                 :class="{ 'animate-spin': refreshing }"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
                 aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.25 3.25v3.2h-3.2" />
-              </svg>
+              />
             </button>
             <button
               v-if="!selectedTicket"
@@ -3358,9 +3352,7 @@ onBeforeUnmount(() => {
               title="Filter"
               @click="toggleFilterMenu"
             >
-              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <path stroke-linecap="round" d="M3 4h10M5 8h6M7 12h2" />
-              </svg>
+              <Icon name="lucide:list-filter" class="h-4 w-4" aria-hidden="true" />
             </button>
 
             <div
@@ -3499,10 +3491,7 @@ onBeforeUnmount(() => {
               title="Display options"
               @click="toggleDisplayOptions"
             >
-              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5.25h8.5m0 0-2-2m2 2-2 2" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.75H3.5m0 0 2-2m-2 2 2 2" />
-              </svg>
+              <Icon name="lucide:sliders-horizontal" class="h-4 w-4" aria-hidden="true" />
             </button>
 
             <div

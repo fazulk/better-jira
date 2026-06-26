@@ -60,7 +60,7 @@ watch(
                 :value="query"
                 type="text"
                 class="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
-                placeholder="Find an issue or command..."
+                placeholder="Find an issue, project, or command..."
                 @input="emitQueryInput"
                 @keydown="emit('keydown', $event)"
               >
@@ -119,7 +119,7 @@ watch(
                 No results
               </p>
               <p class="mt-1 text-xs text-slate-600">
-                Try a different issue key, title, assignee, or command.
+                Try a different issue key, project name, title, assignee, or command.
               </p>
             </div>
           </div>

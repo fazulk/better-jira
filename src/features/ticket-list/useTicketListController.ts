@@ -1501,6 +1501,37 @@ export function useTicketListController() {
       ...teamCommands,
     ]
   })
+  const projectCommandItems = computed<CommandMenuItem[]>(() => {
+    const query = commandSearchQuery.value
+    const baseProjects = query
+      ? projectRows.value.filter(project =>
+          [
+            project.key,
+            project.name,
+            project.spaceKey,
+            project.spaceName,
+            project.health,
+            project.priority,
+            project.lead,
+            project.status,
+            'project',
+            'projects',
+            'epic',
+            'epics',
+          ].some(value => value.toLowerCase().includes(query)),
+        )
+      : projectRows.value
+    return baseProjects
+      .slice(0, 20)
+      .map(project => ({
+        id: `project:${project.key}`,
+        label: project.name,
+        description: `${project.key} · ${project.status} · ${project.lead}`,
+        section: 'Projects',
+        icon: '◈',
+        execute: () => openTicket(project.key),
+      }))
+  })
   const issueCommandItems = computed<CommandMenuItem[]>(() => {
     const query = commandSearchQuery.value
     const baseTickets = query
@@ -1536,7 +1567,7 @@ export function useTicketListController() {
           ),
         )
       : navigationCommands.value
-    return [...navigationItems, ...issueCommandItems.value].slice(0, 40)
+    return [...navigationItems, ...projectCommandItems.value, ...issueCommandItems.value].slice(0, 40)
   })
   watchEffect(() => {
     if (hasFinishedInitialWorkspaceLoad.value) {
@@ -3947,6 +3978,7 @@ export function useTicketListController() {
     toggleCurrentViewFavorite,
     commandSearchQuery,
     navigationCommands,
+    projectCommandItems,
     issueCommandItems,
     commandItems,
     groupTickets,

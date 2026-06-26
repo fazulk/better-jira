@@ -26,6 +26,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: JiraAdfDocument | null]
+  'preview-image': [payload: { src: string; alt: string }]
 }>()
 
 function attrString(attrs: Record<string, unknown> | undefined, key: string): string | null {
@@ -593,6 +594,22 @@ function getSelectValue(event: Event): string {
   return target instanceof HTMLSelectElement ? target.value : 'paragraph'
 }
 
+function handleEditorDoubleClick(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const mediaImage = target.closest('.jira-description-media img')
+  if (!(mediaImage instanceof HTMLImageElement)) return
+
+  const src = mediaImage.currentSrc || mediaImage.src
+  if (!src) return
+
+  emit('preview-image', {
+    src,
+    alt: mediaImage.alt || 'Attached image',
+  })
+}
+
 defineExpose({
   focusEditor,
   blurEditor,
@@ -769,6 +786,7 @@ defineExpose({
     <div
       class="flex min-h-0 flex-1 overflow-hidden"
       :class="unsupported ? 'opacity-70' : ''"
+      @dblclick="handleEditorDoubleClick"
     >
       <EditorContent
         :editor="editor"

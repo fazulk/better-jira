@@ -319,6 +319,7 @@ const descriptionSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const descriptionSavedMessageTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const descriptionSaveInFlight = ref(false)
 const isSyncingDescriptionDraft = ref(false)
+const imagePreview = ref<{ src: string; alt: string } | null>(null)
 const collapsedSections = ref({
   properties: false,
   labels: false,
@@ -328,6 +329,15 @@ const collapsedSections = ref({
 function toggleSection(section: keyof typeof collapsedSections.value) {
   collapsedSections.value[section] = !collapsedSections.value[section]
 }
+
+function openImagePreview(payload: { src: string; alt: string }): void {
+  imagePreview.value = payload
+}
+
+function closeImagePreview(): void {
+  imagePreview.value = null
+}
+
 const messageDraft = ref('')
 const messageError = ref<string | null>(null)
 const watchError = ref<string | null>(null)
@@ -632,6 +642,12 @@ function focusMessageComposer(): void {
 }
 
 function handleDetailShortcut(event: KeyboardEvent): void {
+  if (imagePreview.value && event.key === 'Escape') {
+    event.preventDefault()
+    closeImagePreview()
+    return
+  }
+
   if (!ticket.value || props.mode !== 'inline' || isEditableShortcutTarget(event.target)) {
     return
   }
@@ -1486,6 +1502,7 @@ async function submitMessage() {
                       :nodes="ticket.descriptionAdf.content"
                       :attachments="ticket.attachments"
                       :ticket-key="ticket.key"
+                      @preview-image="openImagePreview"
                     />
                   </div>
                   <JiraDescriptionEditor
@@ -1496,6 +1513,7 @@ async function submitMessage() {
                     :ticket-key="ticket.key"
                     :show-toolbar="descriptionEditorActive"
                     placeholder="Add a description..."
+                    @preview-image="openImagePreview"
                   />
                 </div>
                 <div
@@ -2066,5 +2084,28 @@ async function submitMessage() {
       </div>
     </div>
 
+    <div
+      v-if="imagePreview"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-8 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
+      @click="closeImagePreview"
+    >
+      <button
+        type="button"
+        class="absolute right-5 top-5 rounded-full border border-white/[0.12] bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition hover:bg-white/[0.14] hover:text-white"
+        @click.stop="closeImagePreview"
+      >
+        Close
+      </button>
+      <img
+        :src="imagePreview.src"
+        :alt="imagePreview.alt"
+        class="h-auto w-auto rounded-lg shadow-2xl"
+        style="max-width: calc(100vw - 4rem); max-height: calc(100vh - 5rem);"
+        @click.stop
+      >
+    </div>
   </div>
 </template>

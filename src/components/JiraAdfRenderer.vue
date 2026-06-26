@@ -12,6 +12,10 @@ const props = defineProps<{
   ticketKey?: string | null
 }>()
 
+const emit = defineEmits<{
+  'preview-image': [payload: { src: string; alt: string }]
+}>()
+
 function nodeKey(node: JiraAdfNode, index: number): string {
   const localId = typeof node.attrs?.localId === 'string' ? node.attrs.localId : null
   return localId ?? `${node.type ?? 'node'}-${index}`
@@ -96,6 +100,16 @@ function mediaAltText(node: JiraAdfNode): string {
   return nodeAttrString(node, 'alt') ?? findMediaAttachment(node)?.filename ?? 'Attached image'
 }
 
+function previewMediaImage(node: JiraAdfNode): void {
+  const src = mediaImageUrl(node)
+  if (!src) return
+
+  emit('preview-image', {
+    src,
+    alt: mediaAltText(node),
+  })
+}
+
 function textParts(text: string | undefined): string[] {
   if (!text) return []
   return text.split('\n')
@@ -151,7 +165,14 @@ function headingClass(node: JiraAdfNode): string {
               <span>{{ part }}</span>
             </template>
           </component>
-          <JiraAdfRenderer v-else :nodes="[child]" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+          <JiraAdfRenderer
+            v-else
+            :nodes="[child]"
+            :attachments="props.attachments"
+            :ticket-key="props.ticketKey"
+            nested
+            @preview-image="emit('preview-image', $event)"
+          />
         </template>
       </p>
 
@@ -171,13 +192,26 @@ function headingClass(node: JiraAdfNode): string {
               <span>{{ part }}</span>
             </template>
           </component>
-          <JiraAdfRenderer v-else :nodes="[child]" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+          <JiraAdfRenderer
+            v-else
+            :nodes="[child]"
+            :attachments="props.attachments"
+            :ticket-key="props.ticketKey"
+            nested
+            @preview-image="emit('preview-image', $event)"
+          />
         </template>
       </div>
 
       <ul v-else-if="node.type === 'bulletList'" class="list-disc space-y-2 pl-6 text-sm leading-relaxed text-slate-400 marker:text-slate-500">
         <li v-for="(child, childIndex) in childNodes(node)" :key="nodeKey(child, childIndex)">
-          <JiraAdfRenderer :nodes="childNodes(child)" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+          <JiraAdfRenderer
+            :nodes="childNodes(child)"
+            :attachments="props.attachments"
+            :ticket-key="props.ticketKey"
+            nested
+            @preview-image="emit('preview-image', $event)"
+          />
         </li>
       </ul>
 
@@ -187,7 +221,13 @@ function headingClass(node: JiraAdfNode): string {
         :start="getNodeOrder(node)"
       >
         <li v-for="(child, childIndex) in childNodes(node)" :key="nodeKey(child, childIndex)">
-          <JiraAdfRenderer :nodes="childNodes(child)" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+          <JiraAdfRenderer
+            :nodes="childNodes(child)"
+            :attachments="props.attachments"
+            :ticket-key="props.ticketKey"
+            nested
+            @preview-image="emit('preview-image', $event)"
+          />
         </li>
       </ol>
 
@@ -200,11 +240,23 @@ function headingClass(node: JiraAdfNode): string {
         v-else-if="node.type === 'blockquote'"
         class="border-l border-white/[0.14] pl-4 text-sm leading-relaxed text-slate-300"
       >
-        <JiraAdfRenderer :nodes="childNodes(node)" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+        <JiraAdfRenderer
+          :nodes="childNodes(node)"
+          :attachments="props.attachments"
+          :ticket-key="props.ticketKey"
+          nested
+          @preview-image="emit('preview-image', $event)"
+        />
       </blockquote>
 
       <div v-else-if="node.type === 'mediaSingle' || node.type === 'mediaGroup'" class="space-y-2">
-        <JiraAdfRenderer :nodes="childNodes(node)" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+        <JiraAdfRenderer
+          :nodes="childNodes(node)"
+          :attachments="props.attachments"
+          :ticket-key="props.ticketKey"
+          nested
+          @preview-image="emit('preview-image', $event)"
+        />
       </div>
 
       <figure v-else-if="node.type === 'media'" class="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.025]">
@@ -214,6 +266,7 @@ function headingClass(node: JiraAdfNode): string {
           :alt="mediaAltText(node)"
           class="block max-h-[520px] max-w-full object-contain"
           loading="lazy"
+          @dblclick.stop="previewMediaImage(node)"
         >
         <figcaption v-else class="px-3 py-2 text-xs text-slate-500">
           {{ mediaAltText(node) }}
@@ -221,7 +274,13 @@ function headingClass(node: JiraAdfNode): string {
       </figure>
 
       <div v-else-if="childNodes(node).length">
-        <JiraAdfRenderer :nodes="childNodes(node)" :attachments="props.attachments" :ticket-key="props.ticketKey" nested />
+        <JiraAdfRenderer
+          :nodes="childNodes(node)"
+          :attachments="props.attachments"
+          :ticket-key="props.ticketKey"
+          nested
+          @preview-image="emit('preview-image', $event)"
+        />
       </div>
     </template>
   </div>

@@ -31,14 +31,14 @@ const emit = defineEmits<{
 
 <template>
   <div class="min-w-0 overflow-y-auto">
-    <div
+    <!-- <div
       v-if="hiddenCompletedCount > 0 && completedRange !== 'all'"
       class="flex h-9 items-center justify-end border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]"
     >
       <button type="button" class="hover:text-[#d7d8dc]" @click="emit('showCompleted')">
         {{ hiddenCompletedCount }} completed hidden by filter options
       </button>
-    </div>
+    </div> -->
 
     <div v-if="sections.length && visibleCount > 0">
       <section v-for="section in sections" :key="section.id">

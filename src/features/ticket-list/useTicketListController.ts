@@ -370,10 +370,23 @@ export function useTicketListController() {
       return copyViewDisplay(customView.display)
     }
     const display = getDefaultViewDisplay()
-    const [, , section] = viewId.split(':')
-    return section === 'backlog' || section === 'triage'
-      ? { ...display, showTriageIssuesRange: 'all' }
-      : display
+    const [scope, , section] = viewId.split(':')
+    if (scope === 'team' && (section === 'all' || section === 'active' || !section)) {
+      return {
+        ...display,
+        grouping: 'status',
+        completedRange: section === 'all' ? 'all' : display.completedRange,
+        showTriageIssuesRange: section === 'all' ? 'all' : display.showTriageIssuesRange,
+      }
+    }
+    if (section === 'backlog' || section === 'triage') {
+      return {
+        ...display,
+        grouping: 'status',
+        showTriageIssuesRange: 'all',
+      }
+    }
+    return display
   }
   function copyCustomView(view: CustomView): CustomView {
     return {

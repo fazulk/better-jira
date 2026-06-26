@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
-import { Node, type JSONContent } from '@tiptap/core'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
-import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode, JiraAttachment } from '@/types/jira'
-import { isRecord, normalizeAdf } from '~/shared/jiraAdf'
+import type { JiraAdfDocument, JiraAttachment } from '@/types/jira'
+import JiraDescriptionEditorToolbar from '@/components/jira-description-editor/JiraDescriptionEditorToolbar.vue'
+import { readAdfDocument, toEditorDocument } from '@/features/jira-description-editor/adfDocument'
+import { createJiraMediaExtensions, mediaImageSrc } from '@/features/jira-description-editor/mediaExtensions'
+import { usePastedImageUpload } from '@/features/jira-description-editor/usePastedImageUpload'
+import { normalizeAdf } from '~/shared/jiraAdf'
 
 const props = withDefaults(defineProps<{
   modelValue: JiraAdfDocument | null
@@ -30,206 +33,12 @@ const emit = defineEmits<{
   'preview-image': [payload: { src: string; alt: string }]
 }>()
 
-function attrString(attrs: Record<string, unknown> | undefined, key: string): string | null {
-  const value = attrs?.[key]
-  return typeof value === 'string' && value.length > 0 ? value : null
+const mediaContext = {
+  attachments: () => props.attachments ?? [],
+  ticketKey: () => props.ticketKey,
 }
-
-function attrNumber(attrs: Record<string, unknown> | undefined, key: string): number | null {
-  const value = attrs?.[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function isImageFilename(filename: string): boolean {
-  return /\.(apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
-}
-
-function isImageAttachment(attachment: JiraAttachment): boolean {
-  const mimeType = attachment.mimeType?.toLowerCase()
-  return mimeType?.startsWith('image/') === true || isImageFilename(attachment.filename)
-}
-
-function findMediaAttachment(attrs: Record<string, unknown> | undefined): JiraAttachment | null {
-  const imageAttachments = (props.attachments ?? []).filter(isImageAttachment)
-  if (!imageAttachments.length) return null
-
-  const mediaId = attrString(attrs, 'id')
-  const mediaAlt = attrString(attrs, 'alt')
-  const mediaName = attrString(attrs, 'name')
-
-  const idMatch = mediaId
-    ? imageAttachments.find((attachment) => attachment.id === mediaId)
-    : undefined
-  if (idMatch) return idMatch
-
-  const filenameMatch = [mediaAlt, mediaName]
-    .filter((value): value is string => value !== null)
-    .map((value) => imageAttachments.find((attachment) => attachment.filename === value))
-    .find((attachment) => attachment !== undefined)
-  if (filenameMatch) return filenameMatch
-
-  return imageAttachments.length === 1 ? imageAttachments[0] : null
-}
-
-function attachmentContentUrl(attachmentId: string): string {
-  return `/api/jira-attachments/${encodeURIComponent(attachmentId)}/content`
-}
-
-function proxiedJiraAttachmentUrl(url: string): string {
-  const attachmentId = url.match(/\/attachment\/content\/([^/?#]+)/)?.[1]
-  return attachmentId ? attachmentContentUrl(decodeURIComponent(attachmentId)) : url
-}
-
-function ticketAttachmentContentUrl(filename: string): string | null {
-  return props.ticketKey
-    ? `/api/tickets/${encodeURIComponent(props.ticketKey)}/attachments/${encodeURIComponent(filename)}/content`
-    : null
-}
-
-function mediaImageSrc(attrs: Record<string, unknown> | undefined): string | null {
-  const directSrc = attrString(attrs, 'src') ?? attrString(attrs, 'url')
-  if (directSrc) return proxiedJiraAttachmentUrl(directSrc)
-
-  const attachment = findMediaAttachment(attrs)
-  if (attachment) return attachmentContentUrl(attachment.id)
-
-  const mediaFilename = attrString(attrs, 'alt') ?? attrString(attrs, 'name')
-  const filenameUrl = mediaFilename ? ticketAttachmentContentUrl(mediaFilename) : null
-  if (filenameUrl) return filenameUrl
-
-  const mediaId = attrString(attrs, 'id')
-  return mediaId ? attachmentContentUrl(mediaId) : null
-}
-
-function mediaAltText(attrs: Record<string, unknown> | undefined): string {
-  return attrString(attrs, 'alt') ?? attrString(attrs, 'name') ?? findMediaAttachment(attrs)?.filename ?? 'Attached image'
-}
-
-function mediaUploadState(attrs: Record<string, unknown> | undefined): 'pending' | 'error' | null {
-  const value = attrs?.uploadState
-  return value === 'pending' || value === 'error' ? value : null
-}
-
-function mediaUploadError(attrs: Record<string, unknown> | undefined): string | null {
-  return attrString(attrs, 'uploadError')
-}
-
-function mediaImageAttrs(attrs: Record<string, unknown> | undefined): Record<string, string | number> | null {
-  const src = mediaImageSrc(attrs)
-  if (!src) return null
-
-  const imageAttrs: Record<string, string | number> = {
-    src,
-    alt: mediaAltText(attrs),
-    loading: 'lazy',
-    contenteditable: 'false',
-  }
-
-  const width = attrNumber(attrs, 'width')
-  if (width !== null) {
-    imageAttrs.width = width
-  }
-
-  const height = attrNumber(attrs, 'height')
-  if (height !== null) {
-    imageAttrs.height = height
-  }
-
-  return imageAttrs
-}
-
-const JiraMedia = Node.create({
-  name: 'media',
-  group: 'block',
-  atom: true,
-  selectable: true,
-  draggable: false,
-
-  addAttributes() {
-    return {
-      id: { default: null },
-      type: { default: null },
-      collection: { default: null },
-      occurrenceKey: { default: null },
-      alt: { default: null },
-      name: { default: null },
-      width: { default: null },
-      height: { default: null },
-      url: { default: null },
-      src: { default: null },
-      uploadState: { default: null },
-      uploadError: { default: null },
-      clientId: { default: null },
-    }
-  },
-
-  parseHTML() {
-    return [{ tag: 'figure[data-jira-media]' }]
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    const imageAttrs = mediaImageAttrs(HTMLAttributes)
-    const alt = mediaAltText(HTMLAttributes)
-    const uploadState = mediaUploadState(HTMLAttributes)
-    const uploadError = mediaUploadError(HTMLAttributes)
-    const caption = uploadState === 'pending'
-      ? 'Uploading image…'
-      : uploadState === 'error'
-        ? uploadError ?? 'Image upload failed. Delete this image and paste it again.'
-        : alt
-
-    return [
-      'figure',
-      {
-        'data-jira-media': 'true',
-        'data-upload-state': uploadState ?? undefined,
-        class: 'jira-description-media',
-      },
-      imageAttrs
-        ? ['img', imageAttrs]
-        : ['figcaption', { contenteditable: 'false' }, alt],
-      uploadState ? ['figcaption', { contenteditable: 'false' }, caption] : '',
-    ]
-  },
-})
-
-const JiraMediaSingle = Node.create({
-  name: 'mediaSingle',
-  group: 'block',
-  content: 'media',
-  isolating: true,
-
-  addAttributes() {
-    return {
-      layout: { default: null },
-      width: { default: null },
-      widthType: { default: null },
-    }
-  },
-
-  parseHTML() {
-    return [{ tag: 'div[data-jira-media-single]' }]
-  },
-
-  renderHTML() {
-    return ['div', { 'data-jira-media-single': 'true', class: 'jira-description-media-single' }, 0]
-  },
-})
-
-const JiraMediaGroup = Node.create({
-  name: 'mediaGroup',
-  group: 'block',
-  content: 'media+',
-  isolating: true,
-
-  parseHTML() {
-    return [{ tag: 'div[data-jira-media-group]' }]
-  },
-
-  renderHTML() {
-    return ['div', { 'data-jira-media-group': 'true', class: 'jira-description-media-group' }, 0]
-  },
-})
+const [JiraMedia, JiraMediaSingle, JiraMediaGroup] = createJiraMediaExtensions(mediaContext)
+const resolveMediaSrc = (attrs: Record<string, unknown> | undefined) => mediaImageSrc(attrs, mediaContext)
 
 const editorTick = ref(0)
 const linkMenuOpen = ref(false)
@@ -252,331 +61,20 @@ function syncLinkTitlesSoon() {
   })
 }
 
-function toEditorMark(mark: JiraAdfMark): { type: string; attrs?: Record<string, unknown> } | null {
-  if (typeof mark.type !== 'string' || !mark.type) return null
-
-  if (mark.type === 'strong') {
-    return { type: 'bold' }
-  }
-
-  if (mark.type === 'em') {
-    return { type: 'italic' }
-  }
-
-  if (mark.type === 'link') {
-    const href = mark.attrs?.href
-    if (typeof href !== 'string' || !href) return null
-    return {
-      type: 'link',
-      attrs: { href, title: href },
-    }
-  }
-
-  return { type: mark.type }
-}
-
-function toAdfMark(mark: { type?: string; attrs?: Record<string, unknown> }): JiraAdfMark | null {
-  if (typeof mark.type !== 'string' || !mark.type) return null
-
-  if (mark.type === 'bold') {
-    return { type: 'strong' }
-  }
-
-  if (mark.type === 'italic') {
-    return { type: 'em' }
-  }
-
-  if (mark.type === 'link') {
-    const href = mark.attrs?.href
-    if (typeof href !== 'string' || !href) return null
-    return {
-      type: 'link',
-      attrs: { href },
-    }
-  }
-
-  if (mark.type === 'underline' || mark.type === 'strike' || mark.type === 'code') {
-    return { type: mark.type }
-  }
-
-  return null
-}
-
-function copyAttrs(attrs: JSONContent['attrs']): Record<string, unknown> | undefined {
-  if (!isRecord(attrs)) return undefined
-  return { ...attrs }
-}
-
-function copyAdfAttrs(nodeType: string, attrs: JSONContent['attrs']): Record<string, unknown> | undefined {
-  const copiedAttrs = copyAttrs(attrs)
-  if (!copiedAttrs) return undefined
-
-  if (nodeType === 'media') {
-    delete copiedAttrs.src
-  }
-
-  return Object.keys(copiedAttrs).length ? copiedAttrs : undefined
-}
-
-function toEditorNode(node: JiraAdfNode): JSONContent | null {
-  if (typeof node.type !== 'string' || !node.type) return null
-
-  const editorNode: JSONContent = {
-    type: node.type,
-  }
-
-  if (typeof node.text === 'string') {
-    editorNode.text = node.text
-  }
-
-  if (node.attrs) {
-    editorNode.attrs = { ...node.attrs }
-    if (node.type === 'media') {
-      const src = mediaImageSrc(editorNode.attrs)
-      if (src) {
-        editorNode.attrs.src = src
-      }
-    }
-  }
-
-  if (node.marks?.length) {
-    const marks = node.marks
-      .map(toEditorMark)
-      .filter((mark): mark is NonNullable<typeof mark> => mark !== null)
-
-    if (marks.length) {
-      editorNode.marks = marks
-    }
-  }
-
-  if (node.content?.length) {
-    const content = node.content
-      .map(toEditorNode)
-      .filter((child): child is JSONContent => child !== null)
-
-    if (content.length) {
-      editorNode.content = content
-    }
-  }
-
-  return editorNode
-}
-
-function toAdfNode(node: JSONContent): JiraAdfNode | null {
-  if (typeof node.type !== 'string' || !node.type) return null
-
-  const adfNode: JiraAdfNode = {
-    type: node.type,
-  }
-
-  if (typeof node.text === 'string') {
-    adfNode.text = node.text
-  }
-
-  const attrs = copyAdfAttrs(node.type, node.attrs)
-  if (attrs) {
-    adfNode.attrs = attrs
-  }
-
-  if (node.marks?.length) {
-    const marks = node.marks
-      .map(toAdfMark)
-      .filter((mark): mark is JiraAdfMark => mark !== null)
-
-    if (marks.length) {
-      adfNode.marks = marks
-    }
-  }
-
-  if (node.content?.length) {
-    const content = node.content
-      .map(toAdfNode)
-      .filter((child): child is JiraAdfNode => child !== null)
-
-    if (content.length) {
-      adfNode.content = content
-    }
-  }
-
-  return adfNode
-}
-
-function toEditorDocument(doc: JiraAdfDocument | null): JSONContent {
-  if (!doc) {
-    return {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-        },
-      ],
-    }
-  }
-
-  const content = doc.content
-    .map(toEditorNode)
-    .filter((node): node is JSONContent => node !== null)
-
-  return {
-    type: 'doc',
-    content: content.length ? content : [{ type: 'paragraph' }],
-  }
-}
-
 function readEditorDocument(): JiraAdfDocument | null {
   const instance = editor.value
   if (!instance) return null
 
-  const json = instance.getJSON()
-  const adfNode = toAdfNode(json)
-  if (!adfNode || adfNode.type !== 'doc') return null
-
-  return normalizeAdf({
-    type: 'doc',
-    version: 1,
-    content: adfNode.content ?? [],
-  })
+  return readAdfDocument(instance.getJSON())
 }
 
-function createClientId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function fileExtensionForMimeType(mimeType: string): string {
-  if (mimeType === 'image/jpeg') return 'jpg'
-  if (mimeType === 'image/gif') return 'gif'
-  if (mimeType === 'image/webp') return 'webp'
-  return 'png'
-}
-
-function pastedImageFilename(file: File): string {
-  const filename = file.name.trim()
-  if (filename) return filename
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  return `pasted-image-${timestamp}.${fileExtensionForMimeType(file.type)}`
-}
-
-function mediaSingleNode(attrs: Record<string, unknown>, nodeAttrs?: Record<string, unknown>): JSONContent {
-  const node: JSONContent = {
-    type: 'mediaSingle',
-    content: [
-      {
-        type: 'media',
-        attrs,
-      },
-    ],
-  }
-
-  if (nodeAttrs) {
-    node.attrs = nodeAttrs
-  }
-
-  return node
-}
-
-function replaceMediaAttrs(clientId: string, attrs: Record<string, unknown>): void {
-  const instance = editor.value
-  if (!instance) return
-
-  const { state, view } = instance
-  let transaction = state.tr
-  state.doc.descendants((node, position) => {
-    if (node.type.name !== 'media' || !isRecord(node.attrs) || node.attrs.clientId !== clientId) {
-      return true
-    }
-
-    transaction = transaction.setNodeMarkup(position, undefined, attrs)
-    return false
-  })
-
-  if (transaction.docChanged) {
-    view.dispatch(transaction)
-  }
-}
-
-async function uploadPastedImage(file: File, clientId: string, objectUrl: string, filename: string): Promise<void> {
-  if (!props.uploadImage) return
-
-  const uploadFile = file.name.trim() === filename
-    ? file
-    : new File([file], filename, { type: file.type, lastModified: file.lastModified })
-
-  try {
-    const attachment = await props.uploadImage(uploadFile)
-    replaceMediaAttrs(clientId, {
-      type: 'external',
-      url: attachment.content ?? attachmentContentUrl(attachment.id),
-      src: attachmentContentUrl(attachment.id),
-    })
-    URL.revokeObjectURL(objectUrl)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Image upload failed. Delete this image and paste it again.'
-    replaceMediaAttrs(clientId, {
-      id: `pending:${clientId}`,
-      type: 'file',
-      alt: filename,
-      name: filename,
-      src: objectUrl,
-      uploadState: 'error',
-      uploadError: message,
-      clientId,
-    })
-  }
-}
-
-function insertPastedImage(file: File): void {
-  const instance = editor.value
-  if (!instance || !props.uploadImage) return
-
-  const clientId = createClientId()
-  const filename = pastedImageFilename(file)
-  const objectUrl = URL.createObjectURL(file)
-
-  instance.chain().focus().insertContent(mediaSingleNode({
-    id: `pending:${clientId}`,
-    type: 'file',
-    alt: filename,
-    name: filename,
-    src: objectUrl,
-    uploadState: 'pending',
-    clientId,
-  })).run()
-
-  void uploadPastedImage(file, clientId, objectUrl, filename)
-}
-
-function imageFilesFromClipboard(event: ClipboardEvent): File[] {
-  const items = event.clipboardData?.items
-  if (!items?.length) return []
-
-  const files: File[] = []
-  for (const item of items) {
-    if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
-    const file = item.getAsFile()
-    if (file) files.push(file)
-  }
-
-  return files
-}
-
-function handlePaste(_: unknown, event: ClipboardEvent): boolean {
-  if (props.disabled || props.unsupported || !props.uploadImage || !props.ticketKey) return false
-
-  const imageFiles = imageFilesFromClipboard(event)
-  if (!imageFiles.length) return false
-
-  event.preventDefault()
-  for (const file of imageFiles) {
-    insertPastedImage(file)
-  }
-
-  return true
-}
+const { handlePaste } = usePastedImageUpload({
+  disabled: () => props.disabled,
+  editor: () => editor.value,
+  ticketKey: () => props.ticketKey,
+  unsupported: () => props.unsupported,
+  uploadImage: () => props.uploadImage,
+})
 
 const editor = useEditor({
   editable: !(props.disabled || props.unsupported),
@@ -597,7 +95,7 @@ const editor = useEditor({
       placeholder: props.placeholder,
     }),
   ],
-  content: toEditorDocument(props.modelValue),
+  content: toEditorDocument(props.modelValue, resolveMediaSrc),
   editorProps: {
     handlePaste,
   },
@@ -625,7 +123,7 @@ watch(() => props.modelValue, (nextValue) => {
     return
   }
 
-  instance.commands.setContent(toEditorDocument(nextValue), false)
+  instance.commands.setContent(toEditorDocument(nextValue, resolveMediaSrc), false)
   bumpEditorTick()
   syncLinkTitlesSoon()
 })
@@ -680,16 +178,6 @@ function applyBlockType(value: string) {
   }
 
   instance.chain().focus().setParagraph().run()
-}
-
-function buttonClass(isActive: boolean): string {
-  return isActive
-    ? 'border-white/[0.16] bg-white/[0.09] text-slate-100'
-    : 'border-white/[0.08] bg-transparent text-slate-400 hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200'
-}
-
-function markButtonDisabled(commandSupported: boolean): boolean {
-  return props.disabled || props.unsupported || !commandSupported
 }
 
 function toggleMark(action: 'bold' | 'italic' | 'underline' | 'strike' | 'code') {
@@ -762,11 +250,6 @@ function blurEditor() {
   editor.value?.commands.blur()
 }
 
-function getSelectValue(event: Event): string {
-  const target = event.target
-  return target instanceof HTMLSelectElement ? target.value : 'paragraph'
-}
-
 function handleEditorDoubleClick(event: MouseEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
@@ -791,170 +274,22 @@ defineExpose({
 
 <template>
   <div class="flex h-full min-h-0 flex-col space-y-2">
-    <div
-      class="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.015] px-2 py-2 transition-opacity"
-      :class="[
-        unsupported ? 'opacity-70' : '',
-        showToolbar ? '' : 'pointer-events-none invisible',
-      ]"
-      :aria-hidden="!showToolbar"
-    >
-      <select
-        class="h-7 rounded-md border border-white/[0.08] bg-surface-0 px-2 text-xs text-slate-300 outline-none transition focus:border-white/[0.16]"
-        :disabled="disabled || unsupported"
-        :value="currentBlockType"
-        @change="applyBlockType(getSelectValue($event))"
-      >
-        <option value="paragraph">Paragraph</option>
-        <option value="heading-1">Heading 1</option>
-        <option value="heading-2">Heading 2</option>
-        <option value="heading-3">Heading 3</option>
-        <option value="blockquote">Quote</option>
-        <option value="codeBlock">Code block</option>
-      </select>
-
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('bold'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBold().run())"
-        @click="toggleMark('bold')"
-      >
-        B
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs italic transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('italic'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleItalic().run())"
-        @click="toggleMark('italic')"
-      >
-        I
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs underline transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('underline'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleUnderline().run())"
-        @click="toggleMark('underline')"
-      >
-        U
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs line-through transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('strike'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleStrike().run())"
-        @click="toggleMark('strike')"
-      >
-        S
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs font-mono transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('code'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCode().run())"
-        @click="toggleMark('code')"
-      >
-        &lt;/&gt;
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('bulletList'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBulletList().run())"
-        @click="toggleNode('bulletList')"
-      >
-        • List
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('orderedList'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleOrderedList().run())"
-        @click="toggleNode('orderedList')"
-      >
-        1. List
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('blockquote'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBlockquote().run())"
-        @click="toggleNode('blockquote')"
-      >
-        Quote
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('codeBlock'))"
-        :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCodeBlock().run())"
-        @click="toggleNode('codeBlock')"
-      >
-        Code
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-        :class="buttonClass(!!editor?.isActive('link'))"
-        :disabled="disabled || unsupported"
-        @click="openLinkMenu"
-      >
-        Link
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border border-white/[0.08] px-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="disabled || unsupported || !editor?.can().undo()"
-        @click="editor?.chain().focus().undo().run()"
-      >
-        Undo
-      </button>
-      <button
-        type="button"
-        class="h-7 rounded-md border border-white/[0.08] px-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="disabled || unsupported || !editor?.can().redo()"
-        @click="editor?.chain().focus().redo().run()"
-      >
-        Redo
-      </button>
-    </div>
-
-    <div v-if="showToolbar && linkMenuOpen" class="flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2">
-      <input
-        v-model="linkDraft"
-        type="text"
-        class="h-8 min-w-[16rem] flex-1 rounded-md border border-white/[0.08] bg-surface-0 px-3 text-[13px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
-        placeholder="Paste or type a URL"
-        :disabled="disabled || unsupported"
-        @keydown.enter.prevent="applyLink"
-        @keydown.esc.prevent="closeLinkMenu"
-      >
-      <button
-        type="button"
-        class="h-8 rounded-md bg-accent-indigo px-3 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="disabled || unsupported"
-        @click="applyLink"
-      >
-        Apply
-      </button>
-      <button
-        type="button"
-        class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="disabled || unsupported"
-        @click="removeLink"
-      >
-        Remove
-      </button>
-      <button
-        type="button"
-        class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200"
-        @click="closeLinkMenu"
-      >
-        Cancel
-      </button>
-    </div>
+    <JiraDescriptionEditorToolbar
+      v-model:link-draft="linkDraft"
+      :current-block-type="currentBlockType"
+      :disabled="disabled"
+      :editor="editor"
+      :link-menu-open="linkMenuOpen"
+      :show-toolbar="showToolbar"
+      :unsupported="unsupported"
+      @apply-block-type="applyBlockType"
+      @apply-link="applyLink"
+      @close-link-menu="closeLinkMenu"
+      @open-link-menu="openLinkMenu"
+      @remove-link="removeLink"
+      @toggle-mark="toggleMark"
+      @toggle-node="toggleNode"
+    />
 
     <div
       class="flex min-h-0 flex-1 overflow-hidden"
@@ -969,113 +304,4 @@ defineExpose({
   </div>
 </template>
 
-<style scoped>
-:deep(.jira-description-editor .ProseMirror) {
-  height: 100%;
-  min-height: 240px;
-  overflow-y: auto;
-  outline: none !important;
-  border: 0;
-  box-shadow: none !important;
-}
-
-:deep(.jira-description-editor .ProseMirror ul) {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-}
-
-:deep(.jira-description-editor .ProseMirror ol) {
-  list-style-type: decimal;
-  padding-left: 1.5rem;
-}
-
-:deep(.jira-description-editor .ProseMirror > ul),
-:deep(.jira-description-editor .ProseMirror > ol) {
-  margin: 0 0 0.875rem;
-}
-
-:deep(.jira-description-editor .ProseMirror > ul:last-child),
-:deep(.jira-description-editor .ProseMirror > ol:last-child) {
-  margin-bottom: 0;
-}
-
-:deep(.jira-description-editor .ProseMirror p) {
-  margin: 0 0 0.875rem;
-}
-
-:deep(.jira-description-editor .ProseMirror p:last-child) {
-  margin-bottom: 0;
-}
-
-:deep(.jira-description-editor .ProseMirror a) {
-  color: #d7d8dc;
-  text-decoration-line: underline;
-  text-decoration-color: #4cb782;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-:deep(.jira-description-editor .ProseMirror li) {
-  display: list-item;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media-single),
-:deep(.jira-description-editor .ProseMirror .jira-description-media-group) {
-  margin: 0 0 0.875rem;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media-single:last-child),
-:deep(.jira-description-editor .ProseMirror .jira-description-media-group:last-child) {
-  margin-bottom: 0;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media) {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media img) {
-  display: block;
-  max-width: 100%;
-  max-height: 520px;
-  object-fit: contain;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media figcaption) {
-  padding: 0.5rem 0.75rem;
-  color: #8f9198;
-  font-size: 0.75rem;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="pending"] figcaption) {
-  color: #cbd5e1;
-}
-
-:deep(.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="error"] figcaption) {
-  color: #fda4af;
-}
-
-:deep(.jira-description-editor .ProseMirror ul ul) {
-  list-style-type: circle;
-}
-
-:deep(.jira-description-editor .ProseMirror ul ul ul) {
-  list-style-type: square;
-}
-
-:deep(.jira-description-editor .ProseMirror li p) {
-  margin: 0;
-}
-
-:deep(.jira-description-editor .ProseMirror:focus),
-:deep(.jira-description-editor .ProseMirror:focus-visible),
-:deep(.jira-description-editor .ProseMirror-focused) {
-  outline: none !important;
-  box-shadow: none !important;
-}
-</style>
+<style src="@/assets/jiraDescriptionEditor.css"></style>

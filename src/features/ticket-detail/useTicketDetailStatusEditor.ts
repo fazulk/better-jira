@@ -1,0 +1,121 @@
+import { computed, ref, watch, type Ref } from 'vue'
+import { useTransitions } from '@/composables/useTransitions'
+import { useUpdateTicketStatus } from '@/composables/useUpdateTicketStatus'
+import { useUpdateLocalTicketStatus } from '@/composables/useUpdateLocalTicketStatus'
+import type { JiraTicket } from '@/types/jira'
+import { getLocalStatusIdFromDisplayName, getLocalTransitions } from '~/shared/localTickets'
+
+interface TicketDetailStatusEditorInput {
+  isLocalTicket: Ref<boolean>
+  jiraDataEnabled: Ref<boolean>
+  ticket: Ref<JiraTicket | null>
+  ticketKey: Ref<string | null>
+}
+
+export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput) {
+  const transitionsQuery = useTransitions(input.ticketKey, { queryEnabled: input.jiraDataEnabled })
+  const updateStatusMutation = useUpdateTicketStatus()
+  const updateLocalStatusMutation = useUpdateLocalTicketStatus()
+  const isEditingStatus = ref(false)
+  const statusDraft = ref('')
+  const statusError = ref<string | null>(null)
+
+  const localTransitionsList = computed(() => {
+    if (!input.ticket.value || !input.isLocalTicket.value) return []
+    const currentId = getLocalStatusIdFromDisplayName(input.ticket.value.status)
+    return getLocalTransitions(currentId)
+  })
+
+  const anyStatusPending = computed(() => (
+    updateStatusMutation.isPending.value || updateLocalStatusMutation.isPending.value
+  ))
+
+  async function startEditingStatus() {
+    if (!input.ticket.value || anyStatusPending.value) return
+    statusDraft.value = ''
+    statusError.value = null
+    isEditingStatus.value = true
+
+    if (input.isLocalTicket.value) return
+
+    if (!transitionsQuery.data.value && !transitionsQuery.isFetching.value) {
+      try {
+        await transitionsQuery.refetch()
+      } catch {
+        statusError.value = 'Failed to load transitions.'
+      }
+    }
+  }
+
+  function cancelEditingStatus() {
+    statusDraft.value = ''
+    statusError.value = null
+    isEditingStatus.value = false
+  }
+
+  async function saveStatus() {
+    if (!input.ticket.value || anyStatusPending.value) return
+
+    if (!statusDraft.value) {
+      statusError.value = 'Select a status.'
+      return
+    }
+
+    if (input.isLocalTicket.value) {
+      const selectedTransition = localTransitionsList.value.find((transition) => transition.id === statusDraft.value)
+      if (!selectedTransition) {
+        statusError.value = 'Invalid transition.'
+        return
+      }
+
+      try {
+        await updateLocalStatusMutation.mutateAsync({
+          key: input.ticket.value.key,
+          transitionId: selectedTransition.id,
+        })
+        isEditingStatus.value = false
+        statusError.value = null
+      } catch (err) {
+        statusError.value = err instanceof Error ? err.message : 'Failed to update status.'
+      }
+      return
+    }
+
+    const selectedTransition = transitionsQuery.data.value?.find((transition) => transition.id === statusDraft.value)
+    if (!selectedTransition) {
+      statusError.value = 'Invalid transition.'
+      return
+    }
+
+    try {
+      await updateStatusMutation.mutateAsync({
+        key: input.ticket.value.key,
+        transitionId: selectedTransition.id,
+        statusName: selectedTransition.name,
+        statusCategory: selectedTransition.statusCategory,
+      })
+      isEditingStatus.value = false
+      statusError.value = null
+    } catch (err) {
+      statusError.value = err instanceof Error ? err.message : 'Failed to update status.'
+    }
+  }
+
+  watch(input.ticket, () => {
+    statusDraft.value = ''
+    statusError.value = null
+    isEditingStatus.value = false
+  }, { immediate: true })
+
+  return {
+    anyStatusPending,
+    cancelEditingStatus,
+    isEditingStatus,
+    localTransitionsList,
+    saveStatus,
+    startEditingStatus,
+    statusDraft,
+    statusError,
+    transitionsQuery,
+  }
+}

@@ -1,0 +1,281 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { JiraTicket } from '@/types/jira'
+import { LOCAL_PRIORITY_NAMES } from '~/shared/localTickets'
+import {
+  priorityConfig,
+  statusColors,
+  useTicketDetailPropertyEditors,
+} from '@/features/ticket-detail/useTicketDetailPropertyEditors'
+import { useTicketDetailStatusEditor } from '@/features/ticket-detail/useTicketDetailStatusEditor'
+
+const props = defineProps<{
+  collapsed: boolean
+  isLocalTicket: boolean
+  jiraDataEnabled: boolean
+  ticket: JiraTicket
+  ticketKey: string | null
+}>()
+
+const emit = defineEmits<{
+  toggle: []
+}>()
+
+const ticketRef = computed(() => props.ticket)
+const ticketKeyRef = computed(() => props.ticketKey)
+const isLocalTicketRef = computed(() => props.isLocalTicket)
+const jiraDataEnabledRef = computed(() => props.jiraDataEnabled)
+
+const propertyEditor = useTicketDetailPropertyEditors({
+  isLocalTicket: isLocalTicketRef,
+  jiraDataEnabled: jiraDataEnabledRef,
+  ticket: ticketRef,
+  ticketKey: ticketKeyRef,
+})
+const statusEditor = useTicketDetailStatusEditor({
+  isLocalTicket: isLocalTicketRef,
+  jiraDataEnabled: jiraDataEnabledRef,
+  ticket: ticketRef,
+  ticketKey: ticketKeyRef,
+})
+
+const {
+  anyAssigneePending,
+  anyPriorityPending,
+  assigneeComboRef,
+  assigneeError,
+  assigneeHighlightIndex,
+  assigneeInputRef,
+  assigneeSearch,
+  assignableUsersQuery,
+  avatarColor,
+  cancelEditingAssignee,
+  cancelEditingPriority,
+  flatComboOptions,
+  handleAssigneeKeydown,
+  initials,
+  isEditingAssignee,
+  isEditingPriority,
+  localAssigneeDatalistId,
+  localAssigneeDraft,
+  localAssigneeSuggestions,
+  nonRecentComboOptions,
+  prioritiesQuery,
+  priorityDraft,
+  priorityDraftLocal,
+  priorityError,
+  recentComboOptions,
+  saveAssignee,
+  savePriority,
+  selectAssigneeOption,
+  startEditingAssignee,
+  startEditingPriority,
+} = propertyEditor
+
+const {
+  anyStatusPending,
+  cancelEditingStatus,
+  isEditingStatus,
+  localTransitionsList,
+  saveStatus,
+  startEditingStatus,
+  statusDraft,
+  statusError,
+  transitionsQuery,
+} = statusEditor
+
+defineExpose({
+  startEditingAssignee,
+  startEditingPriority,
+  startEditingStatus,
+})
+</script>
+
+<template>
+  <section
+    class="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 transition-[padding]"
+    :class="collapsed ? 'py-3' : 'py-4'"
+  >
+    <button
+      type="button"
+      class="flex w-full items-center gap-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+      :class="{ 'mb-3': !collapsed }"
+      :aria-expanded="!collapsed"
+      @click="emit('toggle')"
+    >
+      <span>Properties</span>
+      <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsed }">▼</span>
+    </button>
+
+    <div v-show="!collapsed" class="space-y-1 text-sm">
+      <div class="flex items-center rounded-md px-1 py-2">
+        <div v-if="isEditingStatus" class="min-w-0 space-y-2">
+          <select
+            id="detail-status"
+            v-model="statusDraft"
+            class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
+          >
+            <option value="" disabled>Move to...</option>
+            <option
+              v-for="transition in (isLocalTicket ? localTransitionsList : (transitionsQuery.data.value ?? []))"
+              :key="transition.id"
+              :value="transition.id"
+            >
+              {{ transition.name }}
+            </option>
+          </select>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              class="rounded-md bg-accent-indigo px-2 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="anyStatusPending || (!isLocalTicket && transitionsQuery.isFetching.value)"
+              @click="saveStatus"
+            >
+              {{ anyStatusPending ? '...' : 'Save' }}
+            </button>
+            <button
+              class="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.04]"
+              :disabled="anyStatusPending"
+              @click="cancelEditingStatus"
+            >
+              Cancel
+            </button>
+            <span v-if="statusError" class="text-[11px] text-rose-300">{{ statusError }}</span>
+          </div>
+        </div>
+        <button v-else class="min-w-0 text-left" @click="startEditingStatus">
+          <span
+            class="inline-flex max-w-full items-center rounded-md px-2 py-1 text-xs font-medium"
+            :class="statusColors[ticket.statusCategory] || statusColors.indeterminate"
+          >
+            <span class="truncate">{{ ticket.status }}</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="flex items-start gap-3 rounded-md px-1 py-2">
+        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold" :class="avatarColor">
+          {{ initials }}
+        </span>
+        <div v-if="isEditingAssignee && isLocalTicket" class="min-w-0 space-y-2">
+          <input
+            id="detail-local-assignee"
+            v-model="localAssigneeDraft"
+            :list="localAssigneeDatalistId"
+            class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
+            placeholder="Assignee name"
+          >
+          <datalist :id="localAssigneeDatalistId">
+            <option v-for="name in localAssigneeSuggestions" :key="name" :value="name" />
+          </datalist>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              class="rounded-md bg-accent-indigo px-2 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="anyAssigneePending"
+              @click="saveAssignee"
+            >
+              {{ anyAssigneePending ? '...' : 'Save' }}
+            </button>
+            <button class="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.04]" @click="cancelEditingAssignee">
+              Cancel
+            </button>
+          </div>
+          <span v-if="assigneeError" class="text-[11px] text-rose-300">{{ assigneeError }}</span>
+        </div>
+        <div v-else-if="isEditingAssignee" ref="assigneeComboRef" class="relative min-w-0 space-y-2">
+          <input
+            id="detail-assignee-search"
+            ref="assigneeInputRef"
+            v-model="assigneeSearch"
+            class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
+            placeholder="Search assignees..."
+            @keydown="handleAssigneeKeydown"
+          />
+          <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-2 py-1 shadow-xl shadow-black/40">
+            <template v-if="recentComboOptions.length">
+              <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">Recent</div>
+              <button
+                v-for="(option, i) in recentComboOptions"
+                :key="option.accountId"
+                :data-idx="i"
+                class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+                :class="assigneeHighlightIndex === i ? 'bg-white/[0.08] text-slate-100' : 'text-slate-300 hover:bg-white/[0.04]'"
+                @click="selectAssigneeOption(option.accountId)"
+                @mouseenter="assigneeHighlightIndex = i"
+              >
+                {{ option.displayName }}
+              </button>
+              <div class="mx-2 my-1 border-t border-white/[0.06]"></div>
+            </template>
+            <button
+              v-for="(option, j) in nonRecentComboOptions"
+              :key="option.accountId"
+              :data-idx="recentComboOptions.length + j"
+              class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+              :class="assigneeHighlightIndex === recentComboOptions.length + j ? 'bg-white/[0.08] text-slate-100' : 'text-slate-300 hover:bg-white/[0.04]'"
+              @click="selectAssigneeOption(option.accountId)"
+              @mouseenter="assigneeHighlightIndex = recentComboOptions.length + j"
+            >
+              {{ option.displayName }}
+            </button>
+            <div v-if="!flatComboOptions.length" class="px-3 py-2 text-xs italic text-slate-600">
+              No matching users
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button class="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.04]" @click="cancelEditingAssignee">
+              Cancel
+            </button>
+            <span v-if="assignableUsersQuery.isFetching.value" class="text-[11px] text-slate-500">Loading...</span>
+            <span v-if="assigneeError" class="text-[11px] text-rose-300">{{ assigneeError }}</span>
+          </div>
+        </div>
+        <button v-else class="flex min-w-0 items-center gap-2 text-left" @click="startEditingAssignee">
+          <span class="min-w-0 truncate text-sm text-slate-300">{{ ticket.assignee || 'Unassigned' }}</span>
+        </button>
+      </div>
+
+      <div class="flex items-start rounded-md px-1 py-2">
+        <div v-if="isEditingPriority" class="min-w-0 space-y-2">
+          <select
+            id="detail-priority"
+            v-if="!isLocalTicket"
+            v-model="priorityDraft"
+            class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
+          >
+            <option value="" disabled>Set priority...</option>
+            <option v-for="priority in prioritiesQuery.data.value ?? []" :key="priority.id" :value="priority.id">
+              {{ priority.name }}
+            </option>
+          </select>
+          <select
+            id="detail-local-priority"
+            v-else
+            v-model="priorityDraftLocal"
+            class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
+          >
+            <option v-for="priority in LOCAL_PRIORITY_NAMES" :key="priority" :value="priority">
+              {{ priority }}
+            </option>
+          </select>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              class="rounded-md bg-accent-indigo px-2 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="anyPriorityPending || (!isLocalTicket && prioritiesQuery.isFetching.value)"
+              @click="savePriority"
+            >
+              {{ anyPriorityPending ? '...' : 'Save' }}
+            </button>
+            <button class="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.04]" :disabled="anyPriorityPending" @click="cancelEditingPriority">
+              Cancel
+            </button>
+            <span v-if="priorityError" class="text-[11px] text-rose-300">{{ priorityError }}</span>
+          </div>
+        </div>
+        <button v-else class="flex min-w-0 items-center gap-2 text-left" @click="startEditingPriority">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="priorityConfig[ticket.priority]?.bg || 'bg-slate-500'"></span>
+          <span class="truncate text-sm text-slate-300">{{ ticket.priority }}</span>
+        </button>
+      </div>
+    </div>
+  </section>
+</template>

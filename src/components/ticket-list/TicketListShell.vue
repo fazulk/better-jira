@@ -1,0 +1,197 @@
+<script lang="ts">
+import { defineComponent } from 'vue'
+import AddSpaceModal from '../AddSpaceModal.vue'
+import CreateTicketModal from '../CreateTicketModal.vue'
+import Sidebar from '../Sidebar.vue'
+import TicketDetail from '../TicketDetail.vue'
+import TicketListCommandMenu from './TicketListCommandMenu.vue'
+import TicketListInboxView from './TicketListInboxView.vue'
+import TicketListReadyQaView from './TicketListReadyQaView.vue'
+import TicketListSearchView from './TicketListSearchView.vue'
+import TicketListToolbarArea from './TicketListToolbarArea.vue'
+import TicketListInitiativesView from './TicketListInitiativesView.vue'
+import TicketListIssueSections from './TicketListIssueSections.vue'
+import TicketListProjectView from './TicketListProjectView.vue'
+import TicketListSavedViewsView from './TicketListSavedViewsView.vue'
+import TicketListSelectionBar from './TicketListSelectionBar.vue'
+import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+
+export default defineComponent({
+  components: {
+    AddSpaceModal,
+    CreateTicketModal,
+    Sidebar,
+    TicketDetail,
+    TicketListCommandMenu,
+    TicketListInboxView,
+    TicketListReadyQaView,
+    TicketListSearchView,
+    TicketListToolbarArea,
+    TicketListInitiativesView,
+    TicketListIssueSections,
+    TicketListProjectView,
+    TicketListSavedViewsView,
+    TicketListSelectionBar,
+  },
+  props: ['controller'],
+  setup(props: { controller: TicketListController }) {
+    return { ...props.controller, controller: props.controller }
+  },
+})
+</script>
+
+<template>
+  <div class="linear-shell flex h-screen overflow-hidden" :aria-busy="showInitialWorkspaceOverlay">
+    <div
+      class="relative shrink-0 transition-[width] duration-200"
+      :style="{ width: `${effectiveSidebarWidth}px` }"
+    >
+      <Sidebar
+        :tickets="tickets"
+        :selected-key="selectedKey"
+        :collapsed="sidebarCollapsed"
+        :refreshing="refreshing"
+        :current-view="currentView"
+        :favorite-views="favoriteViewNavItems"
+        @select="openTicket"
+        @prefetch="prefetchTicket"
+        @toggle-collapse="sidebarCollapsed = !sidebarCollapsed"
+        @refresh="handleRefresh"
+        @home="handleViewChange('my-issues')"
+        @settings="openSettings"
+        @command="openCommandMenu"
+        @view="handleViewChange"
+        @favorite-view="handleFavoriteViewChange"
+        @add-space="openAddSpaceModal"
+        @leave-space="handleLeaveSpace"
+      />
+      <div
+        v-if="!sidebarCollapsed"
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="0"
+        class="absolute top-0 -right-4 z-10 h-full w-4 cursor-col-resize touch-none bg-transparent focus:outline-none [cursor:col-resize]"
+        aria-label="Resize sidebar"
+        @pointerdown="startSidebarResize"
+      />
+    </div>
+    <main class="min-w-0 flex-1 overflow-hidden p-2">
+      <div
+        class="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.055] bg-issue-detail-bg"
+      >
+        <TicketListToolbarArea v-if="!selectedTicket" :controller="controller" />
+        <div v-if="selectedKey" class="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
+          <TicketDetail
+            :ticket-key="selectedKey"
+            mode="inline"
+            @close="closeTicket"
+            @select="openTicket"
+            @navigate-view="handleViewChange"
+            @create-child="openChildCreate"
+          />
+        </div>
+        <TicketListSearchView v-else-if="currentView === 'search'" :controller="controller" />
+        <TicketListInboxView v-else-if="currentView === 'inbox'" :controller="controller" />
+        <TicketListInitiativesView
+          v-else-if="currentView === 'initiatives'"
+          :rows="initiativeRows"
+          :grid-template="initiativeGridTemplate"
+          :is-field-visible="isInitiativeRowFieldVisible"
+          :get-health-class="getProjectHealthClass"
+          :get-progress-bar-class="getProgressBarClass"
+          :get-relative-time-label="getRelativeTimeLabel"
+          @open-projects="handleViewChange('projects')"
+        /><TicketListProjectView
+          v-else-if="isProjectDisplayView"
+          :sections="projectSections"
+          :visible-count="visibleProjectCount"
+          :grouping="projectGrouping"
+          :grid-template="projectGridTemplate"
+          :is-field-visible="isProjectRowFieldVisible"
+          :is-section-collapsed="isProjectSectionCollapsed"
+          :get-health-class="getProjectHealthClass"
+          :get-progress-bar-class="getProgressBarClass"
+          @toggle-section="toggleProjectSection"
+          @prefetch="prefetchTicket"
+          @open="openTicket"
+        /><TicketListSavedViewsView
+          v-else-if="isViewsDirectory"
+          :rows="displayedSavedViewRows"
+          :grid-template="savedViewGridTemplate"
+          :is-field-visible="isSavedViewRowFieldVisible"
+          :get-relative-time-label="getRelativeTimeLabel"
+          @open="handleViewChange"
+        />
+        <TicketListReadyQaView v-else-if="isReadyQaView" :controller="controller" />
+        <TicketListIssueSections
+          v-else
+          class="min-h-0 flex-1 overflow-y-auto"
+          :sections="issueSections"
+          :visible-count="visibleIssueCount"
+          :hidden-completed-count="hiddenCompletedCount"
+          :completed-range="completedRange"
+          :focused-issue-key="focusedIssueKey"
+          :checked-issue-key-set="checkedIssueKeySet"
+          :row-display-props="issueRowDisplayProps"
+          :show-headers="shouldShowIssueSectionHeader()"
+          :get-row-key="getDisplayedIssueRowKey"
+          :is-collapsed="isIssueSectionCollapsed"
+          empty-title="No issues match this view"
+          empty-description="Adjust filters or create a new issue."
+          @show-completed="completedRange = 'all'"
+          @toggle-section="toggleIssueSection"
+          @select="openTicket"
+          @prefetch="prefetchTicket"
+          @toggle-check="toggleCheckedIssue"
+          @copy-key="copyIssueKey"
+          @create-child="openChildCreate"
+        />
+      </div>
+    </main>
+    <TicketListCommandMenu
+      v-model:query="commandQuery"
+      :open="commandMenuOpen"
+      :items="commandItems"
+      :active-index="commandActiveIndex"
+      @close="closeCommandMenu"
+      @keydown="handleCommandMenuKeydown"
+      @activate="commandActiveIndex = $event"
+      @run="runCommandItem"
+    /><TicketListSelectionBar
+      :count="checkedIssueCount"
+      :can-create-child="checkedIssueCount === 1 && Boolean(checkedIssues[0])"
+      @open="openFirstCheckedIssue"
+      @copy="copyCheckedIssueKeys"
+      @create-child="checkedIssues[0] ? openChildCreate(checkedIssues[0].key) : undefined"
+      @clear="clearCheckedIssues"
+    /><CreateTicketModal
+      :open="isCreateModalOpen"
+      :tickets="tickets"
+      :initial-issue-type="createIssueType"
+      :initial-parent-key="createParentKey"
+      :issue-type-locked="issueTypeLocked"
+      :parent-locked="parentLocked"
+      @close="closeCreateModal"
+      @created="handleTicketCreated"
+    /><AddSpaceModal :open="isAddSpaceModalOpen" @close="closeAddSpaceModal" />
+    <div
+      v-if="showInitialWorkspaceOverlay"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4 py-8"
+      aria-live="polite"
+    >
+      <div
+        class="linear-panel flex w-full max-w-sm items-center gap-3 rounded-lg bg-[#121316] px-4 py-3 shadow-xl shadow-black/35"
+      >
+        <div
+          class="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white/[0.12] border-t-[#d7d8dc]"
+        ></div>
+        <div class="min-w-0 text-left">
+          <h2 class="text-[13px] font-medium text-[#f0f1f4]">Connecting to Jira</h2>
+          <p class="mt-0.5 truncate text-[12px] text-[#8f9198]">
+            Pulling latest issues and workspace settings.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

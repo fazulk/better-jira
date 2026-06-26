@@ -1,0 +1,108 @@
+.jira-description-editor .ProseMirror {
+  height: 100%;
+  min-height: 240px;
+  overflow-y: auto;
+  outline: none !important;
+  border: 0;
+  box-shadow: none !important;
+}
+
+.jira-description-editor .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+}
+
+.jira-description-editor .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+}
+
+.jira-description-editor .ProseMirror > ul,
+.jira-description-editor .ProseMirror > ol {
+  margin: 0 0 0.875rem;
+}
+
+.jira-description-editor .ProseMirror > ul:last-child,
+.jira-description-editor .ProseMirror > ol:last-child {
+  margin-bottom: 0;
+}
+
+.jira-description-editor .ProseMirror p {
+  margin: 0 0 0.875rem;
+}
+
+.jira-description-editor .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.jira-description-editor .ProseMirror a {
+  color: #d7d8dc;
+  text-decoration-line: underline;
+  text-decoration-color: #4cb782;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.jira-description-editor .ProseMirror li {
+  display: list-item;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media-single,
+.jira-description-editor .ProseMirror .jira-description-media-group {
+  margin: 0 0 0.875rem;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media-single:last-child,
+.jira-description-editor .ProseMirror .jira-description-media-group:last-child {
+  margin-bottom: 0;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.jira-description-editor .ProseMirror .jira-description-media img {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media figcaption {
+  padding: 0.5rem 0.75rem;
+  color: #8f9198;
+  font-size: 0.75rem;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="pending"] figcaption {
+  color: #cbd5e1;
+}
+
+.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="error"] figcaption {
+  color: #fda4af;
+}
+
+.jira-description-editor .ProseMirror ul ul {
+  list-style-type: circle;
+}
+
+.jira-description-editor .ProseMirror ul ul ul {
+  list-style-type: square;
+}
+
+.jira-description-editor .ProseMirror li p {
+  margin: 0;
+}
+
+.jira-description-editor .ProseMirror:focus,
+.jira-description-editor .ProseMirror:focus-visible,
+.jira-description-editor .ProseMirror-focused {
+  outline: none !important;
+  box-shadow: none !important;
+}

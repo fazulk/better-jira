@@ -25,6 +25,7 @@ import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { fetchTicket } from '@/api/jira'
 import { fetchLocalTicket } from '@/api/localTickets'
 import { readLocalStorageStringArray } from '@/utils/browserStorage'
+import JiraAdfRenderer from '@/components/JiraAdfRenderer.vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
 import {
   getStatusGroup,
@@ -1472,9 +1473,27 @@ async function submitMessage() {
                   >
                     {{ descriptionSaveMessage }}
                   </span>
+                  <div
+                    v-if="descriptionHasUnsupportedContent && !descriptionEditorActive && ticket.descriptionAdf"
+                    role="button"
+                    tabindex="0"
+                    class="cursor-text rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-white/[0.12]"
+                    @click="focusDescriptionEditor"
+                    @keydown.enter.prevent="focusDescriptionEditor"
+                    @keydown.space.prevent="focusDescriptionEditor"
+                  >
+                    <JiraAdfRenderer
+                      :nodes="ticket.descriptionAdf.content"
+                      :attachments="ticket.attachments"
+                      :ticket-key="ticket.key"
+                    />
+                  </div>
                   <JiraDescriptionEditor
+                    v-else
                     ref="descriptionEditorRef"
                     v-model="descriptionDraft"
+                    :attachments="ticket.attachments"
+                    :ticket-key="ticket.key"
                     :show-toolbar="descriptionEditorActive"
                     placeholder="Add a description..."
                   />

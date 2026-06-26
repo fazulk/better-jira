@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
-import type { JSONContent } from '@tiptap/core'
+import { Node, type JSONContent } from '@tiptap/core'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
-import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from '@/types/jira'
+import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode, JiraAttachment } from '@/types/jira'
 import { isRecord, normalizeAdf } from '~/shared/jiraAdf'
 
 const props = withDefaults(defineProps<{
@@ -15,6 +15,8 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   unsupported?: boolean
   showToolbar?: boolean
+  attachments?: JiraAttachment[]
+  ticketKey?: string | null
 }>(), {
   disabled: false,
   placeholder: 'Add a description...',
@@ -25,6 +27,178 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: JiraAdfDocument | null]
 }>()
+
+function attrString(attrs: Record<string, unknown> | undefined, key: string): string | null {
+  const value = attrs?.[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function attrNumber(attrs: Record<string, unknown> | undefined, key: string): number | null {
+  const value = attrs?.[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function isImageFilename(filename: string): boolean {
+  return /\.(apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
+}
+
+function isImageAttachment(attachment: JiraAttachment): boolean {
+  const mimeType = attachment.mimeType?.toLowerCase()
+  return mimeType?.startsWith('image/') === true || isImageFilename(attachment.filename)
+}
+
+function findMediaAttachment(attrs: Record<string, unknown> | undefined): JiraAttachment | null {
+  const imageAttachments = (props.attachments ?? []).filter(isImageAttachment)
+  if (!imageAttachments.length) return null
+
+  const mediaId = attrString(attrs, 'id')
+  const mediaAlt = attrString(attrs, 'alt')
+  const mediaName = attrString(attrs, 'name')
+
+  const idMatch = mediaId
+    ? imageAttachments.find((attachment) => attachment.id === mediaId)
+    : undefined
+  if (idMatch) return idMatch
+
+  const filenameMatch = [mediaAlt, mediaName]
+    .filter((value): value is string => value !== null)
+    .map((value) => imageAttachments.find((attachment) => attachment.filename === value))
+    .find((attachment) => attachment !== undefined)
+  if (filenameMatch) return filenameMatch
+
+  return imageAttachments.length === 1 ? imageAttachments[0] : null
+}
+
+function attachmentContentUrl(attachmentId: string): string {
+  return `/api/jira-attachments/${encodeURIComponent(attachmentId)}/content`
+}
+
+function ticketAttachmentContentUrl(filename: string): string | null {
+  return props.ticketKey
+    ? `/api/tickets/${encodeURIComponent(props.ticketKey)}/attachments/${encodeURIComponent(filename)}/content`
+    : null
+}
+
+function mediaImageSrc(attrs: Record<string, unknown> | undefined): string | null {
+  const directSrc = attrString(attrs, 'src') ?? attrString(attrs, 'url')
+  if (directSrc) return directSrc
+
+  const attachment = findMediaAttachment(attrs)
+  if (attachment) return attachmentContentUrl(attachment.id)
+
+  const mediaFilename = attrString(attrs, 'alt') ?? attrString(attrs, 'name')
+  const filenameUrl = mediaFilename ? ticketAttachmentContentUrl(mediaFilename) : null
+  if (filenameUrl) return filenameUrl
+
+  const mediaId = attrString(attrs, 'id')
+  return mediaId ? attachmentContentUrl(mediaId) : null
+}
+
+function mediaAltText(attrs: Record<string, unknown> | undefined): string {
+  return attrString(attrs, 'alt') ?? attrString(attrs, 'name') ?? findMediaAttachment(attrs)?.filename ?? 'Attached image'
+}
+
+function mediaImageAttrs(attrs: Record<string, unknown> | undefined): Record<string, string | number> | null {
+  const src = mediaImageSrc(attrs)
+  if (!src) return null
+
+  const imageAttrs: Record<string, string | number> = {
+    src,
+    alt: mediaAltText(attrs),
+    loading: 'lazy',
+    contenteditable: 'false',
+  }
+
+  const width = attrNumber(attrs, 'width')
+  if (width !== null) {
+    imageAttrs.width = width
+  }
+
+  const height = attrNumber(attrs, 'height')
+  if (height !== null) {
+    imageAttrs.height = height
+  }
+
+  return imageAttrs
+}
+
+const JiraMedia = Node.create({
+  name: 'media',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+
+  addAttributes() {
+    return {
+      id: { default: null },
+      type: { default: null },
+      collection: { default: null },
+      occurrenceKey: { default: null },
+      alt: { default: null },
+      name: { default: null },
+      width: { default: null },
+      height: { default: null },
+      url: { default: null },
+      src: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'figure[data-jira-media]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const imageAttrs = mediaImageAttrs(HTMLAttributes)
+    const alt = mediaAltText(HTMLAttributes)
+
+    return [
+      'figure',
+      { 'data-jira-media': 'true', class: 'jira-description-media' },
+      imageAttrs
+        ? ['img', imageAttrs]
+        : ['figcaption', { contenteditable: 'false' }, alt],
+    ]
+  },
+})
+
+const JiraMediaSingle = Node.create({
+  name: 'mediaSingle',
+  group: 'block',
+  content: 'media',
+  isolating: true,
+
+  addAttributes() {
+    return {
+      layout: { default: null },
+      width: { default: null },
+      widthType: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-jira-media-single]' }]
+  },
+
+  renderHTML() {
+    return ['div', { 'data-jira-media-single': 'true', class: 'jira-description-media-single' }, 0]
+  },
+})
+
+const JiraMediaGroup = Node.create({
+  name: 'mediaGroup',
+  group: 'block',
+  content: 'media+',
+  isolating: true,
+
+  parseHTML() {
+    return [{ tag: 'div[data-jira-media-group]' }]
+  },
+
+  renderHTML() {
+    return ['div', { 'data-jira-media-group': 'true', class: 'jira-description-media-group' }, 0]
+  },
+})
 
 const editorTick = ref(0)
 const linkMenuOpen = ref(false)
@@ -102,6 +276,17 @@ function copyAttrs(attrs: JSONContent['attrs']): Record<string, unknown> | undef
   return { ...attrs }
 }
 
+function copyAdfAttrs(nodeType: string, attrs: JSONContent['attrs']): Record<string, unknown> | undefined {
+  const copiedAttrs = copyAttrs(attrs)
+  if (!copiedAttrs) return undefined
+
+  if (nodeType === 'media') {
+    delete copiedAttrs.src
+  }
+
+  return Object.keys(copiedAttrs).length ? copiedAttrs : undefined
+}
+
 function toEditorNode(node: JiraAdfNode): JSONContent | null {
   if (typeof node.type !== 'string' || !node.type) return null
 
@@ -115,6 +300,12 @@ function toEditorNode(node: JiraAdfNode): JSONContent | null {
 
   if (node.attrs) {
     editorNode.attrs = { ...node.attrs }
+    if (node.type === 'media') {
+      const src = mediaImageSrc(editorNode.attrs)
+      if (src) {
+        editorNode.attrs.src = src
+      }
+    }
   }
 
   if (node.marks?.length) {
@@ -151,7 +342,7 @@ function toAdfNode(node: JSONContent): JiraAdfNode | null {
     adfNode.text = node.text
   }
 
-  const attrs = copyAttrs(node.attrs)
+  const attrs = copyAdfAttrs(node.type, node.attrs)
   if (attrs) {
     adfNode.attrs = attrs
   }
@@ -228,6 +419,9 @@ const editor = useEditor({
       defaultProtocol: 'https',
     }),
     Underline,
+    JiraMedia,
+    JiraMediaSingle,
+    JiraMediaGroup,
     Placeholder.configure({
       placeholder: props.placeholder,
     }),
@@ -632,6 +826,39 @@ defineExpose({
 
 :deep(.jira-description-editor .ProseMirror li) {
   display: list-item;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media-single),
+:deep(.jira-description-editor .ProseMirror .jira-description-media-group) {
+  margin: 0 0 0.875rem;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media-single:last-child),
+:deep(.jira-description-editor .ProseMirror .jira-description-media-group:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media) {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media img) {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media figcaption) {
+  padding: 0.5rem 0.75rem;
+  color: #8f9198;
+  font-size: 0.75rem;
 }
 
 :deep(.jira-description-editor .ProseMirror ul ul) {

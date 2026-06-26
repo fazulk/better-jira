@@ -2,6 +2,14 @@ import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from '~/shared/jiraAdf
 
 export type { JiraAdfDocument, JiraAdfMark, JiraAdfNode }
 
+export interface JiraAttachment {
+  id: string
+  filename: string
+  mimeType?: string
+  content?: string
+  thumbnail?: string
+}
+
 export interface JiraTicket {
   key: string
   summary: string
@@ -25,6 +33,7 @@ export interface JiraTicket {
   watchCount?: number
   description?: string
   descriptionAdf?: JiraAdfDocument
+  attachments?: JiraAttachment[]
   self: string
   parent?: {
     key: string

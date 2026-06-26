@@ -26,6 +26,9 @@ const SUPPORTED_NODE_TYPES = new Set([
   'listItem',
   'blockquote',
   'codeBlock',
+  'media',
+  'mediaSingle',
+  'mediaGroup',
   'hardBreak',
   'text',
 ])
@@ -92,6 +95,20 @@ function normalizeMarks(marks: JiraAdfMark[] | undefined): JiraAdfMark[] | undef
   return normalizedMarks.length ? normalizedMarks : undefined
 }
 
+function normalizePrimitiveAttrs(attrs: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!attrs) return undefined
+
+  const normalizedAttrs: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === 'src') continue
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      normalizedAttrs[key] = value
+    }
+  }
+
+  return Object.keys(normalizedAttrs).length ? normalizedAttrs : undefined
+}
+
 function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefined {
   if (node.type === 'heading') {
     const level = node.attrs?.level
@@ -107,6 +124,10 @@ function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
       return { order }
     }
     return undefined
+  }
+
+  if (node.type === 'media' || node.type === 'mediaSingle' || node.type === 'mediaGroup') {
+    return normalizePrimitiveAttrs(node.attrs)
   }
 
   return undefined
@@ -166,8 +187,16 @@ function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
     }
   }
 
-  if ((type === 'bulletList' || type === 'orderedList') && !normalizedNode.content?.length) {
+  if ((type === 'bulletList' || type === 'orderedList' || type === 'mediaSingle' || type === 'mediaGroup') && !normalizedNode.content?.length) {
     return null
+  }
+
+  if (type === 'media') {
+    const mediaId = normalizedNode.attrs?.id
+    const mediaType = normalizedNode.attrs?.type
+    if (typeof mediaId !== 'string' || !mediaId || typeof mediaType !== 'string' || !mediaType) {
+      return null
+    }
   }
 
   return normalizedNode
@@ -452,6 +481,18 @@ function isSupportedMark(mark: JiraAdfMark): boolean {
 function isSupportedNode(node: JiraAdfNode): boolean {
   if (typeof node.type !== 'string' || !SUPPORTED_NODE_TYPES.has(node.type)) return false
   if (node.marks && !node.marks.every(isSupportedMark)) return false
+
+  if (node.type === 'media') {
+    return typeof node.attrs?.id === 'string'
+      && node.attrs.id.length > 0
+      && typeof node.attrs.type === 'string'
+      && node.attrs.type.length > 0
+  }
+
+  if (node.type === 'mediaSingle' || node.type === 'mediaGroup') {
+    return !!node.content?.length && node.content.every(isSupportedNode)
+  }
+
   if (!node.content?.length) return true
   return node.content.every(isSupportedNode)
 }

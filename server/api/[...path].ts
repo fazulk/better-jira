@@ -13,6 +13,8 @@ import {
   getCreateIssueTypes,
   getCreatePriorities,
   getPriorities,
+  getJiraAttachmentContent,
+  getJiraAttachmentContentByFilename,
   getJiraCurrentUser,
   getTicket,
   getTicketActivity,
@@ -115,6 +117,33 @@ function getStringQueryValue(value: string | string[] | undefined): string | und
 
 function notFoundResponse(): Response {
   return Response.json({ error: 'Not found' }, { status: 404, headers: API_HEADERS })
+}
+
+function decodePathSegment(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return null
+  }
+}
+
+function jiraContentResponse(jiraResponse: Response): Response {
+  const headers = new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'private, max-age=300',
+  })
+  const contentType = jiraResponse.headers.get('Content-Type')
+  const contentLength = jiraResponse.headers.get('Content-Length')
+  const contentDisposition = jiraResponse.headers.get('Content-Disposition')
+
+  if (contentType) headers.set('Content-Type', contentType)
+  if (contentLength) headers.set('Content-Length', contentLength)
+  if (contentDisposition) headers.set('Content-Disposition', contentDisposition)
+
+  return new Response(jiraResponse.body, {
+    status: jiraResponse.status,
+    headers,
+  })
 }
 
 function badRequestResponse(message: string): Response {
@@ -258,6 +287,16 @@ export default defineEventHandler(async (event) => {
     if (segments.length === 1 && segments[0] === 'jira-me' && method === 'GET') {
       const user = await getJiraCurrentUser()
       return Response.json(user, { headers: API_HEADERS })
+    }
+
+    if (segments.length === 3 && segments[0] === 'jira-attachments' && segments[2] === 'content' && method === 'GET') {
+      const attachmentId = segments[1]
+      if (!attachmentId) {
+        return badRequestResponse('Attachment id is required.')
+      }
+
+      const jiraResponse = await getJiraAttachmentContent(attachmentId)
+      return jiraContentResponse(jiraResponse)
     }
 
     if (segments.length === 2 && segments[0] === 'local' && segments[1] === 'tickets' && method === 'GET') {
@@ -462,6 +501,20 @@ export default defineEventHandler(async (event) => {
       if (segments.length === 3 && segments[2] === 'messages' && method === 'GET') {
         const messages = await getTicketMessages(ticketKey)
         return Response.json(messages, { headers: API_HEADERS })
+      }
+
+      if (segments.length === 5 && segments[2] === 'attachments' && segments[4] === 'content' && method === 'GET') {
+        const filename = decodePathSegment(segments[3])
+        if (!filename) {
+          return badRequestResponse('Attachment filename is invalid.')
+        }
+
+        try {
+          const jiraResponse = await getJiraAttachmentContentByFilename(ticketKey, filename)
+          return jiraContentResponse(jiraResponse)
+        } catch {
+          return notFoundResponse()
+        }
       }
 
       if (segments.length === 3 && segments[2] === 'activity' && method === 'GET') {

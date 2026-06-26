@@ -147,6 +147,59 @@ async function jiraFetch(
   return res.json()
 }
 
+export async function getJiraAttachmentContent(attachmentId: string): Promise<Response> {
+  const jiraConfig = getJiraConfig()
+  const url = new URL(`${jiraConfig.baseUrl}/rest/api/3/attachment/content/${encodeURIComponent(attachmentId)}`)
+  const requestTarget = formatJiraRequestTarget(url)
+  const startedAt = Date.now()
+
+  console.log(formatJiraLogLines('->', 'GET', requestTarget, []))
+
+  let res: Response
+  try {
+    res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': jiraConfig.authHeader,
+        'Accept': '*/*',
+      },
+    })
+  } catch (error: unknown) {
+    const durationMs = Date.now() - startedAt
+    const message = error instanceof Error ? error.message : 'Unknown Jira attachment fetch error'
+    console.error(formatJiraLogLines('xx', 'GET', `${requestTarget} (${durationMs}ms)`, [
+      `error: ${message}`,
+    ]))
+    throw error
+  }
+
+  const durationMs = Date.now() - startedAt
+  console.log(`[jira] <- ${res.status} GET ${requestTarget} (${durationMs}ms)`)
+
+  if (isJiraAuthenticationFailure(res)) {
+    throw createJiraAuthenticationError()
+  }
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`JIRA attachment API ${res.status}: ${body.slice(0, 200)}`)
+  }
+
+  return res
+}
+
+export async function getJiraAttachmentContentByFilename(ticketKey: string, filename: string): Promise<Response> {
+  const ticket = await getTicket(ticketKey)
+  const normalizedFilename = filename.trim().toLowerCase()
+  const attachment = ticket.attachments?.find((candidate) => candidate.filename === filename)
+    ?? ticket.attachments?.find((candidate) => candidate.filename.trim().toLowerCase() === normalizedFilename)
+  if (!attachment) {
+    throw new Error(`No attachment named ${filename} found on ${ticketKey}.`)
+  }
+
+  return getJiraAttachmentContent(attachment.id)
+}
+
 interface CacheEntry<T> {
   expiresAt: number
   value: T
@@ -175,6 +228,14 @@ function setCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string, value
   return value
 }
 
+export interface JiraAttachment {
+  id: string
+  filename: string
+  mimeType?: string
+  content?: string
+  thumbnail?: string
+}
+
 export interface JiraTicket {
   key: string
   summary: string
@@ -198,6 +259,7 @@ export interface JiraTicket {
   watchCount?: number
   description?: string
   descriptionAdf?: JiraAdfDocument
+  attachments?: JiraAttachment[]
   self: string
   parent?: {
     key: string
@@ -342,6 +404,14 @@ interface JiraApiProjectSearchResponse {
   values?: JiraApiProject[]
 }
 
+interface JiraApiAttachment {
+  id?: string
+  filename?: string
+  mimeType?: string
+  content?: string
+  thumbnail?: string
+}
+
 interface JiraApiIssueFields {
   summary?: string
   project?: {
@@ -373,6 +443,7 @@ interface JiraApiIssueFields {
     watchCount?: number
   }
   description?: unknown
+  attachment?: JiraApiAttachment[]
   parent?: {
     key?: string
     fields?: {
@@ -484,6 +555,40 @@ function isTicketInCurrentSprint(fields: JiraApiIssueFields | undefined, sprintF
   return sprintValue.some((sprint) => isJiraApiSprint(sprint) && sprint.state === 'active')
 }
 
+function mapAttachment(attachment: JiraApiAttachment): JiraAttachment | null {
+  if (typeof attachment.id !== 'string' || !attachment.id) return null
+  if (typeof attachment.filename !== 'string' || !attachment.filename) return null
+
+  const mapped: JiraAttachment = {
+    id: attachment.id,
+    filename: attachment.filename,
+  }
+
+  if (typeof attachment.mimeType === 'string' && attachment.mimeType) {
+    mapped.mimeType = attachment.mimeType
+  }
+
+  if (typeof attachment.content === 'string' && attachment.content) {
+    mapped.content = attachment.content
+  }
+
+  if (typeof attachment.thumbnail === 'string' && attachment.thumbnail) {
+    mapped.thumbnail = attachment.thumbnail
+  }
+
+  return mapped
+}
+
+function mapAttachments(attachments: JiraApiAttachment[] | undefined): JiraAttachment[] | undefined {
+  if (!attachments?.length) return undefined
+
+  const mappedAttachments = attachments
+    .map(mapAttachment)
+    .filter((attachment): attachment is JiraAttachment => attachment !== null)
+
+  return mappedAttachments.length ? mappedAttachments : undefined
+}
+
 function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId: string | null = null): JiraTicket {
   const fields = issue.fields
   const descriptionAdf = includeDescription ? extractDescriptionAdf(fields?.description) : undefined
@@ -510,6 +615,7 @@ function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId
     watchCount: fields?.watches?.watchCount ?? undefined,
     description: includeDescription ? extractDescription(fields?.description, descriptionAdf) : undefined,
     descriptionAdf,
+    attachments: includeDescription ? mapAttachments(fields?.attachment) : undefined,
     self: issue.self ?? '',
     parent: fields?.parent
       ? {
@@ -1260,6 +1366,7 @@ export async function getTicket(key: string): Promise<JiraTicket> {
     'reporter',
     'watches',
     'description',
+    'attachment',
     'parent',
     'created',
     'updated',

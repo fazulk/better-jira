@@ -305,6 +305,7 @@ const titleSaveInFlight = ref(false)
 const isSyncingTitleDraft = ref(false)
 type DescriptionSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 const DESCRIPTION_SAVE_DEBOUNCE_MS = 3000
+const DESCRIPTION_SAVED_MESSAGE_MS = 3000
 const descriptionEditorRef = ref<{ focusEditor: () => void; blurEditor: () => void } | null>(null)
 const descriptionEditorShellRef = ref<HTMLDivElement | null>(null)
 const descriptionEditorActive = ref(false)
@@ -314,6 +315,7 @@ const descriptionPersistedSignature = ref(adfSignature(null))
 const descriptionSaveStatus = ref<DescriptionSaveStatus>('idle')
 const descriptionSaveError = ref<string | null>(null)
 const descriptionSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const descriptionSavedMessageTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const descriptionSaveInFlight = ref(false)
 const isSyncingDescriptionDraft = ref(false)
 const collapsedSections = ref({
@@ -424,6 +426,7 @@ onUnmounted(() => {
   clearTitleSaveTimer()
   void flushTitleAutosave()
   clearDescriptionSaveTimer()
+  clearDescriptionSavedMessageTimer()
   void flushDescriptionAutosave()
 })
 
@@ -734,12 +737,29 @@ function clearDescriptionSaveTimer(): void {
   descriptionSaveTimer.value = null
 }
 
+function clearDescriptionSavedMessageTimer(): void {
+  if (!descriptionSavedMessageTimer.value) return
+  clearTimeout(descriptionSavedMessageTimer.value)
+  descriptionSavedMessageTimer.value = null
+}
+
+function hideDescriptionSavedMessageSoon(): void {
+  clearDescriptionSavedMessageTimer()
+  descriptionSavedMessageTimer.value = setTimeout(() => {
+    if (descriptionSaveStatus.value === 'saved' && !isDescriptionDraftDirty()) {
+      descriptionSaveStatus.value = 'idle'
+    }
+    descriptionSavedMessageTimer.value = null
+  }, DESCRIPTION_SAVED_MESSAGE_MS)
+}
+
 function isDescriptionDraftDirty(): boolean {
   return adfSignature(descriptionDraft.value) !== descriptionPersistedSignature.value
 }
 
 function syncDescriptionDraftFromTicket(nextTicket: JiraTicket | null): void {
   clearDescriptionSaveTimer()
+  clearDescriptionSavedMessageTimer()
   isSyncingDescriptionDraft.value = true
   const nextDraft = getEditableDescriptionAdf(nextTicket)
   descriptionDraft.value = nextDraft
@@ -754,6 +774,7 @@ function syncDescriptionDraftFromTicket(nextTicket: JiraTicket | null): void {
 
 function scheduleDescriptionAutosave(): void {
   clearDescriptionSaveTimer()
+  clearDescriptionSavedMessageTimer()
   descriptionSaveTimer.value = setTimeout(() => {
     void flushDescriptionAutosave()
   }, DESCRIPTION_SAVE_DEBOUNCE_MS)
@@ -817,6 +838,7 @@ async function flushDescriptionAutosave(): Promise<void> {
   }
 
   clearDescriptionSaveTimer()
+  clearDescriptionSavedMessageTimer()
   descriptionSaveInFlight.value = true
   descriptionSaveStatus.value = 'saving'
   descriptionSaveError.value = null
@@ -829,6 +851,7 @@ async function flushDescriptionAutosave(): Promise<void> {
     if (adfSignature(descriptionDraft.value) === signature) {
       descriptionSaveStatus.value = 'saved'
       descriptionSaveError.value = null
+      hideDescriptionSavedMessageSoon()
     } else {
       descriptionSaveStatus.value = 'dirty'
       scheduleDescriptionAutosave()
@@ -856,6 +879,7 @@ watch(descriptionDraft, (nextDraft) => {
     return
   }
 
+  clearDescriptionSavedMessageTimer()
   descriptionSaveStatus.value = 'dirty'
   descriptionSaveError.value = null
   scheduleDescriptionAutosave()
@@ -1337,8 +1361,8 @@ async function submitMessage() {
       <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 bg-issue-detail-bg lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_19rem] lg:overflow-hidden">
         <main class="min-w-0 px-6 py-8 lg:overflow-y-auto lg:px-10">
           <div class="mx-auto max-w-3xl">
-            <header class="mb-6 pb-5">
-              <div class="mb-5">
+            <header>
+              <div :class="isProjectDetail ? 'mb-5' : 'mb-0'">
                 <div class="space-y-2">
                   <div class="group/title flex items-start gap-3">
                     <textarea
@@ -1432,7 +1456,7 @@ async function submitMessage() {
               </div>
             </header>
 
-            <section class="mb-8">
+            <section class="mb-8 pt-2">
               <div class="space-y-3">
                 <div
                   ref="descriptionEditorShellRef"

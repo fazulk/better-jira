@@ -3,6 +3,7 @@ import type {
   JiraAdfDocument,
   JiraActivityItem,
   JiraAssignableUser,
+  JiraAttachment,
   JiraCreateIssueTypeOption,
   JiraCreateIssueType,
   JiraMessage,
@@ -196,6 +197,23 @@ export async function updateTicketTitle(key: string, title: string): Promise<Jir
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`Failed to update title: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
+  }
+
+  return res.json()
+}
+
+export async function uploadTicketAttachment(key: string, file: File): Promise<JiraAttachment> {
+  const formData = new FormData()
+  formData.append('file', file, file.name)
+
+  const res = await fetch(`${BASE}/tickets/${encodeURIComponent(key)}/attachments`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Failed to upload attachment: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
   }
 
   return res.json()

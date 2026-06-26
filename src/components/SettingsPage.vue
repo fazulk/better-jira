@@ -64,8 +64,6 @@ type SettingsSectionId =
   | 'account'
   | 'preferences'
   | 'workspace'
-  | 'members'
-  | 'integrations'
   | 'ai'
   | 'instructions'
   | 'team-overview'
@@ -107,13 +105,6 @@ interface TeamStatusSettingsRow {
   spaces: string
 }
 
-interface WorkspaceMemberSettingsRow {
-  name: string
-  accountId: string | null
-  issueCount: number
-  spaces: string
-}
-
 interface TeamMemberSettingsRow {
   teamKey: string
   teamName: string
@@ -136,8 +127,6 @@ const settingsNavigationGroups: SettingsNavigationGroup[] = [
     label: 'Workspace',
     items: [
       { id: 'workspace', label: 'Jira connection', description: 'Credentials' },
-      { id: 'members', label: 'Members', description: 'Assignees and local presence' },
-      { id: 'integrations', label: 'Integrations', description: 'Connected tools' },
     ],
   },
   {
@@ -377,48 +366,6 @@ const teamStatusRows = computed<TeamStatusSettingsRow[]>(() => {
     .map(row => ({
       status: row.status,
       group: row.group,
-      issueCount: row.issueCount,
-      spaces: [...row.spaceKeys].sort().join(', '),
-    }))
-})
-
-const workspaceMemberRows = computed<WorkspaceMemberSettingsRow[]>(() => {
-  const rows = new Map<string, {
-    name: string
-    accountId: string | null
-    issueCount: number
-    spaceKeys: Set<string>
-  }>()
-
-  for (const ticket of tickets.value) {
-    if (!enabledSpaceKeySet.value.has(ticket.spaceKey)) {
-      continue
-    }
-
-    const name = ticket.assignee.trim() || 'Unassigned'
-    const accountId = ticket.assigneeAccountId ?? null
-    const key = accountId ?? name.toLowerCase()
-    const current = rows.get(key)
-
-    if (current) {
-      current.issueCount += 1
-      current.spaceKeys.add(ticket.spaceKey)
-      continue
-    }
-
-    rows.set(key, {
-      name,
-      accountId,
-      issueCount: 1,
-      spaceKeys: new Set([ticket.spaceKey]),
-    })
-  }
-
-  return [...rows.values()]
-    .sort((left, right) => right.issueCount - left.issueCount || left.name.localeCompare(right.name))
-    .map(row => ({
-      name: row.name,
-      accountId: row.accountId,
       issueCount: row.issueCount,
       spaces: [...row.spaceKeys].sort().join(', '),
     }))
@@ -966,68 +913,6 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-      </section>
-
-      <section v-show="activeSettingsSection === 'members'" class="mx-auto max-w-3xl space-y-5">
-        <div>
-          <h2 class="text-xl font-semibold text-slate-100">Members</h2>
-          <p class="mt-1 text-sm text-slate-500">People surfaced from Jira assignee fields.</p>
-        </div>
-
-        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
-          <div
-            v-for="member in workspaceMemberRows"
-            :key="member.accountId ?? member.name"
-            class="grid gap-2 border-b border-white/[0.06] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_8rem_8rem]"
-          >
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-slate-200">{{ member.name }}</p>
-              <p class="mt-0.5 truncate text-xs text-slate-600">{{ member.accountId ?? 'No Jira account ID cached' }}</p>
-            </div>
-            <p class="truncate text-sm text-slate-500">{{ member.spaces }}</p>
-            <p class="text-right text-sm text-slate-500">
-              {{ member.issueCount }} {{ member.issueCount === 1 ? 'issue' : 'issues' }}
-            </p>
-          </div>
-          <p v-if="!workspaceMemberRows.length" class="px-4 py-6 text-sm text-slate-500">
-            No assignees found in enabled spaces.
-          </p>
-        </div>
-      </section>
-
-      <section v-show="activeSettingsSection === 'integrations'" class="mx-auto max-w-3xl space-y-5">
-        <div>
-          <h2 class="text-xl font-semibold text-slate-100">Integrations</h2>
-          <p class="mt-1 text-sm text-slate-500">Connected systems available to the workspace.</p>
-        </div>
-
-        <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
-          <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-4">
-            <div>
-              <p class="text-sm font-medium text-slate-200">Jira</p>
-              <p class="mt-0.5 text-xs text-slate-500">{{ jiraConnectionSummary }}</p>
-            </div>
-            <span class="rounded-md border px-2 py-1 text-xs" :class="hasJiraCredentialsConfigured ? 'border-white/[0.08] bg-white/[0.035] text-slate-300' : 'border-amber-400/20 bg-amber-500/10 text-amber-200'">
-              {{ hasJiraCredentialsConfigured ? 'Connected' : 'Incomplete' }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-4">
-            <div>
-              <p class="text-sm font-medium text-slate-200">Cerebras</p>
-              <p class="mt-0.5 text-xs text-slate-500">Used for issue description generation when configured.</p>
-            </div>
-            <span class="rounded-md border px-2 py-1 text-xs" :class="aiConnection.hasCerebrasApiKey ? 'border-white/[0.08] bg-white/[0.035] text-slate-300' : 'border-white/[0.06] text-slate-500'">
-              {{ aiConnection.hasCerebrasApiKey ? 'Connected' : 'Not connected' }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between gap-4 px-4 py-4">
-            <div>
-              <p class="text-sm font-medium text-slate-200">Import and export</p>
-              <p class="mt-0.5 text-xs text-slate-500">Not connected</p>
-            </div>
-            <span class="rounded-md border border-white/[0.06] px-2 py-1 text-xs text-slate-500">Unavailable</span>
-          </div>
-        </div>
       </section>
 
       <section v-show="activeSettingsSection === 'team-overview'" class="mx-auto max-w-3xl space-y-5">

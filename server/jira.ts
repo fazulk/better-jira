@@ -589,6 +589,64 @@ function mapAttachments(attachments: JiraApiAttachment[] | undefined): JiraAttac
   return mappedAttachments.length ? mappedAttachments : undefined
 }
 
+export async function uploadTicketAttachment(
+  key: string,
+  file: { filename: string; mimeType: string; data: Uint8Array },
+): Promise<JiraAttachment> {
+  const jiraConfig = getJiraConfig()
+  const url = new URL(`${jiraConfig.baseUrl}/rest/api/3/issue/${encodeURIComponent(key)}/attachments`)
+  const requestTarget = formatJiraRequestTarget(url)
+  const startedAt = Date.now()
+  const formData = new FormData()
+  formData.append('file', new Blob([file.data], { type: file.mimeType }), file.filename)
+
+  console.log(formatJiraLogLines('->', 'POST', requestTarget, [`file: ${file.filename}`]))
+
+  let res: Response
+  try {
+    res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Authorization': jiraConfig.authHeader,
+        'Accept': 'application/json',
+        'X-Atlassian-Token': 'no-check',
+      },
+      body: formData,
+    })
+  } catch (error: unknown) {
+    const durationMs = Date.now() - startedAt
+    const message = error instanceof Error ? error.message : 'Unknown Jira attachment upload error'
+    console.error(formatJiraLogLines('xx', 'POST', `${requestTarget} (${durationMs}ms)`, [
+      `error: ${message}`,
+      `file: ${file.filename}`,
+    ]))
+    throw error
+  }
+
+  const durationMs = Date.now() - startedAt
+  console.log(`[jira] <- ${res.status} POST ${requestTarget} (${durationMs}ms)`)
+
+  if (isJiraAuthenticationFailure(res)) {
+    throw createJiraAuthenticationError()
+  }
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`JIRA attachment upload API ${res.status}: ${body.slice(0, 200)}`)
+  }
+
+  const uploadedAttachments: unknown = await res.json()
+  const [uploadedAttachment] = Array.isArray(uploadedAttachments)
+    ? uploadedAttachments.map((attachment) => mapAttachment(isRecord(attachment) ? attachment : {})).filter((attachment): attachment is JiraAttachment => attachment !== null)
+    : []
+
+  if (!uploadedAttachment) {
+    throw new Error('Jira did not return uploaded attachment metadata.')
+  }
+
+  return uploadedAttachment
+}
+
 function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId: string | null = null): JiraTicket {
   const fields = issue.fields
   const descriptionAdf = includeDescription ? extractDescriptionAdf(fields?.description) : undefined
@@ -1767,12 +1825,101 @@ export async function updateTicketTitle(key: string, summary: string): Promise<J
   return updatedTicket
 }
 
+function jiraSafeMediaAttrs(node: JiraAdfNode): Record<string, unknown> | undefined {
+  if (!node.attrs) return undefined
+
+  if (node.type === 'media') {
+    const attrs: Record<string, unknown> = {}
+    const mediaType = node.attrs.type
+    const allowedKeys = mediaType === 'external'
+      ? ['type', 'url']
+      : ['id', 'type', 'collection', 'occurrenceKey', 'alt', 'width', 'height']
+
+    for (const key of allowedKeys) {
+      const value = node.attrs[key]
+      if (value === undefined || value === null) continue
+      if (value === '' && !(node.type === 'media' && key === 'collection')) continue
+      attrs[key] = value
+    }
+
+    if (mediaType !== 'external' && attrs.collection === undefined) {
+      attrs.collection = ''
+    }
+
+    if (typeof attrs.id === 'string' && attrs.id.startsWith('pending:')) {
+      throw new Error('Image upload is still pending. Wait for it to finish before saving.')
+    }
+
+    return Object.keys(attrs).length ? attrs : undefined
+  }
+
+  if (node.type === 'mediaSingle') {
+    const attrs: Record<string, unknown> = {}
+    for (const key of ['layout', 'width', 'widthType']) {
+      const value = node.attrs[key]
+      if (value !== undefined && value !== null && value !== '') {
+        attrs[key] = value
+      }
+    }
+
+    return Object.keys(attrs).length ? attrs : undefined
+  }
+
+  if (node.type === 'mediaGroup') {
+    return undefined
+  }
+
+  const attrs: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(node.attrs)) {
+    if (key === 'src' || key === 'uploadState' || key === 'uploadError' || key === 'clientId') continue
+    attrs[key] = value
+  }
+
+  return Object.keys(attrs).length ? attrs : undefined
+}
+
+function stripEditorOnlyMediaAttrs(node: JiraAdfNode): JiraAdfNode {
+  const nextNode: JiraAdfNode = {
+    type: node.type,
+  }
+
+  if (node.text !== undefined) {
+    nextNode.text = node.text
+  }
+
+  const attrs = jiraSafeMediaAttrs(node)
+  if (attrs) {
+    nextNode.attrs = attrs
+  }
+
+  if (node.marks?.length) {
+    nextNode.marks = node.marks.map((mark) => ({ ...mark }))
+  }
+
+  if (node.content?.length) {
+    nextNode.content = node.content.map(stripEditorOnlyMediaAttrs)
+  }
+
+  return nextNode
+}
+
+function prepareDescriptionForJira(descriptionAdf: JiraAdfDocument | null): JiraAdfDocument | null {
+  const normalizedDescription = normalizeAdf(descriptionAdf)
+  if (!normalizedDescription) return null
+
+  return {
+    type: 'doc',
+    version: 1,
+    content: normalizedDescription.content.map(stripEditorOnlyMediaAttrs),
+  }
+}
+
 export async function updateTicketDescription(key: string, descriptionAdf: JiraAdfDocument | null): Promise<JiraTicket> {
   await jiraFetch(`/issue/${key}`, {
     method: 'PUT',
     body: {
       fields: {
-        description: normalizeAdf(descriptionAdf),
+        description: prepareDescriptionForJira(descriptionAdf),
       },
     },
   })

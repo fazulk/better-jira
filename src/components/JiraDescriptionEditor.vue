@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<{
   showToolbar?: boolean
   attachments?: JiraAttachment[]
   ticketKey?: string | null
+  uploadImage?: (file: File) => Promise<JiraAttachment>
 }>(), {
   disabled: false,
   placeholder: 'Add a description...',
@@ -74,6 +75,11 @@ function attachmentContentUrl(attachmentId: string): string {
   return `/api/jira-attachments/${encodeURIComponent(attachmentId)}/content`
 }
 
+function proxiedJiraAttachmentUrl(url: string): string {
+  const attachmentId = url.match(/\/attachment\/content\/([^/?#]+)/)?.[1]
+  return attachmentId ? attachmentContentUrl(decodeURIComponent(attachmentId)) : url
+}
+
 function ticketAttachmentContentUrl(filename: string): string | null {
   return props.ticketKey
     ? `/api/tickets/${encodeURIComponent(props.ticketKey)}/attachments/${encodeURIComponent(filename)}/content`
@@ -82,7 +88,7 @@ function ticketAttachmentContentUrl(filename: string): string | null {
 
 function mediaImageSrc(attrs: Record<string, unknown> | undefined): string | null {
   const directSrc = attrString(attrs, 'src') ?? attrString(attrs, 'url')
-  if (directSrc) return directSrc
+  if (directSrc) return proxiedJiraAttachmentUrl(directSrc)
 
   const attachment = findMediaAttachment(attrs)
   if (attachment) return attachmentContentUrl(attachment.id)
@@ -97,6 +103,15 @@ function mediaImageSrc(attrs: Record<string, unknown> | undefined): string | nul
 
 function mediaAltText(attrs: Record<string, unknown> | undefined): string {
   return attrString(attrs, 'alt') ?? attrString(attrs, 'name') ?? findMediaAttachment(attrs)?.filename ?? 'Attached image'
+}
+
+function mediaUploadState(attrs: Record<string, unknown> | undefined): 'pending' | 'error' | null {
+  const value = attrs?.uploadState
+  return value === 'pending' || value === 'error' ? value : null
+}
+
+function mediaUploadError(attrs: Record<string, unknown> | undefined): string | null {
+  return attrString(attrs, 'uploadError')
 }
 
 function mediaImageAttrs(attrs: Record<string, unknown> | undefined): Record<string, string | number> | null {
@@ -142,6 +157,9 @@ const JiraMedia = Node.create({
       height: { default: null },
       url: { default: null },
       src: { default: null },
+      uploadState: { default: null },
+      uploadError: { default: null },
+      clientId: { default: null },
     }
   },
 
@@ -152,13 +170,25 @@ const JiraMedia = Node.create({
   renderHTML({ HTMLAttributes }) {
     const imageAttrs = mediaImageAttrs(HTMLAttributes)
     const alt = mediaAltText(HTMLAttributes)
+    const uploadState = mediaUploadState(HTMLAttributes)
+    const uploadError = mediaUploadError(HTMLAttributes)
+    const caption = uploadState === 'pending'
+      ? 'Uploading image…'
+      : uploadState === 'error'
+        ? uploadError ?? 'Image upload failed. Delete this image and paste it again.'
+        : alt
 
     return [
       'figure',
-      { 'data-jira-media': 'true', class: 'jira-description-media' },
+      {
+        'data-jira-media': 'true',
+        'data-upload-state': uploadState ?? undefined,
+        class: 'jira-description-media',
+      },
       imageAttrs
         ? ['img', imageAttrs]
         : ['figcaption', { contenteditable: 'false' }, alt],
+      uploadState ? ['figcaption', { contenteditable: 'false' }, caption] : '',
     ]
   },
 })
@@ -408,6 +438,146 @@ function readEditorDocument(): JiraAdfDocument | null {
   })
 }
 
+function createClientId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function fileExtensionForMimeType(mimeType: string): string {
+  if (mimeType === 'image/jpeg') return 'jpg'
+  if (mimeType === 'image/gif') return 'gif'
+  if (mimeType === 'image/webp') return 'webp'
+  return 'png'
+}
+
+function pastedImageFilename(file: File): string {
+  const filename = file.name.trim()
+  if (filename) return filename
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return `pasted-image-${timestamp}.${fileExtensionForMimeType(file.type)}`
+}
+
+function mediaSingleNode(attrs: Record<string, unknown>, nodeAttrs?: Record<string, unknown>): JSONContent {
+  const node: JSONContent = {
+    type: 'mediaSingle',
+    content: [
+      {
+        type: 'media',
+        attrs,
+      },
+    ],
+  }
+
+  if (nodeAttrs) {
+    node.attrs = nodeAttrs
+  }
+
+  return node
+}
+
+function replaceMediaAttrs(clientId: string, attrs: Record<string, unknown>): void {
+  const instance = editor.value
+  if (!instance) return
+
+  const { state, view } = instance
+  let transaction = state.tr
+  state.doc.descendants((node, position) => {
+    if (node.type.name !== 'media' || !isRecord(node.attrs) || node.attrs.clientId !== clientId) {
+      return true
+    }
+
+    transaction = transaction.setNodeMarkup(position, undefined, attrs)
+    return false
+  })
+
+  if (transaction.docChanged) {
+    view.dispatch(transaction)
+  }
+}
+
+async function uploadPastedImage(file: File, clientId: string, objectUrl: string, filename: string): Promise<void> {
+  if (!props.uploadImage) return
+
+  const uploadFile = file.name.trim() === filename
+    ? file
+    : new File([file], filename, { type: file.type, lastModified: file.lastModified })
+
+  try {
+    const attachment = await props.uploadImage(uploadFile)
+    replaceMediaAttrs(clientId, {
+      type: 'external',
+      url: attachment.content ?? attachmentContentUrl(attachment.id),
+      src: attachmentContentUrl(attachment.id),
+    })
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Image upload failed. Delete this image and paste it again.'
+    replaceMediaAttrs(clientId, {
+      id: `pending:${clientId}`,
+      type: 'file',
+      alt: filename,
+      name: filename,
+      src: objectUrl,
+      uploadState: 'error',
+      uploadError: message,
+      clientId,
+    })
+  }
+}
+
+function insertPastedImage(file: File): void {
+  const instance = editor.value
+  if (!instance || !props.uploadImage) return
+
+  const clientId = createClientId()
+  const filename = pastedImageFilename(file)
+  const objectUrl = URL.createObjectURL(file)
+
+  instance.chain().focus().insertContent(mediaSingleNode({
+    id: `pending:${clientId}`,
+    type: 'file',
+    alt: filename,
+    name: filename,
+    src: objectUrl,
+    uploadState: 'pending',
+    clientId,
+  })).run()
+
+  void uploadPastedImage(file, clientId, objectUrl, filename)
+}
+
+function imageFilesFromClipboard(event: ClipboardEvent): File[] {
+  const items = event.clipboardData?.items
+  if (!items?.length) return []
+
+  const files: File[] = []
+  for (const item of items) {
+    if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
+    const file = item.getAsFile()
+    if (file) files.push(file)
+  }
+
+  return files
+}
+
+function handlePaste(_: unknown, event: ClipboardEvent): boolean {
+  if (props.disabled || props.unsupported || !props.uploadImage || !props.ticketKey) return false
+
+  const imageFiles = imageFilesFromClipboard(event)
+  if (!imageFiles.length) return false
+
+  event.preventDefault()
+  for (const file of imageFiles) {
+    insertPastedImage(file)
+  }
+
+  return true
+}
+
 const editor = useEditor({
   editable: !(props.disabled || props.unsupported),
   extensions: [
@@ -428,6 +598,9 @@ const editor = useEditor({
     }),
   ],
   content: toEditorDocument(props.modelValue),
+  editorProps: {
+    handlePaste,
+  },
   onCreate: () => {
     bumpEditorTick()
     syncLinkTitlesSoon()
@@ -877,6 +1050,14 @@ defineExpose({
   padding: 0.5rem 0.75rem;
   color: #8f9198;
   font-size: 0.75rem;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="pending"] figcaption) {
+  color: #cbd5e1;
+}
+
+:deep(.jira-description-editor .ProseMirror .jira-description-media[data-upload-state="error"] figcaption) {
+  color: #fda4af;
 }
 
 :deep(.jira-description-editor .ProseMirror ul ul) {

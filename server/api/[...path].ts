@@ -1,4 +1,4 @@
-import { defineEventHandler, getMethod, getQuery, getRequestURL, readBody } from 'h3'
+import { defineEventHandler, getMethod, getQuery, getRequestURL, readBody, readMultipartFormData } from 'h3'
 import { isJiraAdfDocument, type JiraAdfDocument } from '../../shared/jiraAdf'
 import { AI_PROVIDERS, isAiProvider } from '../../shared/ai'
 import { buildUpdatedSinceSearchQuery, normalizeAppSettingsUpdate } from '../../shared/settings'
@@ -23,6 +23,7 @@ import {
   searchTickets,
   updateTicketAssignee,
   updateTicketDescription,
+  uploadTicketAttachment,
   updateTicketPriority,
   updateTicketStatus,
   updateTicketTitle,
@@ -55,6 +56,7 @@ const API_HEADERS = {
 }
 
 const TICKET_KEY_PATTERN = /^[A-Z][A-Z0-9]+-\d+$/
+const MAX_IMAGE_ATTACHMENT_BYTES = 25 * 1024 * 1024
 
 function isJiraRemoteTicketKey(key: string): boolean {
   return TICKET_KEY_PATTERN.test(key) && !key.toUpperCase().startsWith('LOCAL-')
@@ -148,6 +150,21 @@ function jiraContentResponse(jiraResponse: Response): Response {
 
 function badRequestResponse(message: string): Response {
   return Response.json({ error: message }, { status: 400, headers: API_HEADERS })
+}
+
+function sanitizeUploadedFilename(filename: string | undefined, mimeType: string): string {
+  const fallbackExtension = mimeType === 'image/jpeg'
+    ? 'jpg'
+    : mimeType === 'image/gif'
+      ? 'gif'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : 'png'
+  const fallbackFilename = `pasted-image-${new Date().toISOString().replace(/[:.]/g, '-')}.${fallbackExtension}`
+  const trimmedFilename = filename?.trim()
+  if (!trimmedFilename) return fallbackFilename
+
+  return trimmedFilename.replace(/[\\/]/g, '-').slice(0, 180) || fallbackFilename
 }
 
 export default defineEventHandler(async (event) => {
@@ -501,6 +518,30 @@ export default defineEventHandler(async (event) => {
       if (segments.length === 3 && segments[2] === 'messages' && method === 'GET') {
         const messages = await getTicketMessages(ticketKey)
         return Response.json(messages, { headers: API_HEADERS })
+      }
+
+      if (segments.length === 3 && segments[2] === 'attachments' && method === 'POST') {
+        const formData = await readMultipartFormData(event)
+        const filePart = formData?.find((part) => part.name === 'file' && part.filename)
+        if (!filePart) {
+          return badRequestResponse('Image file is required.')
+        }
+
+        const mimeType = filePart.type ?? ''
+        if (!mimeType.startsWith('image/')) {
+          return badRequestResponse('Only image attachments can be pasted into descriptions.')
+        }
+
+        if (filePart.data.byteLength > MAX_IMAGE_ATTACHMENT_BYTES) {
+          return badRequestResponse('Image is too large to paste into the description.')
+        }
+
+        const attachment = await uploadTicketAttachment(ticketKey, {
+          filename: sanitizeUploadedFilename(filePart.filename, mimeType),
+          mimeType,
+          data: new Uint8Array(filePart.data),
+        })
+        return Response.json(attachment, { headers: API_HEADERS })
       }
 
       if (segments.length === 5 && segments[2] === 'attachments' && segments[4] === 'content' && method === 'GET') {

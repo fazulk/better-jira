@@ -192,10 +192,17 @@ function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
   }
 
   if (type === 'media') {
-    const mediaId = normalizedNode.attrs?.id
     const mediaType = normalizedNode.attrs?.type
-    if (typeof mediaId !== 'string' || !mediaId || typeof mediaType !== 'string' || !mediaType) {
-      return null
+    if (mediaType === 'external') {
+      const mediaUrl = normalizedNode.attrs?.url
+      if (typeof mediaUrl !== 'string' || !mediaUrl) {
+        return null
+      }
+    } else {
+      const mediaId = normalizedNode.attrs?.id
+      if (typeof mediaId !== 'string' || !mediaId || typeof mediaType !== 'string' || !mediaType) {
+        return null
+      }
     }
   }
 
@@ -483,6 +490,10 @@ function isSupportedNode(node: JiraAdfNode): boolean {
   if (node.marks && !node.marks.every(isSupportedMark)) return false
 
   if (node.type === 'media') {
+    if (node.attrs?.type === 'external') {
+      return typeof node.attrs.url === 'string' && node.attrs.url.length > 0
+    }
+
     return typeof node.attrs?.id === 'string'
       && node.attrs.id.length > 0
       && typeof node.attrs.type === 'string'

@@ -81,9 +81,14 @@ function ticketAttachmentContentUrl(filename: string): string | null {
     : null
 }
 
+function proxiedJiraAttachmentUrl(url: string): string {
+  const attachmentId = url.match(/\/attachment\/content\/([^/?#]+)/)?.[1]
+  return attachmentId ? `/api/jira-attachments/${encodeURIComponent(decodeURIComponent(attachmentId))}/content` : url
+}
+
 function mediaImageUrl(node: JiraAdfNode): string | null {
   const directUrl = nodeAttrString(node, 'url')
-  if (directUrl) return directUrl
+  if (directUrl) return proxiedJiraAttachmentUrl(directUrl)
 
   const attachment = findMediaAttachment(node)
   if (attachment) return `/api/jira-attachments/${encodeURIComponent(attachment.id)}/content`

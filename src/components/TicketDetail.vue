@@ -15,6 +15,7 @@ import { useUpdateTicketTitle } from '@/composables/useUpdateTicketTitle'
 import { useUpdateTicketStatus } from '@/composables/useUpdateTicketStatus'
 import { useUpdateTicketDescription } from '@/composables/useUpdateTicketDescription'
 import { useUpdateTicketWatching } from '@/composables/useUpdateTicketWatching'
+import { useUploadTicketAttachment } from '@/composables/useUploadTicketAttachment'
 import { useUpdateLocalTicketTitle } from '@/composables/useUpdateLocalTicketTitle'
 import { useUpdateLocalTicketDescription } from '@/composables/useUpdateLocalTicketDescription'
 import { useUpdateLocalTicketStatus } from '@/composables/useUpdateLocalTicketStatus'
@@ -32,6 +33,8 @@ import {
   type JiraActivityComment,
   type JiraActivityItem,
   type JiraAdfDocument,
+  type JiraAdfNode,
+  type JiraAttachment,
   type JiraTicket,
 } from '@/types/jira'
 import { coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
@@ -80,6 +83,7 @@ const updateLocalStatusMutation = useUpdateLocalTicketStatus()
 const updateDescriptionMutation = useUpdateTicketDescription()
 const updateLocalDescriptionMutation = useUpdateLocalTicketDescription()
 const updateWatchingMutation = useUpdateTicketWatching()
+const uploadTicketAttachmentMutation = useUploadTicketAttachment()
 const addMessageMutation = useAddTicketMessage()
 const queryClient = useQueryClient()
 
@@ -538,6 +542,15 @@ function adfSignature(doc: JiraAdfDocument | null): string {
   return JSON.stringify(doc)
 }
 
+function nodeHasUploadState(node: JiraAdfNode, state: 'pending' | 'error'): boolean {
+  if (node.type === 'media' && node.attrs?.uploadState === state) return true
+  return node.content?.some((child) => nodeHasUploadState(child, state)) ?? false
+}
+
+function descriptionHasUploadState(doc: JiraAdfDocument | null, state: 'pending' | 'error'): boolean {
+  return doc?.content.some((node) => nodeHasUploadState(node, state)) ?? false
+}
+
 function formatDateParts(value: string | undefined): { date: string; time: string | null; relative: string | null } | null {
   if (!value) return null
 
@@ -774,6 +787,9 @@ function isDescriptionDraftDirty(): boolean {
   return adfSignature(descriptionDraft.value) !== descriptionPersistedSignature.value
 }
 
+const descriptionHasPendingImageUpload = computed(() => descriptionHasUploadState(descriptionDraft.value, 'pending'))
+const descriptionHasFailedImageUpload = computed(() => descriptionHasUploadState(descriptionDraft.value, 'error'))
+
 function syncDescriptionDraftFromTicket(nextTicket: JiraTicket | null): void {
   clearDescriptionSaveTimer()
   clearDescriptionSavedMessageTimer()
@@ -828,6 +844,15 @@ function handleDescriptionFocusOut(): void {
   }, 0)
 }
 
+async function uploadDescriptionImage(file: File): Promise<JiraAttachment> {
+  const key = descriptionDraftTicketKey.value
+  if (!key || isLocalTicketKey(key)) {
+    throw new Error('Images can only be pasted into Jira ticket descriptions.')
+  }
+
+  return uploadTicketAttachmentMutation.mutateAsync({ key, file })
+}
+
 async function persistDescriptionDraft(key: string, descriptionAdf: JiraAdfDocument | null): Promise<void> {
   if (isLocalTicketKey(key)) {
     await updateLocalDescriptionMutation.mutateAsync({ key, descriptionAdf })
@@ -844,6 +869,11 @@ async function flushDescriptionAutosave(): Promise<void> {
   }
 
   const descriptionAdf = descriptionDraft.value
+  if (descriptionHasPendingImageUpload.value || descriptionHasFailedImageUpload.value) {
+    clearDescriptionSaveTimer()
+    return
+  }
+
   const signature = adfSignature(descriptionAdf)
   if (signature === descriptionPersistedSignature.value) {
     clearDescriptionSaveTimer()
@@ -886,6 +916,14 @@ watch(descriptionDraft, (nextDraft) => {
   if (isSyncingDescriptionDraft.value) return
   if (!descriptionDraftTicketKey.value) return
 
+  if (descriptionHasPendingImageUpload.value || descriptionHasFailedImageUpload.value) {
+    clearDescriptionSaveTimer()
+    clearDescriptionSavedMessageTimer()
+    descriptionSaveStatus.value = 'dirty'
+    descriptionSaveError.value = null
+    return
+  }
+
   const signature = adfSignature(nextDraft)
   if (signature === descriptionPersistedSignature.value) {
     clearDescriptionSaveTimer()
@@ -903,6 +941,8 @@ watch(descriptionDraft, (nextDraft) => {
 })
 
 const descriptionSaveMessage = computed(() => {
+  if (descriptionHasPendingImageUpload.value) return 'Uploading image…'
+  if (descriptionHasFailedImageUpload.value) return 'Image upload failed. Delete it before saving.'
   if (descriptionSaveStatus.value === 'dirty') return 'Unsaved changes'
   if (descriptionSaveStatus.value === 'saving') return 'Saving…'
   if (descriptionSaveStatus.value === 'saved') return 'Saved'
@@ -911,7 +951,7 @@ const descriptionSaveMessage = computed(() => {
 })
 
 const descriptionSaveMessageClass = computed(() => (
-  descriptionSaveStatus.value === 'error' ? 'text-rose-300' : 'text-slate-500'
+  descriptionSaveStatus.value === 'error' || descriptionHasFailedImageUpload.value ? 'text-rose-300' : 'text-slate-500'
 ))
 
 function clearTitleSaveTimer(): void {
@@ -1511,6 +1551,7 @@ async function submitMessage() {
                     v-model="descriptionDraft"
                     :attachments="ticket.attachments"
                     :ticket-key="ticket.key"
+                    :upload-image="isLocalTicket ? undefined : uploadDescriptionImage"
                     :show-toolbar="descriptionEditorActive"
                     placeholder="Add a description..."
                     @preview-image="openImagePreview"

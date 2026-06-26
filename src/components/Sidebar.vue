@@ -132,7 +132,6 @@ const primaryItems = computed<NavItem[]>(() => [
 ])
 
 const workspaceItems = computed<NavItem[]>(() => [
-  { id: 'initiatives', label: 'Initiatives', icon: 'initiative' },
   { id: 'projects', label: 'Projects', icon: 'project' },
   { id: 'views', label: 'Views', icon: 'view' },
 ])

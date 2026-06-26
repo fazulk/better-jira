@@ -10,7 +10,6 @@ import TicketListInboxView from './TicketListInboxView.vue'
 import TicketListInitiativesView from './TicketListInitiativesView.vue'
 import TicketListIssueSections from './TicketListIssueSections.vue'
 import TicketListProjectView from './TicketListProjectView.vue'
-import TicketListReadyQaView from './TicketListReadyQaView.vue'
 import TicketListSavedViewsView from './TicketListSavedViewsView.vue'
 import TicketListSearchView from './TicketListSearchView.vue'
 import TicketListSelectionBar from './TicketListSelectionBar.vue'
@@ -24,7 +23,6 @@ export default defineComponent({
     TicketDetail,
     TicketListCommandMenu,
     TicketListInboxView,
-    TicketListReadyQaView,
     TicketListSearchView,
     TicketListToolbarArea,
     TicketListInitiativesView,
@@ -122,7 +120,6 @@ export default defineComponent({
           :get-relative-time-label="getRelativeTimeLabel"
           @open="handleViewChange"
         />
-        <TicketListReadyQaView v-else-if="isReadyQaView" :controller="controller" />
         <TicketListIssueSections
           v-else
           class="min-h-0 flex-1 overflow-y-auto"

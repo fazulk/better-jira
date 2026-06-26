@@ -160,6 +160,30 @@ async function startBackend(): Promise<string> {
   return url
 }
 
+function navigateWindowHistory(window: BrowserWindow, direction: 'back' | 'forward'): void {
+  if (direction === 'back') {
+    if (window.webContents.canGoBack()) {
+      window.webContents.goBack()
+    }
+    return
+  }
+
+  if (window.webContents.canGoForward()) {
+    window.webContents.goForward()
+  }
+}
+
+function installHardwareNavigation(window: BrowserWindow): void {
+  window.on('app-command', (event, command) => {
+    if (command !== 'browser-backward' && command !== 'browser-forward') {
+      return
+    }
+
+    event.preventDefault()
+    navigateWindowHistory(window, command === 'browser-backward' ? 'back' : 'forward')
+  })
+}
+
 function createWindow(url: string): BrowserWindow {
   const window = new BrowserWindow({
     width: 1400,
@@ -170,6 +194,8 @@ function createWindow(url: string): BrowserWindow {
       contextIsolation: true,
     },
   })
+
+  installHardwareNavigation(window)
 
   // Open external links (http/https that aren't our own origin) in the default browser.
   window.webContents.setWindowOpenHandler(({ url: targetUrl }) => {

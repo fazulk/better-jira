@@ -362,15 +362,9 @@ export function useTicketListController() {
     if (viewId === 'my-created') {
       return [createViewFilterClause('reporter', 'current-user', 'Current user')]
     }
-    if (viewId === 'ready-qa') {
-      return [createViewFilterClause('status', 'ready-for-qa', 'Ready for QA')]
-    }
-    const [scope, , section] = viewId.split(':')
+    const [scope] = viewId.split(':')
     if (scope !== 'team') {
       return []
-    }
-    if (section === 'ready-qa') {
-      return [createViewFilterClause('status', 'ready-for-qa', 'Ready for QA')]
     }
     return []
   }
@@ -543,9 +537,6 @@ export function useTicketListController() {
       return []
     return issueTickets.value.filter(ticket => ticket.spaceKey === key)
   })
-  const isReadyQaView = computed(
-    () => currentView.value === 'ready-qa' || currentTeamSection.value === 'ready-qa',
-  )
   function isMyIssuesView(viewId: string): viewId is MyIssuesViewId {
     return viewId === 'my-issues' || viewId === 'my-created'
   }
@@ -571,8 +562,6 @@ export function useTicketListController() {
       return 'Views'
     if (currentView.value === 'search')
       return 'Search'
-    if (currentView.value === 'ready-qa')
-      return 'Ready for QA'
     if (currentTeamName.value)
       return currentTeamName.value
     return 'Issues'
@@ -632,9 +621,6 @@ export function useTicketListController() {
   const scopedTickets = computed(() => {
     if (activeBaseViewId.value === 'inbox') {
       return backlogTickets.value
-    }
-    if (activeBaseViewId.value === 'ready-qa') {
-      return issueTickets.value
     }
     if (activeBaseViewId.value === 'my-created') {
       return issueTickets.value
@@ -993,34 +979,21 @@ export function useTicketListController() {
   const visibleIssueCount = computed(() =>
     issueSections.value.reduce((count, section) => count + section.tickets.length, 0),
   )
-  const hiddenCompletedCount = computed(() =>
-    completedRange.value === 'all'
-      ? 0
-      : scopedTickets.value.filter(ticket => !isCompletedIssueVisible(ticket)).length,
-  )
-  const readyQaInsightTickets = computed(() => (isReadyQaView.value ? searchedTickets.value : []))
-  const readyQaRecentlyUpdatedCount = computed(
-    () =>
-      readyQaInsightTickets.value.filter(ticket =>
-        isRecentlyUpdated(ticket.updatedAt ?? ticket.createdAt),
-      ).length,
-  )
-  const readyQaUnassignedCount = computed(
-    () =>
-      readyQaInsightTickets.value.filter(
-        ticket => !ticket.assignee || ticket.assignee === 'Unassigned',
-      ).length,
-  )
-  const readyQaPrioritySlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, ticket => ticket.priority || 'No priority'),
-  )
-  const readyQaAssigneeSlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, ticket =>
-      ticket.assignee && ticket.assignee !== 'Unassigned' ? ticket.assignee : 'Unassigned'),
-  )
-  const readyQaStatusSlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, ticket => ticket.status || 'No status'),
-  )
+  const hiddenCompletedCount = computed(() => {
+    if (completedRange.value === 'all')
+      return 0
+    const baseTickets
+      = currentView.value === 'search'
+        ? filterTicketsForCurrentViewWithoutCompletedRange(issueTickets.value)
+        : filterTicketsForCurrentViewWithoutCompletedRange(scopedTickets.value)
+    const query = currentView.value === 'search' ? normalizedIssueSearch.value : ''
+    const searchedTickets = query
+      ? baseTickets.filter(ticket => ticketMatchesQuery(ticket, query))
+      : baseTickets
+    return applyViewFiltersToTickets(searchedTickets).filter(
+      ticket => !isCompletedIssueVisible(ticket),
+    ).length
+  })
   const checkedIssueKeySet = computed(() => new Set(checkedIssueKeys.value))
   const checkedIssues = computed(() =>
     checkedIssueKeys.value
@@ -1337,8 +1310,6 @@ export function useTicketListController() {
       return 'Views · Issues'
     if (viewId === 'project-views')
       return 'Views · Projects'
-    if (viewId === 'ready-qa')
-      return 'Ready for QA'
     const [scope, key, section] = viewId.split(':')
     if (scope === 'team' && key) {
       const teamName = enabledSpaces.value.find(space => space.key === key)?.name || key
@@ -1457,14 +1428,6 @@ export function useTicketListController() {
         section: 'Navigation',
         icon: 'search',
         execute: () => handleViewChange('search'),
-      },
-      {
-        id: 'ready-qa',
-        label: 'Ready for QA',
-        description: 'Open the saved QA view',
-        section: 'Navigation',
-        icon: '●',
-        execute: () => handleViewChange('ready-qa'),
       },
       {
         id: 'initiatives',
@@ -1806,10 +1769,16 @@ export function useTicketListController() {
     })
   }
   function filterTicketsForCurrentView(nextTickets: JiraTicket[]): JiraTicket[] {
+    return filterTicketsForCurrentViewWithoutCompletedRange(nextTickets).filter(
+      isCompletedIssueVisible,
+    )
+  }
+  function filterTicketsForCurrentViewWithoutCompletedRange(
+    nextTickets: JiraTicket[],
+  ): JiraTicket[] {
     return nextTickets.filter(
       ticket =>
         isTicketInCurrentTeamSection(ticket)
-        && isCompletedIssueVisible(ticket)
         && isSubIssueVisible(ticket)
         && isBacklogIssueVisible(ticket),
     )
@@ -3897,7 +3866,6 @@ export function useTicketListController() {
     isSavedViewDisplayView,
     isIssueDisplayView,
     currentTeamTickets,
-    isReadyQaView,
     isMyIssuesView,
     viewTitle,
     customViewTabs,
@@ -3931,12 +3899,6 @@ export function useTicketListController() {
     issueGroupOrderingRows,
     visibleIssueCount,
     hiddenCompletedCount,
-    readyQaInsightTickets,
-    readyQaRecentlyUpdatedCount,
-    readyQaUnassignedCount,
-    readyQaPrioritySlices,
-    readyQaAssigneeSlices,
-    readyQaStatusSlices,
     checkedIssueKeySet,
     checkedIssues,
     checkedIssueCount,

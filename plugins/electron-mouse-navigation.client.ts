@@ -31,5 +31,5 @@ export default defineNuxtPlugin(() => {
     return
   }
 
-  window.addEventListener('mouseup', handleMouseHistoryNavigation, { capture: true })
+  window.addEventListener('mousedown', handleMouseHistoryNavigation, { capture: true })
 })

@@ -78,10 +78,8 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
     groupingDirection: 'asc',
     orderingDirection: 'asc',
     completedRange: 'hidden',
-    showSubIssueContext: true,
     showSubIssuesRange: 'hidden',
     showTriageIssuesRange: 'hidden',
-    orderCompletedByRecency: false,
     showEmptyGroups: false,
     issueGroupOrders: {},
     hiddenIssueGroupIds: {},
@@ -93,6 +91,20 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
 
 function normalizeDirectionValue(value: unknown): 'asc' | 'desc' {
   return value === 'desc' ? 'desc' : 'asc'
+}
+
+function normalizeIssueVisibilityRangeValue(
+  value: unknown,
+  legacyBooleanValue: unknown,
+  defaultValue: string,
+): string {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+  if (typeof legacyBooleanValue === 'boolean') {
+    return legacyBooleanValue ? 'all' : 'hidden'
+  }
+  return defaultValue
 }
 
 function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
@@ -113,10 +125,12 @@ function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
     groupingDirection: normalizeDirectionValue(recordValue.groupingDirection),
     orderingDirection: normalizeDirectionValue(recordValue.orderingDirection),
     completedRange: typeof recordValue.completedRange === 'string' && recordValue.completedRange.trim() ? recordValue.completedRange.trim() : defaults.completedRange,
-    showSubIssueContext: normalizeBoolean(recordValue.showSubIssueContext, defaults.showSubIssueContext),
-    showSubIssuesRange: typeof recordValue.showSubIssuesRange === 'string' && recordValue.showSubIssuesRange.trim() ? recordValue.showSubIssuesRange.trim() : defaults.showSubIssuesRange,
+    showSubIssuesRange: normalizeIssueVisibilityRangeValue(
+      recordValue.showSubIssuesRange,
+      recordValue.showSubIssueContext,
+      defaults.showSubIssuesRange,
+    ),
     showTriageIssuesRange: typeof recordValue.showTriageIssuesRange === 'string' && recordValue.showTriageIssuesRange.trim() ? recordValue.showTriageIssuesRange.trim() : defaults.showTriageIssuesRange,
-    orderCompletedByRecency: normalizeBoolean(recordValue.orderCompletedByRecency, defaults.orderCompletedByRecency),
     showEmptyGroups: normalizeBoolean(recordValue.showEmptyGroups, defaults.showEmptyGroups),
     issueGroupOrders: normalizeStringListRecord(recordValue.issueGroupOrders),
     hiddenIssueGroupIds: normalizeStringListRecord(recordValue.hiddenIssueGroupIds),

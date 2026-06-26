@@ -132,29 +132,6 @@ export default defineComponent({
             </option>
           </select>
         </label>
-
-        <button
-          type="button"
-          class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
-          role="switch"
-          :aria-checked="orderCompletedByRecency"
-          @click="orderCompletedByRecency = !orderCompletedByRecency"
-        >
-          <span class="text-[12px] text-[#8f9198]">Order completed by recency</span>
-          <span
-            class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
-            :class="
-              orderCompletedByRecency
-                ? 'border-white/[0.14] bg-white/[0.08]'
-                : 'border-white/[0.08] bg-white/[0.03]'
-            "
-          >
-            <span
-              class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
-              :class="orderCompletedByRecency ? 'translate-x-3' : 'translate-x-0'"
-            />
-          </span>
-        </button>
       </template>
     </div>
 

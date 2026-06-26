@@ -18,10 +18,8 @@ export function getDefaultViewDisplay(): CustomViewDisplay {
     groupingDirection: 'asc',
     orderingDirection: 'asc',
     completedRange: 'hidden',
-    showSubIssueContext: true,
     showSubIssuesRange: 'hidden',
     showTriageIssuesRange: 'hidden',
-    orderCompletedByRecency: false,
     showEmptyGroups: false,
     issueGroupOrders: {},
     hiddenIssueGroupIds: {},
@@ -109,17 +107,6 @@ export function normalizeIssueVisibilityRange(value: string): IssueVisibilityRan
     default:
       return 'hidden'
   }
-}
-
-export function getLegacySubIssuesRange(
-  display: CustomViewDisplay,
-  defaults: CustomViewDisplay,
-): IssueVisibilityRange {
-  if (display.showSubIssuesRange) {
-    return normalizeIssueVisibilityRange(display.showSubIssuesRange)
-  }
-
-  return (display.showSubIssueContext ?? defaults.showSubIssueContext) ? 'all' : 'hidden'
 }
 
 export function normalizeDirection(value: string): 'asc' | 'desc' {
@@ -288,10 +275,8 @@ export function viewDisplayMatches(left: CustomViewDisplay, right: CustomViewDis
     && left.groupingDirection === right.groupingDirection
     && left.orderingDirection === right.orderingDirection
     && left.completedRange === right.completedRange
-    && left.showSubIssueContext === right.showSubIssueContext
     && left.showSubIssuesRange === right.showSubIssuesRange
     && left.showTriageIssuesRange === right.showTriageIssuesRange
-    && left.orderCompletedByRecency === right.orderCompletedByRecency
     && left.showEmptyGroups === right.showEmptyGroups
     && issueGroupConfigMapsMatch(
       normalizeIssueGroupConfigMap(left.issueGroupOrders),
@@ -317,10 +302,8 @@ export function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
     groupingDirection: display.groupingDirection ?? defaults.groupingDirection,
     orderingDirection: display.orderingDirection ?? defaults.orderingDirection,
     completedRange: display.completedRange ?? defaults.completedRange,
-    showSubIssueContext: display.showSubIssueContext ?? defaults.showSubIssueContext,
-    showSubIssuesRange: display.showSubIssuesRange ?? getLegacySubIssuesRange(display, defaults),
+    showSubIssuesRange: display.showSubIssuesRange ?? defaults.showSubIssuesRange,
     showTriageIssuesRange: display.showTriageIssuesRange ?? defaults.showTriageIssuesRange,
-    orderCompletedByRecency: display.orderCompletedByRecency ?? defaults.orderCompletedByRecency,
     showEmptyGroups: display.showEmptyGroups ?? defaults.showEmptyGroups,
     issueGroupOrders: copyIssueGroupConfigMap(
       display.issueGroupOrders ?? defaults.issueGroupOrders,

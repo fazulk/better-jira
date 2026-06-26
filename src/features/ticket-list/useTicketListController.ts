@@ -120,7 +120,6 @@ import {
   filterGroupsMatch,
   getDefaultViewDisplay,
   getLegacyImplicitViewDisplay,
-  getLegacySubIssuesRange,
   issueGroupConfigMapsMatch,
   normalizeDirection,
   normalizeIssueGroupConfigMap,
@@ -191,7 +190,6 @@ export function useTicketListController() {
     'jira2.linear.completedRange',
     'hidden',
   )
-  const showSubIssueContext = useLocalStorage('jira2.linear.showSubIssueContext', true)
   const showSubIssuesRange = useLocalStorage<IssueVisibilityRange>(
     'jira2.linear.showSubIssuesRange',
     'hidden',
@@ -212,7 +210,6 @@ export function useTicketListController() {
       showTriageIssuesRange.value = value ? 'all' : 'hidden'
     },
   })
-  const orderCompletedByRecency = useLocalStorage('jira2.linear.orderCompletedByRecency', false)
   const showEmptyGroups = useLocalStorage('jira2.linear.showEmptyGroups', false)
   const collapsedIssueSectionIds = useLocalStorage<string[]>(
     'jira2.linear.collapsedIssueSectionIds',
@@ -305,10 +302,8 @@ export function useTicketListController() {
       groupingDirection: listGroupingDirection.value,
       orderingDirection: listOrderingDirection.value,
       completedRange: completedRange.value,
-      showSubIssueContext: showSubIssueContext.value,
       showSubIssuesRange: showSubIssuesRange.value,
       showTriageIssuesRange: showTriageIssuesRange.value,
-      orderCompletedByRecency: orderCompletedByRecency.value,
       showEmptyGroups: showEmptyGroups.value,
       issueGroupOrders: copyIssueGroupConfigMap(issueGroupOrders.value),
       hiddenIssueGroupIds: copyIssueGroupConfigMap(hiddenIssueGroupIds.value),
@@ -324,10 +319,8 @@ export function useTicketListController() {
     listGroupingDirection.value = normalizeDirection(display.groupingDirection)
     listOrderingDirection.value = normalizeDirection(display.orderingDirection)
     completedRange.value = normalizeIssueVisibilityRange(display.completedRange)
-    showSubIssueContext.value = display.showSubIssueContext
-    showSubIssuesRange.value = getLegacySubIssuesRange(display, getDefaultViewDisplay())
+    showSubIssuesRange.value = normalizeIssueVisibilityRange(display.showSubIssuesRange)
     showTriageIssuesRange.value = normalizeIssueVisibilityRange(display.showTriageIssuesRange)
-    orderCompletedByRecency.value = display.orderCompletedByRecency
     showEmptyGroups.value = display.showEmptyGroups
     issueGroupOrders.value = normalizeIssueGroupConfigMap(display.issueGroupOrders)
     hiddenIssueGroupIds.value = normalizeIssueGroupConfigMap(display.hiddenIssueGroupIds)
@@ -764,7 +757,6 @@ export function useTicketListController() {
       || listOrdering.value !== defaults.ordering
       || listGroupingDirection.value !== defaults.groupingDirection
       || listOrderingDirection.value !== defaults.orderingDirection
-      || orderCompletedByRecency.value !== defaults.orderCompletedByRecency
       || showEmptyGroups.value !== defaults.showEmptyGroups
       || !stringSetsMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
       || !issueGroupConfigMapsMatch(issueGroupOrders.value, {})
@@ -2747,7 +2739,6 @@ export function useTicketListController() {
     listOrdering.value = normalizeIssueOrderingFieldId(defaults.ordering)
     listGroupingDirection.value = defaults.groupingDirection
     listOrderingDirection.value = defaults.orderingDirection
-    orderCompletedByRecency.value = defaults.orderCompletedByRecency
     showEmptyGroups.value = defaults.showEmptyGroups
     issueGroupOrders.value = copyIssueGroupConfigMap(defaults.issueGroupOrders)
     hiddenIssueGroupIds.value = copyIssueGroupConfigMap(defaults.hiddenIssueGroupIds)
@@ -3740,12 +3731,10 @@ export function useTicketListController() {
     issueGroupOrders,
     hiddenIssueGroupIds,
     completedRange,
-    showSubIssueContext,
     showSubIssuesRange,
     showTriageIssuesRange,
     showSubIssues,
     showBacklogIssues,
-    orderCompletedByRecency,
     showEmptyGroups,
     collapsedIssueSectionIds,
     collapsedProjectSectionIds,
@@ -3797,7 +3786,6 @@ export function useTicketListController() {
     parseIssueGroupingFieldId,
     normalizeIssueOrderingFieldId,
     normalizeIssueVisibilityRange,
-    getLegacySubIssuesRange,
     normalizeDirection,
     normalizeIssueRowFields,
     normalizeProjectRowFields,

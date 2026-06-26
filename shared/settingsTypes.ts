@@ -53,10 +53,8 @@ export interface CustomViewDisplay {
   groupingDirection: 'asc' | 'desc'
   orderingDirection: 'asc' | 'desc'
   completedRange: string
-  showSubIssueContext: boolean
   showSubIssuesRange: string
   showTriageIssuesRange: string
-  orderCompletedByRecency: boolean
   showEmptyGroups: boolean
   issueGroupOrders: Record<string, string[]>
   hiddenIssueGroupIds: Record<string, string[]>

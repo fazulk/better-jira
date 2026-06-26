@@ -182,6 +182,15 @@ function installHardwareNavigation(window: BrowserWindow): void {
     event.preventDefault()
     navigateWindowHistory(window, command === 'browser-backward' ? 'back' : 'forward')
   })
+
+  window.on('swipe', (event, direction) => {
+    if (direction !== 'right' && direction !== 'left') {
+      return
+    }
+
+    event.preventDefault()
+    navigateWindowHistory(window, direction === 'right' ? 'back' : 'forward')
+  })
 }
 
 function createWindow(url: string): BrowserWindow {

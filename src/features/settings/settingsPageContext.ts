@@ -1,5 +1,6 @@
-import { inject, provide, type InjectionKey } from 'vue'
-import { useSettingsPageState } from './useSettingsPageState'
+import type { InjectionKey } from 'vue'
+import type { useSettingsPageState } from './useSettingsPageState'
+import { inject, provide } from 'vue'
 
 export type SettingsPageContext = ReturnType<typeof useSettingsPageState>
 

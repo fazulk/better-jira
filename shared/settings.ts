@@ -1,3 +1,11 @@
+export {
+  getDefaultAppSettings,
+  normalizeAppSettings,
+  normalizeAppSettingsUpdate,
+  reconcileAppSettings,
+} from './settingsApp'
+export { hasConfiguredJiraCredentials } from './settingsConnections'
+export { buildEnabledSpaceSearchQuery, buildUpdatedSinceSearchQuery } from './settingsJql'
 export type {
   AiConnectionSettings,
   AiInstructionPresetSetting,
@@ -20,11 +28,3 @@ export type {
   UpdateJiraConnectionInput,
   UpdateSidebarSettingsInput,
 } from './settingsTypes'
-export {
-  getDefaultAppSettings,
-  normalizeAppSettings,
-  normalizeAppSettingsUpdate,
-  reconcileAppSettings,
-} from './settingsApp'
-export { hasConfiguredJiraCredentials } from './settingsConnections'
-export { buildEnabledSpaceSearchQuery, buildUpdatedSinceSearchQuery } from './settingsJql'

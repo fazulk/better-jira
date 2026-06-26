@@ -32,15 +32,21 @@ const {
         </svg>
         Back to app
       </button>
-      <div class="text-xs font-medium text-slate-300">Settings</div>
-      <div class="w-20"></div>
+      <div class="text-xs font-medium text-slate-300">
+        Settings
+      </div>
+      <div class="w-20" />
     </div>
 
     <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)]">
       <aside class="overflow-y-auto border-b border-white/[0.06] px-4 py-5 lg:border-b-0 lg:border-r lg:border-white/[0.06]">
         <div class="mb-5 px-2">
-          <h1 class="text-lg font-semibold text-slate-100">Settings</h1>
-          <p class="mt-1 text-xs text-slate-500">LifeMD workspace</p>
+          <h1 class="text-lg font-semibold text-slate-100">
+            Settings
+          </h1>
+          <p class="mt-1 text-xs text-slate-500">
+            LifeMD workspace
+          </p>
         </div>
         <label class="mb-4 block px-2">
           <span class="sr-only">Search settings</span>
@@ -54,7 +60,9 @@ const {
         </label>
         <nav class="space-y-5">
           <section v-for="group in filteredSettingsNavigationGroups" :key="group.label">
-            <h2 class="mb-1.5 px-2.5 text-[11px] font-medium text-slate-600">{{ group.label }}</h2>
+            <h2 class="mb-1.5 px-2.5 text-[11px] font-medium text-slate-600">
+              {{ group.label }}
+            </h2>
             <div class="space-y-0.5">
               <button
                 v-for="item in group.items"
@@ -66,7 +74,7 @@ const {
                   : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-300'"
                 @click="activeSettingsSection = item.id"
               >
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="activeSettingsSection === item.id ? 'bg-accent-indigo' : 'bg-slate-700'"></span>
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="activeSettingsSection === item.id ? 'bg-accent-indigo' : 'bg-slate-700'" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-[13px] font-medium">{{ item.label }}</span>
                   <span class="mt-0.5 block truncate text-[11px] text-slate-600">{{ item.description }}</span>

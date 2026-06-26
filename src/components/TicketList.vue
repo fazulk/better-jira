@@ -48,7 +48,7 @@ type IssueGroupingFieldId = 'none' | 'status' | 'assignee' | 'agent' | 'project'
 type IssueOrderingFieldId = 'manual' | 'title' | 'status' | 'priority' | 'assignee' | 'agent' | 'estimate' | 'updated' | 'created' | 'due' | 'linkCount' | 'timeInStatus'
 type ProjectGroupingFieldId = 'none' | 'health' | 'status' | 'priority' | 'lead'
 type ProjectOrderingFieldId = 'manual' | 'name' | 'health' | 'priority' | 'lead' | 'targetDate' | 'updated' | 'progress'
-type ProjectClosedRange = 'all' | 'hidden'
+type ProjectClosedRange = 'all' | 'day' | 'week' | 'hidden'
 type IssueVisibilityRange = 'all' | 'day' | 'week' | 'month' | 'hidden'
 type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
 
@@ -57,7 +57,7 @@ const listSubGrouping = useLocalStorage<IssueGroupingFieldId>('jira2.linear.subG
 const listOrdering = useLocalStorage<IssueOrderingFieldId>('jira2.linear.ordering', 'manual')
 const projectGrouping = useLocalStorage<ProjectGroupingFieldId>('jira2.linear.projectGrouping', 'none')
 const projectOrdering = useLocalStorage<ProjectOrderingFieldId>('jira2.linear.projectOrdering', 'manual')
-const projectClosedRange = useLocalStorage<ProjectClosedRange>('jira2.linear.projectClosedRange', 'all')
+const projectClosedRange = useLocalStorage<ProjectClosedRange>('jira2.linear.projectClosedRange', 'hidden')
 const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.groupingDirection', 'asc')
 const listOrderingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.orderingDirection', 'asc')
 const issueGroupOrders = useLocalStorage<IssueGroupConfigMap>('jira2.linear.issueGroupOrders', {})
@@ -412,7 +412,7 @@ interface ViewFilterClause {
   valueLabel: string
 }
 
-type IssueInclusionFilterId = 'completed' | 'subIssues' | 'backlog'
+type InclusionFilterId = 'completed' | 'subIssues' | 'backlog' | 'completedProjects'
 type ActiveFilterChip =
   | {
       kind: 'clause'
@@ -424,7 +424,7 @@ type ActiveFilterChip =
   | {
       kind: 'inclusion'
       id: string
-      inclusionId: IssueInclusionFilterId
+      inclusionId: InclusionFilterId
       fieldLabel: string
       valueLabel: string
     }
@@ -961,7 +961,9 @@ const projectOrderingOptions: Array<{ id: ProjectOrderingFieldId, label: string 
 
 const projectClosedRangeOptions: Array<{ id: ProjectClosedRange, label: string }> = [
   { id: 'all', label: 'All' },
-  { id: 'hidden', label: 'Hide' },
+  { id: 'day', label: 'Past day' },
+  { id: 'week', label: 'Past week' },
+  { id: 'hidden', label: 'None' },
 ]
 
 const issueVisibilityRangeOptions: Array<{ id: IssueVisibilityRange, label: string }> = [
@@ -1344,7 +1346,12 @@ const hasIssueInclusionFilters = computed(() => {
     || showSubIssuesRange.value !== defaults.showSubIssuesRange
     || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
 })
-const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0 || hasIssueInclusionFilters.value)
+const hasProjectInclusionFilters = computed(() => isProjectDisplayView.value && projectClosedRange.value !== 'hidden')
+const hasCurrentViewFilters = computed(() => (
+  currentViewFilters.value.length > 0
+  || hasIssueInclusionFilters.value
+  || hasProjectInclusionFilters.value
+))
 const activeFilterChips = computed<ActiveFilterChip[]>(() => {
   const chips: ActiveFilterChip[] = currentViewFilters.value.map((filter): ActiveFilterChip => ({
     kind: 'clause',
@@ -1353,6 +1360,20 @@ const activeFilterChips = computed<ActiveFilterChip[]>(() => {
     fieldLabel: filter.fieldLabel,
     valueLabel: filter.valueLabel,
   }))
+
+  if (isProjectDisplayView.value) {
+    if (projectClosedRange.value !== 'hidden') {
+      chips.push({
+        kind: 'inclusion',
+        id: 'project-inclusion:completed',
+        inclusionId: 'completedProjects',
+        fieldLabel: 'Completed projects',
+        valueLabel: getProjectClosedRangeLabel(projectClosedRange.value),
+      })
+    }
+
+    return chips
+  }
 
   if (!isIssueDisplayView.value) {
     return chips
@@ -1395,6 +1416,7 @@ const hasModifiedFilterOptions = computed(() => {
   const defaults = getDefaultDisplayForView(currentView.value)
 
   return !filterClausesMatch(currentViewFilters.value, getDefaultFiltersForView(currentView.value))
+    || (isProjectDisplayView.value && projectClosedRange.value !== 'hidden')
     || (isIssueDisplayView.value && (
       completedRange.value !== defaults.completedRange
       || showSubIssuesRange.value !== defaults.showSubIssuesRange
@@ -1407,7 +1429,6 @@ const hasModifiedDisplayOptions = computed(() => {
   if (isProjectDisplayView.value) {
     return projectGrouping.value !== 'none'
       || projectOrdering.value !== 'manual'
-      || projectClosedRange.value !== 'all'
       || !stringSetsMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
   }
 
@@ -2852,6 +2873,10 @@ function getIssueVisibilityRangeLabel(range: IssueVisibilityRange): string {
   return issueVisibilityRangeOptions.find(option => option.id === range)?.label ?? range
 }
 
+function getProjectClosedRangeLabel(range: ProjectClosedRange): string {
+  return projectClosedRangeOptions.find(option => option.id === range)?.label ?? range
+}
+
 function countFilterOptions(entries: Array<{ value: string, label: string, icon: string }>): FilterOption[] {
   const optionMap = new Map<string, FilterOption>()
   for (const entry of entries) {
@@ -3050,8 +3075,10 @@ function projectMatchesFilter(project: ProjectRow, filter: ViewFilterClause): bo
 }
 
 function applyProjectClosedRange(projects: ProjectRow[]): ProjectRow[] {
-  if (projectClosedRange.value === 'all') return projects
-  return projects.filter(project => project.health !== 'Completed')
+  return projects.filter(project => (
+    project.health !== 'Completed'
+    || isDateVisibleInRange(projectClosedRange.value, project.updatedAt)
+  ))
 }
 
 function sortProjectsByOrdering(projects: ProjectRow[]): ProjectRow[] {
@@ -3233,6 +3260,11 @@ function removeActiveFilterChip(chip: ActiveFilterChip): void {
     return
   }
 
+  if (chip.inclusionId === 'completedProjects') {
+    projectClosedRange.value = 'hidden'
+    return
+  }
+
   showTriageIssuesRange.value = normalizeIssueVisibilityRange(defaults.showTriageIssuesRange)
 }
 
@@ -3240,6 +3272,7 @@ function clearCurrentViewFilters() {
   if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters([])
     resetIssueInclusionFilters()
+    resetProjectInclusionFilters()
     return
   }
 
@@ -3247,9 +3280,20 @@ function clearCurrentViewFilters() {
   delete nextFilters[currentView.value]
   savedViewFilters.value = nextFilters
   resetIssueInclusionFilters()
+  resetProjectInclusionFilters()
+}
+
+function resetProjectInclusionFilters(): void {
+  if (isProjectDisplayView.value) {
+    projectClosedRange.value = 'hidden'
+  }
 }
 
 function resetIssueInclusionFilters(): void {
+  if (!isIssueDisplayView.value) {
+    return
+  }
+
   const defaults = getDefaultDisplayForView(currentView.value)
   completedRange.value = normalizeIssueVisibilityRange(defaults.completedRange)
   showSubIssuesRange.value = normalizeIssueVisibilityRange(defaults.showSubIssuesRange)
@@ -3471,7 +3515,6 @@ function resetIssueDisplayOptions() {
 function resetProjectDisplayOptions() {
   projectGrouping.value = 'none'
   projectOrdering.value = 'manual'
-  projectClosedRange.value = 'all'
   collapsedProjectSectionIds.value = []
   visibleProjectRowFields.value = normalizeProjectRowFields(getDefaultViewDisplay().visibleProjectRowFields)
 
@@ -4804,6 +4847,16 @@ onBeforeUnmount(() => {
                   </button>
                 </div>
 
+                <div v-else-if="isProjectDisplayView" class="border-b border-white/[0.06] px-3 py-2">
+                  <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">Project inclusion</p>
+                  <label class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1.5">
+                    <span class="text-[12px] text-[#aeb0b7]">Completed projects</span>
+                    <select v-model="projectClosedRange" name="filter-completed-projects-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in projectClosedRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+                </div>
+
                 <template v-if="activeFilterEntryId === 'dates'">
                   <div class="border-b border-white/[0.06] px-2 pb-1">
                     <button
@@ -5131,12 +5184,6 @@ onBeforeUnmount(() => {
                     </select>
                   </label>
 
-                  <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1">
-                    <span class="text-[12px] text-[#8f9198]">Show closed projects</span>
-                    <select v-model="projectClosedRange" name="project-closed-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
-                      <option v-for="option in projectClosedRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
-                    </select>
-                  </label>
                 </div>
 
                 <div class="mb-2 flex items-center justify-between gap-3">

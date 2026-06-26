@@ -250,13 +250,8 @@ export function useTicketListController() {
   const commandMenuOpen = ref(false)
   const commandQuery = ref('')
   const commandActiveIndex = ref(0)
-  const displayOptionsButtonRef = ref<HTMLButtonElement | null>(null)
-  const displayOptionsPanelRef = ref<HTMLDivElement | null>(null)
   const commandInputRef = ref<HTMLInputElement | null>(null)
   const searchInputRef = ref<HTMLInputElement | null>(null)
-  const filterMenuButtonRef = ref<HTMLButtonElement | null>(null)
-  const filterMenuPanelRef = ref<HTMLDivElement | null>(null)
-  const customViewContextMenuRef = ref<HTMLDivElement | null>(null)
   const draggedIssueGroupId = ref<string | null>(null)
   const pendingGotoKey = ref(false)
   const focusedIssueKey = ref<string | null>(null)
@@ -902,6 +897,8 @@ export function useTicketListController() {
   })
   const searchedProjectRows = computed(() => {
     const query = normalizedIssueSearch.value
+    // projectRows is declared later with the other row builders; this computed runs after setup completes.
+    // eslint-disable-next-line ts/no-use-before-define
     const baseProjects = applyViewFiltersToProjects(projectRows.value)
     if (!query)
       return baseProjects
@@ -920,6 +917,8 @@ export function useTicketListController() {
   })
   const searchedInitiativeRows = computed(() => {
     const query = normalizedIssueSearch.value
+    // initiativeRows is declared later with the other row builders; this computed runs after setup completes.
+    // eslint-disable-next-line ts/no-use-before-define
     const baseInitiatives = applyViewFiltersToInitiatives(initiativeRows.value)
     if (!query)
       return baseInitiatives
@@ -3408,23 +3407,20 @@ export function useTicketListController() {
     const target = event.target
     if (!(target instanceof Node))
       return
-    if (customViewContextMenu.value.open && !customViewContextMenuRef.value?.contains(target)) {
+    const clickedMenu = target instanceof Element ? target.closest('[data-ticket-list-menu]') : null
+    const clickedMenuName = clickedMenu?.getAttribute('data-ticket-list-menu')
+
+    if (customViewContextMenu.value.open && clickedMenuName !== 'custom-view-context') {
       closeCustomViewContextMenu()
     }
     if (displayOptionsOpen.value) {
-      if (
-        displayOptionsPanelRef.value?.contains(target)
-        || displayOptionsButtonRef.value?.contains(target)
-      ) {
+      if (clickedMenuName === 'display-options') {
         return
       }
       closeDisplayOptions()
     }
     if (filterMenuOpen.value) {
-      if (
-        filterMenuPanelRef.value?.contains(target)
-        || filterMenuButtonRef.value?.contains(target)
-      ) {
+      if (clickedMenuName === 'filters') {
         return
       }
       closeFilterMenu()
@@ -3769,13 +3765,8 @@ export function useTicketListController() {
     commandMenuOpen,
     commandQuery,
     commandActiveIndex,
-    displayOptionsButtonRef,
-    displayOptionsPanelRef,
     commandInputRef,
     searchInputRef,
-    filterMenuButtonRef,
-    filterMenuPanelRef,
-    customViewContextMenuRef,
     draggedIssueGroupId,
     pendingGotoKey,
     focusedIssueKey,

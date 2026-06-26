@@ -1,9 +1,12 @@
+import type { Buffer } from 'node:buffer'
 import type { ChildProcess } from 'node:child_process'
 // hello
 import { execFileSync, spawn } from 'node:child_process'
 import { appendFileSync, mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import process from 'node:process'
 import { app, BrowserWindow, shell } from 'electron'
 
 import { findFreePort } from './freePort'
@@ -34,9 +37,10 @@ logLine(`=== main.cjs loaded, pid=${process.pid}, cwd=${process.cwd()} ===`)
 logLine(`process.type=${String(Reflect.get(process, 'type'))} versions.electron=${process.versions.electron ?? '?'}`)
 logLine(`argv=${process.argv.slice(0, 4).join(' | ')}`)
 
+const require = createRequire(import.meta.url)
+
 // Diagnose `require("electron")` resolution.
 try {
-  // biome-ignore lint: intentional runtime probe
   const electronProbe = require('electron')
   logLine(`electron type=${typeof electronProbe}`)
   if (typeof electronProbe === 'object' && electronProbe !== null) {

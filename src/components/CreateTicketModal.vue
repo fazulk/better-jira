@@ -152,6 +152,8 @@ function closeModal() {
 function finishSuccessfulCreate(key: string) {
   emit('created', key, createMore.value)
   if (createMore.value) {
+    // resetAfterSuccessfulCreate is provided by form sync below; submit callbacks are wired before that composable.
+    // eslint-disable-next-line ts/no-use-before-define
     resetAfterSuccessfulCreate()
   }
 }
@@ -182,7 +184,6 @@ const createPriorityOptions = computed(() => createPrioritiesQuery.data.value ??
 const {
   getCreateFieldError,
   getCreateFieldOptions,
-  getSelectedAssigneeName,
   getSelectedPriorityName,
   isCreateFieldLoading,
 } = useCreateFieldOptions({

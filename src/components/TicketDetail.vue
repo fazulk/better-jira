@@ -25,10 +25,10 @@ const props = withDefaults(defineProps<{
   mode: 'inline',
 })
 const emit = defineEmits<{
-  'close': []
-  'select': [key: string]
-  'navigate-view': [viewId: string]
-  'create-child': [parentKey: string]
+  close: []
+  select: [key: string]
+  navigateView: [viewId: string]
+  createChild: [parentKey: string]
 }>()
 
 const { isPinned, togglePinnedTicket } = usePinnedTickets()
@@ -202,7 +202,7 @@ onMounted(() => {
             <button
               type="button"
               class="shrink-0 rounded px-1 py-0.5 text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
-              @click="emit('navigate-view', detailBreadcrumbViewId)"
+              @click="emit('navigateView', detailBreadcrumbViewId)"
             >
               {{ detailBreadcrumbRoot }}
             </button>
@@ -263,7 +263,7 @@ onMounted(() => {
               :empty-label="detailEmptyChildLabel"
               :section-label="detailChildSectionLabel"
               :ticket-key="ticket.key"
-              @create="emit('create-child', $event)"
+              @create="emit('createChild', $event)"
               @prefetch="prefetchTicket"
               @select="$emit('select', $event)"
             />

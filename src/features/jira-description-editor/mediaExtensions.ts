@@ -17,7 +17,7 @@ function attrNumber(attrs: Record<string, unknown> | undefined, key: string): nu
 }
 
 function isImageFilename(filename: string): boolean {
-  return /\.(apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
+  return /\.(?:apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
 }
 
 function isImageAttachment(attachment: JiraAttachment): boolean {

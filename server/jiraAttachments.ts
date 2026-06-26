@@ -16,7 +16,7 @@ export async function getJiraAttachmentContent(attachmentId: string): Promise<Re
   const requestTarget = formatJiraRequestTarget(url)
   const startedAt = Date.now()
 
-  console.log(formatJiraLogLines('->', 'GET', requestTarget, []))
+  console.warn(formatJiraLogLines('->', 'GET', requestTarget, []))
 
   let res: Response
   try {
@@ -38,7 +38,7 @@ export async function getJiraAttachmentContent(attachmentId: string): Promise<Re
   }
 
   const durationMs = Date.now() - startedAt
-  console.log(`[jira] <- ${res.status} GET ${requestTarget} (${durationMs}ms)`)
+  console.warn(`[jira] <- ${res.status} GET ${requestTarget} (${durationMs}ms)`)
 
   if (isJiraAuthenticationFailure(res)) {
     throw createJiraAuthenticationError()
@@ -75,7 +75,7 @@ export async function uploadTicketAttachment(
   const formData = new FormData()
   formData.append('file', new Blob([file.data], { type: file.mimeType }), file.filename)
 
-  console.log(formatJiraLogLines('->', 'POST', requestTarget, [`file: ${file.filename}`]))
+  console.warn(formatJiraLogLines('->', 'POST', requestTarget, [`file: ${file.filename}`]))
 
   let res: Response
   try {
@@ -100,7 +100,7 @@ export async function uploadTicketAttachment(
   }
 
   const durationMs = Date.now() - startedAt
-  console.log(`[jira] <- ${res.status} POST ${requestTarget} (${durationMs}ms)`)
+  console.warn(`[jira] <- ${res.status} POST ${requestTarget} (${durationMs}ms)`)
 
   if (isJiraAuthenticationFailure(res)) {
     throw createJiraAuthenticationError()

@@ -58,13 +58,17 @@ function toggleSection(section: keyof typeof collapsedSections.value) {
 async function copyJiraUrl() {
   await navigator.clipboard.writeText(jiraUrl.value)
   copiedUrl.value = true
-  setTimeout(() => { copiedUrl.value = false }, 1500)
+  setTimeout(() => {
+    copiedUrl.value = false
+  }, 1500)
 }
 
 async function copyTicketKey() {
   await navigator.clipboard.writeText(props.ticket.key)
   copiedKey.value = true
-  setTimeout(() => { copiedKey.value = false }, 1500)
+  setTimeout(() => {
+    copiedKey.value = false
+  }, 1500)
 }
 
 function startEditingAssignee() {

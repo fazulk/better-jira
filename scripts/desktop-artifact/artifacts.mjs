@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readdir } from 'node:fs/promises'
 import { dirname, extname, join, relative } from 'node:path'
+import process from 'node:process'
 import { buildEnv, runCommand } from './command.mjs'
 import { fail, log, PLATFORM_CONFIG, repoDir } from './config.mjs'
 

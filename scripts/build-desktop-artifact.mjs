@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-
 import { rm } from 'node:fs/promises'
+
+import process from 'node:process'
 import { buildPlatformArtifact, openArtifacts } from './desktop-artifact/artifacts.mjs'
 import { log, parseArgs, resolveOptions } from './desktop-artifact/config.mjs'
 import { buildMacArtifact } from './desktop-artifact/mac.mjs'

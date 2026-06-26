@@ -1,9 +1,11 @@
+import type { Buffer } from 'node:buffer'
 import type { LocalAiProvider } from '../localProviders'
 import type { ProviderPrompt } from './openai'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import process from 'node:process'
 import { getLocalAiCommandPathEnv, resolveLocalAiCommand } from '../localProviders'
 
 const LOCAL_GENERATION_TIMEOUT_MS = 120_000

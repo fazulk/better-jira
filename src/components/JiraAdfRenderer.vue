@@ -13,7 +13,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'preview-image': [payload: { src: string, alt: string }]
+  previewImage: [payload: { src: string, alt: string }]
 }>()
 
 function nodeKey(node: JiraAdfNode, index: number): string {
@@ -45,7 +45,7 @@ function nodeAttrString(node: JiraAdfNode, key: string): string | null {
 }
 
 function isImageFilename(filename: string): boolean {
-  return /\.(apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
+  return /\.(?:apng|avif|gif|jpe?g|png|svg|webp)$/i.test(filename)
 }
 
 function isImageAttachment(attachment: JiraAttachment): boolean {
@@ -116,7 +116,7 @@ function previewMediaImage(node: JiraAdfNode): void {
   if (!src)
     return
 
-  emit('preview-image', {
+  emit('previewImage', {
     src,
     alt: mediaAltText(node),
   })
@@ -192,7 +192,7 @@ function headingClass(node: JiraAdfNode): string {
             :attachments="props.attachments"
             :ticket-key="props.ticketKey"
             nested
-            @preview-image="emit('preview-image', $event)"
+            @preview-image="emit('previewImage', $event)"
           />
         </template>
       </p>
@@ -219,7 +219,7 @@ function headingClass(node: JiraAdfNode): string {
             :attachments="props.attachments"
             :ticket-key="props.ticketKey"
             nested
-            @preview-image="emit('preview-image', $event)"
+            @preview-image="emit('previewImage', $event)"
           />
         </template>
       </div>
@@ -231,7 +231,7 @@ function headingClass(node: JiraAdfNode): string {
             :attachments="props.attachments"
             :ticket-key="props.ticketKey"
             nested
-            @preview-image="emit('preview-image', $event)"
+            @preview-image="emit('previewImage', $event)"
           />
         </li>
       </ul>
@@ -247,7 +247,7 @@ function headingClass(node: JiraAdfNode): string {
             :attachments="props.attachments"
             :ticket-key="props.ticketKey"
             nested
-            @preview-image="emit('preview-image', $event)"
+            @preview-image="emit('previewImage', $event)"
           />
         </li>
       </ol>
@@ -266,7 +266,7 @@ function headingClass(node: JiraAdfNode): string {
           :attachments="props.attachments"
           :ticket-key="props.ticketKey"
           nested
-          @preview-image="emit('preview-image', $event)"
+          @preview-image="emit('previewImage', $event)"
         />
       </blockquote>
 
@@ -276,7 +276,7 @@ function headingClass(node: JiraAdfNode): string {
           :attachments="props.attachments"
           :ticket-key="props.ticketKey"
           nested
-          @preview-image="emit('preview-image', $event)"
+          @preview-image="emit('previewImage', $event)"
         />
       </div>
 
@@ -300,7 +300,7 @@ function headingClass(node: JiraAdfNode): string {
           :attachments="props.attachments"
           :ticket-key="props.ticketKey"
           nested
-          @preview-image="emit('preview-image', $event)"
+          @preview-image="emit('previewImage', $event)"
         />
       </div>
     </template>

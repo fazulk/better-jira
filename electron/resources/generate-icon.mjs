@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -105,5 +106,3 @@ writeIco(icon1024Path, icoPath)
 
 rmSync(svgPath, { force: true })
 rmSync(icoTempDir, { recursive: true, force: true })
-console.log(`wrote ${icnsPath}`)
-console.log(`wrote ${icoPath}`)

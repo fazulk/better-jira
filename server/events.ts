@@ -9,7 +9,7 @@ const clients = new Set<SSEClient>()
 export function addClient(controller: ReadableStreamDefaultController): number {
   const id = nextId++
   clients.add({ controller, id })
-  console.log(`SSE client connected (${clients.size} total)`)
+  console.warn(`SSE client connected (${clients.size} total)`)
   return id
 }
 
@@ -20,7 +20,7 @@ export function removeClient(id: number): void {
       break
     }
   }
-  console.log(`SSE client disconnected (${clients.size} total)`)
+  console.warn(`SSE client disconnected (${clients.size} total)`)
 }
 
 export function broadcast(event: string, data: unknown): void {

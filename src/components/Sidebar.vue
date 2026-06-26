@@ -15,14 +15,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   'select': [key: string]
   'prefetch': [key: string]
-  'toggle-collapse': []
+  'toggleCollapse': []
   'refresh': []
   'home': []
   'settings': []
   'command': []
   'view': [viewId: string]
-  'favorite-view': [viewId: string]
-  'add-space': []
+  'favoriteView': [viewId: string]
+  'addSpace': []
   'leave-space': [spaceKey: string]
 }>()
 
@@ -166,7 +166,7 @@ const {
               type="button"
               class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
               :class="isActiveView(favoriteView.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
-              @click="emit('favorite-view', favoriteView.id)"
+              @click="emit('favoriteView', favoriteView.id)"
             >
               <span class="w-3.5 shrink-0 text-center text-[13px] leading-none text-[#d7a543]" aria-hidden="true">★</span>
               <span class="min-w-0 flex-1 truncate">{{ favoriteView.label }}</span>
@@ -193,7 +193,7 @@ const {
               type="button"
               class="flex h-5 w-5 items-center justify-center rounded text-[14px] text-[#777a83] transition hover:bg-white/[0.055] hover:text-[#f0f1f4]"
               aria-label="Add space"
-              @click="emit('add-space')"
+              @click="emit('addSpace')"
             >
               ＋
             </button>
@@ -300,7 +300,7 @@ const {
         type="button"
         class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] text-[#8f9198] transition hover:bg-white/[0.045] hover:text-[#e6e7ea]"
         :class="collapsed ? 'justify-center' : ''"
-        @click="emit('toggle-collapse')"
+        @click="emit('toggleCollapse')"
       >
         <span class="w-4 text-center">{{ collapsed ? '›' : '‹' }}</span>
         <span v-if="!collapsed" class="flex-1 truncate">Collapse sidebar</span>

@@ -15,6 +15,7 @@ import { broadcast } from './events'
 import {
 
   getCachedValue,
+  getJiraConfig,
   jiraFetch,
   setCachedValue,
   THIRTY_DAYS_MS,

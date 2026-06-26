@@ -15,6 +15,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { watch } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -34,6 +35,7 @@ function resolveElectronBinary() {
 }
 
 function stripAnsi(value) {
+  // eslint-disable-next-line no-control-regex, regexp/no-obscure-range
   return value.replace(/\u001B\[[0-9;?]*[ -/]*[@-~]/g, '')
 }
 
@@ -59,6 +61,7 @@ function createLineForwarder(writer, onLine) {
 }
 
 let shuttingDown = false
+let tsdownProcess = null
 let nuxtProcess = null
 let electronProcess = null
 let restartTimer = null
@@ -249,6 +252,7 @@ function watchMainCjs() {
 
 async function waitForMainCjs() {
   const { existsSync } = await import('node:fs')
+  // eslint-disable-next-line no-unmodified-loop-condition
   while (!shuttingDown && !existsSync(mainCjs)) {
     await new Promise(r => setTimeout(r, 200))
   }
@@ -283,7 +287,7 @@ async function shutdown(exitCode) {
   }, 500).unref()
 }
 
-const tsdownProcess = startTsdown()
+tsdownProcess = startTsdown()
 nuxtProcess = startNuxt()
 await waitForMainCjs()
 mainCjsReady = true

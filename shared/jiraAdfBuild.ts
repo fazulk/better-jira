@@ -88,6 +88,33 @@ function buildHeading(text: string, level: number): JiraAdfNode {
   }
 }
 
+function parseBulletText(line: string): string | null {
+  const trimmedStart = line.trimStart()
+  if (!trimmedStart || !'-*•'.includes(trimmedStart[0]))
+    return null
+
+  const text = trimmedStart.slice(1)
+  const trimmedText = text.trimStart()
+  return trimmedText.length === text.length ? null : trimmedText
+}
+
+function parseOrderedText(line: string): { start: number, text: string } | null {
+  const trimmedStart = line.trimStart()
+  const markerMatch = trimmedStart.match(/^(\d+)[.)](.*)$/)
+  if (!markerMatch)
+    return null
+
+  const text = markerMatch[2]
+  const trimmedText = text.trimStart()
+  if (trimmedText.length === text.length)
+    return null
+
+  return {
+    start: Number.parseInt(markerMatch[1], 10),
+    text: trimmedText,
+  }
+}
+
 export function plainTextToAdf(text: string): JiraAdfDocument | null {
   const normalizedText = text.replace(/\r\n/g, '\n')
   if (!normalizedText.trim())
@@ -98,16 +125,23 @@ export function plainTextToAdf(text: string): JiraAdfDocument | null {
 
   for (let index = 0; index < lines.length;) {
     const line = lines[index]
-    const markdownHeadingMatch = line.match(/^\s*(#{1,3})\s+(.+?)\s*$/)
+    const trimmedLine = line.trim()
+    const headingLevel = trimmedLine.startsWith('### ')
+      ? 3
+      : trimmedLine.startsWith('## ')
+        ? 2
+        : trimmedLine.startsWith('# ')
+          ? 1
+          : null
 
-    if (markdownHeadingMatch) {
-      content.push(buildHeading(markdownHeadingMatch[2], markdownHeadingMatch[1].length))
+    if (headingLevel !== null) {
+      content.push(buildHeading(trimmedLine.slice(headingLevel + 1).trim(), headingLevel))
       index += 1
       continue
     }
 
     const underlineLine = lines[index + 1]
-    const setextHeadingMatch = underlineLine?.match(/^\s*([=-])\1{2,}\s*$/)
+    const setextHeadingMatch = underlineLine?.trim().match(/^([=-])\1{2,}$/)
     if (setextHeadingMatch && line.trim()) {
       const level = setextHeadingMatch[1] === '=' ? 1 : 2
       content.push(buildHeading(line.trim(), level))
@@ -115,15 +149,15 @@ export function plainTextToAdf(text: string): JiraAdfDocument | null {
       continue
     }
 
-    const bulletMatch = line.match(/^\s*[-*•]\s+(.*)$/)
+    const bulletText = parseBulletText(line)
 
-    if (bulletMatch) {
+    if (bulletText !== null) {
       const items: JiraAdfNode[] = []
       while (index < lines.length) {
-        const currentMatch = lines[index].match(/^\s*[-*•]\s+(.*)$/)
-        if (!currentMatch)
+        const currentText = parseBulletText(lines[index])
+        if (currentText === null)
           break
-        items.push(buildListItem(currentMatch[1]))
+        items.push(buildListItem(currentText))
         index += 1
       }
 
@@ -134,16 +168,16 @@ export function plainTextToAdf(text: string): JiraAdfDocument | null {
       continue
     }
 
-    const orderedMatch = line.match(/^\s*(\d+)[.)]\s+(.*)$/)
+    const orderedMatch = parseOrderedText(line)
     if (orderedMatch) {
-      const start = Number.parseInt(orderedMatch[1], 10)
+      const start = orderedMatch.start
       const items: JiraAdfNode[] = []
 
       while (index < lines.length) {
-        const currentMatch = lines[index].match(/^\s*(\d+)[.)]\s+(.*)$/)
+        const currentMatch = parseOrderedText(lines[index])
         if (!currentMatch)
           break
-        items.push(buildListItem(currentMatch[2]))
+        items.push(buildListItem(currentMatch.text))
         index += 1
       }
 

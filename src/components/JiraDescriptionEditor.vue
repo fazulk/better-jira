@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: JiraAdfDocument | null]
-  'preview-image': [payload: { src: string, alt: string }]
+  'previewImage': [payload: { src: string, alt: string }]
 }>()
 
 const mediaContext = {
@@ -43,6 +43,10 @@ const resolveMediaSrc = (attrs: Record<string, unknown> | undefined) => mediaIma
 const editorTick = ref(0)
 const linkMenuOpen = ref(false)
 const linkDraft = ref('')
+
+// Several callbacks below intentionally close over `editor` before it is initialized by useEditor.
+// They only run after setup has completed.
+/* eslint-disable ts/no-use-before-define */
 
 function bumpEditorTick() {
   editorTick.value += 1
@@ -117,6 +121,7 @@ const editor = useEditor({
     syncLinkTitlesSoon()
   },
 })
+/* eslint-enable ts/no-use-before-define */
 
 watch(() => props.modelValue, (nextValue) => {
   const instance = editor.value
@@ -142,7 +147,7 @@ onBeforeUnmount(() => {
 })
 
 const currentBlockType = computed(() => {
-  editorTick.value
+  void editorTick.value
   const instance = editor.value
   if (!instance)
     return 'paragraph'
@@ -289,7 +294,7 @@ function handleEditorDoubleClick(event: MouseEvent): void {
   if (!src)
     return
 
-  emit('preview-image', {
+  emit('previewImage', {
     src,
     alt: mediaImage.alt || 'Attached image',
   })

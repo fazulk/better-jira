@@ -1,6 +1,7 @@
 import type { AiProvider } from '../shared/ai'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import process from 'node:process'
 import {
 
   DEFAULT_AI_PROVIDER,
@@ -48,12 +49,18 @@ function parseEnvFile(content: string): Record<string, string> {
       continue
     }
 
-    const match = trimmedLine.match(/^(?:export\s+)?([A-Za-z_]\w*)\s*=\s*(.*)$/)
-    if (!match) {
+    const assignment = trimmedLine.startsWith('export ')
+      ? trimmedLine.slice('export '.length).trimStart()
+      : trimmedLine
+    const separatorIndex = assignment.indexOf('=')
+    if (separatorIndex === -1)
       continue
-    }
 
-    const [, key, rawValue] = match
+    const key = assignment.slice(0, separatorIndex).trimEnd()
+    if (!/^[a-z_]\w*$/i.test(key))
+      continue
+
+    const rawValue = assignment.slice(separatorIndex + 1).trimStart()
     if (ENV_FILE_KEYS_IGNORED_FOR_JIRA_SETUP.has(key)) {
       continue
     }

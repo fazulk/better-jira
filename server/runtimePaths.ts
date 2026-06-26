@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import process from 'node:process'
 
 const projectRoot = process.cwd()
 

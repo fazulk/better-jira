@@ -8,8 +8,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:name': [value: string]
   'update:description': [value: string]
-  'open-filters': []
-  'open-settings': []
+  'openFilters': []
+  'openSettings': []
   'save': []
   'cancel': []
 }>()
@@ -77,7 +77,7 @@ function updateDescription(event: Event): void {
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-[#8f9198] hover:bg-white/[0.08] hover:text-[#f0f1f4]"
         title="Filter"
-        @click="emit('open-filters')"
+        @click="emit('openFilters')"
       >
         <Icon name="lucide:list-filter" class="h-4 w-4" aria-hidden="true" />
       </button>
@@ -85,7 +85,7 @@ function updateDescription(event: Event): void {
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-[#8f9198] hover:bg-white/[0.08] hover:text-[#f0f1f4]"
         title="Settings"
-        @click="emit('open-settings')"
+        @click="emit('openSettings')"
       >
         <Icon name="lucide:sliders-horizontal" class="h-4 w-4" aria-hidden="true" />
       </button>

@@ -78,7 +78,6 @@ export default defineComponent({
       <div class="absolute top-12 right-0 flex items-center gap-1.5">
         <button
           v-if="false && !selectedTicket"
-          ref="filterMenuButtonRef"
           type="button"
           class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
           :class="
@@ -96,7 +95,6 @@ export default defineComponent({
 
         <button
           v-if="false && !selectedTicket"
-          ref="displayOptionsButtonRef"
           type="button"
           class="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
           title="Display options"
@@ -161,7 +159,7 @@ export default defineComponent({
 
     <div class="flex shrink-0 items-center gap-1.5">
       <button
-        ref="filterMenuButtonRef"
+        data-ticket-list-menu="filters"
         type="button"
         class="relative flex h-8 w-8 items-center justify-center rounded-full border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
         :class="
@@ -181,7 +179,7 @@ export default defineComponent({
       </button>
 
       <button
-        ref="displayOptionsButtonRef"
+        data-ticket-list-menu="display-options"
         type="button"
         class="relative flex h-8 w-8 items-center justify-center rounded-full border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
         :class="
@@ -204,7 +202,7 @@ export default defineComponent({
 
   <div
     v-if="customViewContextMenu.open"
-    ref="customViewContextMenuRef"
+    data-ticket-list-menu="custom-view-context"
     class="fixed z-50 w-36 overflow-hidden rounded-lg border border-white/[0.08] bg-[#15161a] py-1 shadow-xl shadow-black/40"
     :style="{ left: `${customViewContextMenu.x}px`, top: `${customViewContextMenu.y}px` }"
   >

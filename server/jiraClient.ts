@@ -95,7 +95,7 @@ export async function jiraFetch(path: string, options?: JiraFetchOptions): Promi
   const startedAt = Date.now()
   const requestDetails = collectJiraRequestDetails(options?.params, options?.body)
 
-  console.log(formatJiraLogLines('->', method, requestTarget, requestDetails))
+  console.warn(formatJiraLogLines('->', method, requestTarget, requestDetails))
 
   let res: Response
   try {
@@ -120,7 +120,7 @@ export async function jiraFetch(path: string, options?: JiraFetchOptions): Promi
   }
 
   const durationMs = Date.now() - startedAt
-  console.log(`[jira] <- ${res.status} ${method} ${requestTarget} (${durationMs}ms)`)
+  console.warn(`[jira] <- ${res.status} ${method} ${requestTarget} (${durationMs}ms)`)
 
   if (isJiraAuthenticationFailure(res)) {
     throw createJiraAuthenticationError()

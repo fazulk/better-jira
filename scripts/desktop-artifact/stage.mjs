@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { copyFile, cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { runCommand } from './command.mjs'
 import { fail, log, repoDir } from './config.mjs'
 

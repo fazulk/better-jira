@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
+import process from 'node:process'
 
 export type LocalAiProvider = 'codex' | 'claude'
 

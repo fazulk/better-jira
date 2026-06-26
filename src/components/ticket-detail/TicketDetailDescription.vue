@@ -15,7 +15,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'preview-image': [payload: { src: string, alt: string }]
+  previewImage: [payload: { src: string, alt: string }]
 }>()
 
 type DescriptionSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -323,7 +323,7 @@ defineExpose({
             :nodes="ticket.descriptionAdf.content"
             :attachments="ticket.attachments"
             :ticket-key="ticket.key"
-            @preview-image="emit('preview-image', $event)"
+            @preview-image="emit('previewImage', $event)"
           />
         </div>
         <JiraDescriptionEditor
@@ -335,7 +335,7 @@ defineExpose({
           :upload-image="isLocalTicket ? undefined : uploadDescriptionImage"
           :show-toolbar="descriptionEditorActive"
           placeholder="Add a description..."
-          @preview-image="emit('preview-image', $event)"
+          @preview-image="emit('previewImage', $event)"
         />
       </div>
       <div

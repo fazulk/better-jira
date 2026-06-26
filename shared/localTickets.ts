@@ -5,7 +5,7 @@ export const LOCAL_SPACE_KEY = 'LOCAL'
 export const LOCAL_SPACE_NAME = 'Local'
 export const LOCAL_ISSUE_TYPE = 'Task'
 
-const LOCAL_KEY_REGEX = /^LOCAL-(\d+)$/
+const LOCAL_KEY_REGEX = /^LOCAL-\d+$/
 
 export type LocalStatusId = 'todo' | 'in_progress' | 'done'
 

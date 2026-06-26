@@ -14,7 +14,7 @@ export default defineComponent({
 <template>
   <div
     v-if="filterMenuOpen && !selectedTicket"
-    ref="filterMenuPanelRef"
+    data-ticket-list-menu="filters"
     class="absolute right-10 top-10 z-30 flex max-h-[35rem] w-[34rem] overflow-hidden rounded-lg border border-white/[0.08] bg-[#15161a] shadow-xl shadow-black/40"
   >
     <div class="w-[15rem] shrink-0 border-r border-white/[0.06] py-1.5">

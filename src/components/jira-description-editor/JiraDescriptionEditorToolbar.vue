@@ -12,13 +12,13 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'apply-block-type': [value: string]
-  'apply-link': []
-  'close-link-menu': []
-  'open-link-menu': []
-  'remove-link': []
-  'toggle-mark': [action: 'bold' | 'italic' | 'underline' | 'strike' | 'code']
-  'toggle-node': [action: 'bulletList' | 'orderedList' | 'blockquote' | 'codeBlock']
+  'applyBlockType': [value: string]
+  'applyLink': []
+  'closeLinkMenu': []
+  'openLinkMenu': []
+  'removeLink': []
+  'toggleMark': [action: 'bold' | 'italic' | 'underline' | 'strike' | 'code']
+  'toggleNode': [action: 'bulletList' | 'orderedList' | 'blockquote' | 'codeBlock']
   'update:linkDraft': [value: string]
 }>()
 
@@ -56,7 +56,7 @@ function getInputValue(event: Event): string {
       class="h-7 rounded-md border border-white/[0.08] bg-surface-0 px-2 text-xs text-slate-300 outline-none transition focus:border-white/[0.16]"
       :disabled="disabled || unsupported"
       :value="currentBlockType"
-      @change="emit('apply-block-type', getSelectValue($event))"
+      @change="emit('applyBlockType', getSelectValue($event))"
     >
       <option value="paragraph">
         Paragraph
@@ -78,34 +78,34 @@ function getInputValue(event: Event): string {
       </option>
     </select>
 
-    <button type="button" class="h-7 rounded-md border px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('bold'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBold().run())" @click="emit('toggle-mark', 'bold')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('bold'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBold().run())" @click="emit('toggleMark', 'bold')">
       B
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs italic transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('italic'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleItalic().run())" @click="emit('toggle-mark', 'italic')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs italic transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('italic'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleItalic().run())" @click="emit('toggleMark', 'italic')">
       I
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs underline transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('underline'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleUnderline().run())" @click="emit('toggle-mark', 'underline')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs underline transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('underline'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleUnderline().run())" @click="emit('toggleMark', 'underline')">
       U
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs line-through transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('strike'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleStrike().run())" @click="emit('toggle-mark', 'strike')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs line-through transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('strike'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleStrike().run())" @click="emit('toggleMark', 'strike')">
       S
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs font-mono transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('code'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCode().run())" @click="emit('toggle-mark', 'code')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs font-mono transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('code'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCode().run())" @click="emit('toggleMark', 'code')">
       &lt;/&gt;
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('bulletList'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBulletList().run())" @click="emit('toggle-node', 'bulletList')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('bulletList'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBulletList().run())" @click="emit('toggleNode', 'bulletList')">
       • List
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('orderedList'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleOrderedList().run())" @click="emit('toggle-node', 'orderedList')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('orderedList'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleOrderedList().run())" @click="emit('toggleNode', 'orderedList')">
       1. List
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('blockquote'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBlockquote().run())" @click="emit('toggle-node', 'blockquote')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('blockquote'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleBlockquote().run())" @click="emit('toggleNode', 'blockquote')">
       Quote
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('codeBlock'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCodeBlock().run())" @click="emit('toggle-node', 'codeBlock')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('codeBlock'))" :disabled="markButtonDisabled(!!editor?.can().chain().focus().toggleCodeBlock().run())" @click="emit('toggleNode', 'codeBlock')">
       Code
     </button>
-    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('link'))" :disabled="disabled || unsupported" @click="emit('open-link-menu')">
+    <button type="button" class="h-7 rounded-md border px-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-50" :class="buttonClass(!!editor?.isActive('link'))" :disabled="disabled || unsupported" @click="emit('openLinkMenu')">
       Link
     </button>
     <button type="button" class="h-7 rounded-md border border-white/[0.08] px-2 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50" :disabled="disabled || unsupported || !editor?.can().undo()" @click="editor?.chain().focus().undo().run()">
@@ -124,16 +124,16 @@ function getInputValue(event: Event): string {
       placeholder="Paste or type a URL"
       :disabled="disabled || unsupported"
       @input="emit('update:linkDraft', getInputValue($event))"
-      @keydown.enter.prevent="emit('apply-link')"
-      @keydown.esc.prevent="emit('close-link-menu')"
+      @keydown.enter.prevent="emit('applyLink')"
+      @keydown.esc.prevent="emit('closeLinkMenu')"
     >
-    <button type="button" class="h-8 rounded-md bg-accent-indigo px-3 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60" :disabled="disabled || unsupported" @click="emit('apply-link')">
+    <button type="button" class="h-8 rounded-md bg-accent-indigo px-3 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60" :disabled="disabled || unsupported" @click="emit('applyLink')">
       Apply
     </button>
-    <button type="button" class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60" :disabled="disabled || unsupported" @click="emit('remove-link')">
+    <button type="button" class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60" :disabled="disabled || unsupported" @click="emit('removeLink')">
       Remove
     </button>
-    <button type="button" class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200" @click="emit('close-link-menu')">
+    <button type="button" class="h-8 rounded-md border border-white/[0.08] px-3 text-xs text-slate-400 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-slate-200" @click="emit('closeLinkMenu')">
       Cancel
     </button>
   </div>

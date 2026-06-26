@@ -16,7 +16,7 @@ export default defineComponent({
 <template>
   <div
     v-if="displayOptionsOpen && !selectedTicket"
-    ref="displayOptionsPanelRef"
+    data-ticket-list-menu="display-options"
     class="absolute right-0 top-10 z-20 w-[22rem] overflow-hidden rounded-lg border border-white/[0.08] bg-surface-2 shadow-xl shadow-black/35"
   >
     <TicketListGroupOrderingMenu v-if="groupOrderingOpen" :controller="controller" />

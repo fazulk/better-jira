@@ -239,7 +239,7 @@ onMounted(() => {
       </div>
 
       <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 bg-issue-detail-bg lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_19rem] lg:overflow-hidden">
-        <main class="min-w-0 px-6 py-8 lg:overflow-y-auto lg:px-10">
+        <main class="scrollbar-gutter-stable min-w-0 px-6 py-8 lg:overflow-y-auto lg:px-10">
           <div class="mx-auto max-w-3xl">
             <TicketDetailHeader
               ref="ticketHeaderRef"

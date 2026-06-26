@@ -14,10 +14,12 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   placeholder?: string
   unsupported?: boolean
+  showToolbar?: boolean
 }>(), {
   disabled: false,
   placeholder: 'Add a description...',
   unsupported: false,
+  showToolbar: true,
 })
 
 const emit = defineEmits<{
@@ -367,6 +369,10 @@ function focusEditor() {
   editor.value?.chain().focus('end').run()
 }
 
+function blurEditor() {
+  editor.value?.commands.blur()
+}
+
 function getSelectValue(event: Event): string {
   const target = event.target
   return target instanceof HTMLSelectElement ? target.value : 'paragraph'
@@ -374,14 +380,19 @@ function getSelectValue(event: Event): string {
 
 defineExpose({
   focusEditor,
+  blurEditor,
 })
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col space-y-2">
     <div
-      class="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.015] px-2 py-2"
-      :class="unsupported ? 'opacity-70' : ''"
+      class="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.015] px-2 py-2 transition-opacity"
+      :class="[
+        unsupported ? 'opacity-70' : '',
+        showToolbar ? '' : 'pointer-events-none invisible',
+      ]"
+      :aria-hidden="!showToolbar"
     >
       <select
         class="h-7 rounded-md border border-white/[0.08] bg-surface-0 px-2 text-xs text-slate-300 outline-none transition focus:border-white/[0.16]"
@@ -505,7 +516,7 @@ defineExpose({
       </button>
     </div>
 
-    <div v-if="linkMenuOpen" class="flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2">
+    <div v-if="showToolbar && linkMenuOpen" class="flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2">
       <input
         v-model="linkDraft"
         type="text"
@@ -541,12 +552,12 @@ defineExpose({
     </div>
 
     <div
-      class="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.018] transition focus-within:border-white/[0.16] focus-within:bg-white/[0.03]"
+      class="flex min-h-0 flex-1 overflow-hidden"
       :class="unsupported ? 'opacity-70' : ''"
     >
       <EditorContent
         :editor="editor"
-        class="jira-description-editor h-full min-h-[240px] w-full overflow-y-auto px-4 py-3 text-sm leading-relaxed text-slate-300 outline-none"
+        class="jira-description-editor h-full min-h-[240px] w-full overflow-y-auto text-sm leading-relaxed text-slate-300 outline-none"
       />
     </div>
   </div>

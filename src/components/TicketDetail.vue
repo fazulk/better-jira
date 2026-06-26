@@ -25,10 +25,7 @@ import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { fetchTicket } from '@/api/jira'
 import { fetchLocalTicket } from '@/api/localTickets'
 import { readLocalStorageStringArray } from '@/utils/browserStorage'
-import JiraAdfRenderer from '@/components/JiraAdfRenderer.vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
-import TicketDescriptionActions from '@/components/TicketDescriptionActions.vue'
-import AiDescriptionModal from '@/components/AiDescriptionModal.vue'
 import {
   getStatusGroup,
   type JiraActivityComment,
@@ -36,7 +33,7 @@ import {
   type JiraAdfDocument,
   type JiraTicket,
 } from '@/types/jira'
-import { adfToPlainText, coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
+import { coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
 import {
   getLocalStatusIdFromDisplayName,
   getLocalTransitions,
@@ -296,15 +293,29 @@ function getProjectDetailHealthClass(health: ProjectDetailHealth): string {
 
 const copiedKey = ref(false)
 const copiedUrl = ref(false)
-const copiedDescription = ref(false)
-const isEditingTitle = ref(false)
 const titleDraft = ref('')
 const titleError = ref<string | null>(null)
-const isEditingDescription = ref(false)
-const descriptionEditorRef = ref<{ focusEditor: () => void } | null>(null)
+const TITLE_SAVE_DEBOUNCE_MS = 3000
+const titleInputRef = ref<HTMLTextAreaElement | null>(null)
+const titleInputActive = ref(false)
+const titleDraftTicketKey = ref<string | null>(null)
+const titlePersistedValue = ref('')
+const titleSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const titleSaveInFlight = ref(false)
+const isSyncingTitleDraft = ref(false)
+type DescriptionSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+const DESCRIPTION_SAVE_DEBOUNCE_MS = 3000
+const descriptionEditorRef = ref<{ focusEditor: () => void; blurEditor: () => void } | null>(null)
+const descriptionEditorShellRef = ref<HTMLDivElement | null>(null)
+const descriptionEditorActive = ref(false)
 const descriptionDraft = ref<JiraAdfDocument | null>(null)
-const descriptionError = ref<string | null>(null)
-const showAiModal = ref(false)
+const descriptionDraftTicketKey = ref<string | null>(null)
+const descriptionPersistedSignature = ref(adfSignature(null))
+const descriptionSaveStatus = ref<DescriptionSaveStatus>('idle')
+const descriptionSaveError = ref<string | null>(null)
+const descriptionSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const descriptionSaveInFlight = ref(false)
+const isSyncingDescriptionDraft = ref(false)
 const collapsedSections = ref({
   properties: false,
   labels: false,
@@ -410,6 +421,10 @@ watch(assigneeSearch, () => {
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleAssigneeClickOutside)
   document.removeEventListener('keydown', handleDetailShortcut)
+  clearTitleSaveTimer()
+  void flushTitleAutosave()
+  clearDescriptionSaveTimer()
+  void flushDescriptionAutosave()
 })
 
 const isEditingPriority = ref(false)
@@ -490,17 +505,6 @@ const descriptionHasUnsupportedContent = computed(() => {
   return !!descriptionAdf && !isSupportedEditorAdf(descriptionAdf)
 })
 
-const descriptionPlainText = computed(() => {
-  const currentTicket = ticket.value
-  if (!currentTicket) return ''
-
-  if (currentTicket.descriptionAdf) {
-    return adfToPlainText(currentTicket.descriptionAdf).trim()
-  }
-
-  return (currentTicket.description ?? '').trim()
-})
-
 function hasUnsupportedEditorContent(nextTicket: JiraTicket | null): boolean {
   const descriptionAdf = nextTicket?.descriptionAdf
   return !!descriptionAdf && !isSupportedEditorAdf(descriptionAdf)
@@ -574,13 +578,6 @@ async function copyTicketKey() {
   await navigator.clipboard.writeText(ticket.value.key)
   copiedKey.value = true
   setTimeout(() => { copiedKey.value = false }, 1500)
-}
-
-async function copyDescription() {
-  if (!descriptionPlainText.value) return
-  await navigator.clipboard.writeText(descriptionPlainText.value)
-  copiedDescription.value = true
-  setTimeout(() => { copiedDescription.value = false }, 1500)
 }
 
 async function toggleTicketWatching() {
@@ -659,10 +656,10 @@ function handleDetailShortcut(event: KeyboardEvent): void {
     focusMessageComposer()
   } else if (key === 'd') {
     event.preventDefault()
-    startEditingDescription()
+    focusDescriptionEditor()
   } else if (key === 't') {
     event.preventDefault()
-    startEditingTitle()
+    focusTitleInput()
   }
 }
 
@@ -671,9 +668,15 @@ onMounted(() => {
 })
 
 watch(ticket, (nextTicket) => {
-  titleDraft.value = nextTicket?.summary ?? ''
-  titleError.value = null
-  isEditingTitle.value = false
+  const nextTicketKey = nextTicket?.key ?? null
+  const titleTicketChanged = nextTicketKey !== titleDraftTicketKey.value
+  if (titleTicketChanged) {
+    void flushTitleAutosave()
+    syncTitleDraftFromTicket(nextTicket)
+  } else if (!titleInputActive.value && !isTitleDraftDirty()) {
+    syncTitleDraftFromTicket(nextTicket)
+  }
+
   assigneeDraft.value = nextTicket?.assigneeAccountId ?? '__unassigned__'
   assigneeError.value = null
   isEditingAssignee.value = false
@@ -685,9 +688,15 @@ watch(ticket, (nextTicket) => {
   statusDraft.value = ''
   statusError.value = null
   isEditingStatus.value = false
-  descriptionDraft.value = getEditableDescriptionAdf(nextTicket)
-  descriptionError.value = null
-  isEditingDescription.value = false
+
+  const ticketChanged = nextTicketKey !== descriptionDraftTicketKey.value
+  if (ticketChanged) {
+    void flushDescriptionAutosave()
+    syncDescriptionDraftFromTicket(nextTicket)
+  } else if (!descriptionEditorActive.value && !isDescriptionDraftDirty()) {
+    syncDescriptionDraftFromTicket(nextTicket)
+  }
+
   messageDraft.value = ''
   messageError.value = null
   watchError.value = null
@@ -707,14 +716,6 @@ const localAssigneeSuggestions = computed(() => {
 
 const localAssigneeDatalistId = computed(() => `local-assignee-dl-${ticketKey.value ?? 'none'}`)
 
-const anyTitlePending = computed(() => (
-  updateTitleMutation.isPending.value || updateLocalTitleMutation.isPending.value
-))
-
-const anyDescriptionPending = computed(() => (
-  updateDescriptionMutation.isPending.value || updateLocalDescriptionMutation.isPending.value
-))
-
 const anyPriorityPending = computed(() => (
   updatePriorityMutation.isPending.value || updateLocalPriorityMutation.isPending.value
 ))
@@ -727,112 +728,278 @@ const anyAssigneePending = computed(() => (
   updateAssigneeMutation.isPending.value || updateLocalAssigneeMutation.isPending.value
 ))
 
-function startEditingDescription() {
-  if (!ticket.value || anyDescriptionPending.value) return
-  descriptionDraft.value = getEditableDescriptionAdf(ticket.value)
-  descriptionError.value = null
-  isEditingDescription.value = true
+function clearDescriptionSaveTimer(): void {
+  if (!descriptionSaveTimer.value) return
+  clearTimeout(descriptionSaveTimer.value)
+  descriptionSaveTimer.value = null
+}
+
+function isDescriptionDraftDirty(): boolean {
+  return adfSignature(descriptionDraft.value) !== descriptionPersistedSignature.value
+}
+
+function syncDescriptionDraftFromTicket(nextTicket: JiraTicket | null): void {
+  clearDescriptionSaveTimer()
+  isSyncingDescriptionDraft.value = true
+  const nextDraft = getEditableDescriptionAdf(nextTicket)
+  descriptionDraft.value = nextDraft
+  descriptionDraftTicketKey.value = nextTicket?.key ?? null
+  descriptionPersistedSignature.value = adfSignature(nextDraft)
+  descriptionSaveError.value = null
+  descriptionSaveStatus.value = 'idle'
+  nextTick(() => {
+    isSyncingDescriptionDraft.value = false
+  })
+}
+
+function scheduleDescriptionAutosave(): void {
+  clearDescriptionSaveTimer()
+  descriptionSaveTimer.value = setTimeout(() => {
+    void flushDescriptionAutosave()
+  }, DESCRIPTION_SAVE_DEBOUNCE_MS)
+}
+
+function focusDescriptionEditor(): void {
+  if (!ticket.value) return
+  descriptionEditorActive.value = true
   nextTick(() => {
     descriptionEditorRef.value?.focusEditor()
   })
 }
 
-function cancelEditingDescription() {
-  descriptionDraft.value = getEditableDescriptionAdf(ticket.value ?? null)
-  descriptionError.value = null
-  isEditingDescription.value = false
+function blurDescriptionEditor(): void {
+  descriptionEditorRef.value?.blurEditor()
+  descriptionEditorActive.value = false
+  void flushDescriptionAutosave()
 }
 
-async function saveDescription() {
-  if (!ticket.value || anyDescriptionPending.value) return
+function handleDescriptionFocusIn(): void {
+  if (!ticket.value) return
+  descriptionEditorActive.value = true
+}
 
-  const currentDescriptionAdf = getEditableDescriptionAdf(ticket.value)
+function handleDescriptionFocusOut(): void {
+  setTimeout(() => {
+    const shell = descriptionEditorShellRef.value
+    if (shell && document.activeElement && shell.contains(document.activeElement)) {
+      return
+    }
 
-  if (adfSignature(descriptionDraft.value) === adfSignature(currentDescriptionAdf)) {
-    isEditingDescription.value = false
-    descriptionError.value = null
+    descriptionEditorActive.value = false
+    void flushDescriptionAutosave()
+  }, 0)
+}
+
+async function persistDescriptionDraft(key: string, descriptionAdf: JiraAdfDocument | null): Promise<void> {
+  if (isLocalTicketKey(key)) {
+    await updateLocalDescriptionMutation.mutateAsync({ key, descriptionAdf })
     return
   }
 
-  try {
-    if (isLocalTicket.value) {
-      await updateLocalDescriptionMutation.mutateAsync({
-        key: ticket.value.key,
-        descriptionAdf: descriptionDraft.value,
-      })
-    } else {
-      await updateDescriptionMutation.mutateAsync({
-        key: ticket.value.key,
-        descriptionAdf: descriptionDraft.value,
-      })
+  await updateDescriptionMutation.mutateAsync({ key, descriptionAdf })
+}
+
+async function flushDescriptionAutosave(): Promise<void> {
+  const key = descriptionDraftTicketKey.value
+  if (!key || descriptionSaveInFlight.value) {
+    return
+  }
+
+  const descriptionAdf = descriptionDraft.value
+  const signature = adfSignature(descriptionAdf)
+  if (signature === descriptionPersistedSignature.value) {
+    clearDescriptionSaveTimer()
+    if (descriptionSaveStatus.value !== 'saving') {
+      descriptionSaveStatus.value = 'idle'
+      descriptionSaveError.value = null
     }
-    isEditingDescription.value = false
-    descriptionError.value = null
+    return
+  }
+
+  clearDescriptionSaveTimer()
+  descriptionSaveInFlight.value = true
+  descriptionSaveStatus.value = 'saving'
+  descriptionSaveError.value = null
+
+  try {
+    await persistDescriptionDraft(key, descriptionAdf)
+    if (descriptionDraftTicketKey.value !== key) return
+
+    descriptionPersistedSignature.value = signature
+    if (adfSignature(descriptionDraft.value) === signature) {
+      descriptionSaveStatus.value = 'saved'
+      descriptionSaveError.value = null
+    } else {
+      descriptionSaveStatus.value = 'dirty'
+      scheduleDescriptionAutosave()
+    }
   } catch (err) {
-    descriptionError.value = err instanceof Error ? err.message : 'Failed to update description.'
+    if (descriptionDraftTicketKey.value !== key) return
+    descriptionSaveStatus.value = 'error'
+    descriptionSaveError.value = err instanceof Error ? err.message : 'Failed to update description.'
+  } finally {
+    descriptionSaveInFlight.value = false
   }
 }
 
-async function handleAiDescriptionConfirm(descriptionAdf: JiraAdfDocument | null) {
-  if (!ticket.value) return
-  try {
-    if (isLocalTicket.value) {
-      await updateLocalDescriptionMutation.mutateAsync({
-        key: ticket.value.key,
-        descriptionAdf,
-      })
-    } else {
-      await updateDescriptionMutation.mutateAsync({
-        key: ticket.value.key,
-        descriptionAdf,
-      })
+watch(descriptionDraft, (nextDraft) => {
+  if (isSyncingDescriptionDraft.value) return
+  if (!descriptionDraftTicketKey.value) return
+
+  const signature = adfSignature(nextDraft)
+  if (signature === descriptionPersistedSignature.value) {
+    clearDescriptionSaveTimer()
+    if (!descriptionSaveInFlight.value) {
+      descriptionSaveStatus.value = 'idle'
+      descriptionSaveError.value = null
     }
-    showAiModal.value = false
-  } catch {
-    // Modal stays open on error so user doesn't lose their work
+    return
   }
+
+  descriptionSaveStatus.value = 'dirty'
+  descriptionSaveError.value = null
+  scheduleDescriptionAutosave()
+})
+
+const descriptionSaveMessage = computed(() => {
+  if (descriptionSaveStatus.value === 'dirty') return 'Unsaved changes'
+  if (descriptionSaveStatus.value === 'saving') return 'Saving…'
+  if (descriptionSaveStatus.value === 'saved') return 'Saved'
+  if (descriptionSaveStatus.value === 'error') return descriptionSaveError.value ?? 'Failed to update description.'
+  return ''
+})
+
+const descriptionSaveMessageClass = computed(() => (
+  descriptionSaveStatus.value === 'error' ? 'text-rose-300' : 'text-slate-500'
+))
+
+function clearTitleSaveTimer(): void {
+  if (!titleSaveTimer.value) return
+  clearTimeout(titleSaveTimer.value)
+  titleSaveTimer.value = null
 }
 
-function startEditingTitle() {
-  if (!ticket.value || anyTitlePending.value) return
-  titleDraft.value = ticket.value.summary
+function isTitleDraftDirty(): boolean {
+  return titleDraft.value.trim() !== titlePersistedValue.value
+}
+
+function resizeTitleInput(): void {
+  nextTick(() => {
+    const input = titleInputRef.value
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${input.scrollHeight}px`
+  })
+}
+
+function syncTitleDraftFromTicket(nextTicket: JiraTicket | null): void {
+  clearTitleSaveTimer()
+  isSyncingTitleDraft.value = true
+  titleDraft.value = nextTicket?.summary ?? ''
+  titleDraftTicketKey.value = nextTicket?.key ?? null
+  titlePersistedValue.value = nextTicket?.summary.trim() ?? ''
   titleError.value = null
-  isEditingTitle.value = true
+  resizeTitleInput()
+  nextTick(() => {
+    isSyncingTitleDraft.value = false
+  })
 }
 
-function cancelEditingTitle() {
-  titleDraft.value = ticket.value?.summary ?? ''
-  titleError.value = null
-  isEditingTitle.value = false
+function scheduleTitleAutosave(): void {
+  clearTitleSaveTimer()
+  titleSaveTimer.value = setTimeout(() => {
+    void flushTitleAutosave()
+  }, TITLE_SAVE_DEBOUNCE_MS)
 }
 
-async function saveTitle() {
-  if (!ticket.value || anyTitlePending.value) return
+function focusTitleInput(): void {
+  titleInputActive.value = true
+  nextTick(() => {
+    titleInputRef.value?.focus()
+  })
+}
+
+function blurTitleInput(): void {
+  titleInputRef.value?.blur()
+  titleInputActive.value = false
+  void flushTitleAutosave()
+}
+
+function handleTitleFocusIn(): void {
+  titleInputActive.value = true
+}
+
+function handleTitleFocusOut(): void {
+  titleInputActive.value = false
+  void flushTitleAutosave()
+}
+
+async function persistTitleDraft(key: string, title: string): Promise<void> {
+  if (isLocalTicketKey(key)) {
+    await updateLocalTitleMutation.mutateAsync({ key, title })
+    return
+  }
+
+  await updateTitleMutation.mutateAsync({ key, title })
+}
+
+async function flushTitleAutosave(): Promise<void> {
+  const key = titleDraftTicketKey.value
+  if (!key || titleSaveInFlight.value) return
 
   const nextTitle = titleDraft.value.trim()
   if (!nextTitle) {
+    clearTitleSaveTimer()
     titleError.value = 'Title cannot be empty.'
     return
   }
 
-  if (nextTitle === ticket.value.summary) {
-    isEditingTitle.value = false
+  if (nextTitle === titlePersistedValue.value) {
+    clearTitleSaveTimer()
     titleError.value = null
     return
   }
 
+  clearTitleSaveTimer()
+  titleSaveInFlight.value = true
+  titleError.value = null
+
   try {
-    if (isLocalTicket.value) {
-      await updateLocalTitleMutation.mutateAsync({ key: ticket.value.key, title: nextTitle })
-    } else {
-      await updateTitleMutation.mutateAsync({ key: ticket.value.key, title: nextTitle })
+    await persistTitleDraft(key, nextTitle)
+    if (titleDraftTicketKey.value !== key) return
+
+    titlePersistedValue.value = nextTitle
+    if (titleDraft.value.trim() !== nextTitle) {
+      scheduleTitleAutosave()
     }
-    isEditingTitle.value = false
-    titleError.value = null
   } catch (err) {
+    if (titleDraftTicketKey.value !== key) return
     titleError.value = err instanceof Error ? err.message : 'Failed to update title.'
+  } finally {
+    titleSaveInFlight.value = false
   }
 }
+
+watch(titleDraft, () => {
+  resizeTitleInput()
+  if (isSyncingTitleDraft.value) return
+  if (!titleDraftTicketKey.value) return
+
+  const nextTitle = titleDraft.value.trim()
+  if (!nextTitle) {
+    clearTitleSaveTimer()
+    titleError.value = 'Title cannot be empty.'
+    return
+  }
+
+  titleError.value = null
+  if (nextTitle === titlePersistedValue.value) {
+    clearTitleSaveTimer()
+    return
+  }
+
+  scheduleTitleAutosave()
+})
 
 async function startEditingAssignee() {
   if (!ticket.value || anyAssigneePending.value) return
@@ -1170,50 +1337,23 @@ async function submitMessage() {
       <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 bg-issue-detail-bg lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_19rem] lg:overflow-hidden">
         <main class="min-w-0 px-6 py-8 lg:overflow-y-auto lg:px-10">
           <div class="mx-auto max-w-3xl">
-            <header class="mb-6 border-b border-white/[0.06] pb-5">
+            <header class="mb-6 pb-5">
               <div class="mb-5">
-                <div v-if="isEditingTitle" class="space-y-3">
+                <div class="space-y-2">
                   <textarea
                     id="detail-title"
+                    ref="titleInputRef"
                     v-model="titleDraft"
-                    class="min-h-[96px] w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[24px] font-semibold leading-tight text-slate-100 outline-none transition focus:border-white/[0.16]"
+                    class="block min-h-[2.25rem] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[28px] font-semibold leading-tight text-slate-100 outline-none placeholder:text-slate-700"
                     maxlength="255"
+                    rows="1"
                     placeholder="Issue title"
-                    @keydown.meta.enter.prevent="saveTitle"
-                    @keydown.ctrl.enter.prevent="saveTitle"
-                    @keydown.esc.prevent="cancelEditingTitle"
+                    @focusin="handleTitleFocusIn"
+                    @focusout="handleTitleFocusOut"
+                    @keydown.enter.prevent="blurTitleInput"
+                    @keydown.esc.prevent="blurTitleInput"
                   />
-                  <div class="flex items-center gap-2">
-                    <button
-                      class="rounded-md bg-accent-indigo px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="anyTitlePending"
-                      @click="saveTitle"
-                    >
-                      {{ anyTitlePending ? 'Saving...' : 'Save' }}
-                    </button>
-                    <button
-                      class="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="anyTitlePending"
-                      @click="cancelEditingTitle"
-                    >
-                      Cancel
-                    </button>
-                    <span v-if="titleError" class="text-xs text-rose-300">{{ titleError }}</span>
-                  </div>
-                </div>
-                <div v-else class="group/title flex items-start gap-3">
-                  <h1 class="min-w-0 flex-1 text-[28px] font-semibold leading-tight text-slate-100">
-                    {{ ticket.summary }}
-                  </h1>
-                  <button
-                    class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-600 opacity-0 transition hover:bg-white/[0.05] hover:text-slate-300 group-hover/title:opacity-100"
-                    @click="startEditingTitle"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" />
-                    </svg>
-                  </button>
+                  <span v-if="titleError" class="text-xs text-rose-300">{{ titleError }}</span>
                 </div>
                 <div v-if="detailIssueParent" class="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span>Sub-issue of</span>
@@ -1288,65 +1428,33 @@ async function submitMessage() {
             </header>
 
             <section class="mb-8">
-              <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-xs font-medium text-slate-400">Description</h2>
-                <TicketDescriptionActions
-                  v-if="!isEditingDescription"
-                  :copied-description="copiedDescription"
-                  :show-copy="!!descriptionPlainText"
-                  @copy="copyDescription"
-                  @ai="showAiModal = true"
-                  @edit="startEditingDescription"
-                />
-              </div>
-              <div v-if="isEditingDescription" class="space-y-3">
+              <div class="space-y-3">
                 <div
-                  @keydown.meta.enter.prevent="saveDescription"
-                  @keydown.ctrl.enter.prevent="saveDescription"
-                  @keydown.esc.prevent="cancelEditingDescription"
+                  ref="descriptionEditorShellRef"
+                  class="relative"
+                  @focusin="handleDescriptionFocusIn"
+                  @focusout="handleDescriptionFocusOut"
+                  @keydown.esc.prevent="blurDescriptionEditor"
                 >
+                  <span
+                    v-if="descriptionSaveMessage"
+                    class="pointer-events-none absolute right-3 z-10 rounded-md border border-white/[0.06] bg-surface-1/90 px-2 py-1 text-[11px] shadow-lg backdrop-blur"
+                    :class="[descriptionSaveMessageClass, 'top-[3.75rem]']"
+                  >
+                    {{ descriptionSaveMessage }}
+                  </span>
                   <JiraDescriptionEditor
                     ref="descriptionEditorRef"
                     v-model="descriptionDraft"
-                    :disabled="anyDescriptionPending"
+                    :show-toolbar="descriptionEditorActive"
                     placeholder="Add a description..."
                   />
                 </div>
                 <div
-                  v-if="descriptionHasUnsupportedContent"
+                  v-if="descriptionHasUnsupportedContent && descriptionEditorActive"
                   class="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
                 >
                   This description uses Jira formatting the editor does not preserve yet. Saving here will simplify it to supported rich text.
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <button
-                    class="rounded-md bg-accent-indigo px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="anyDescriptionPending"
-                    @click="saveDescription"
-                  >
-                    {{ anyDescriptionPending ? 'Saving...' : 'Save' }}
-                  </button>
-                  <button
-                    class="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="anyDescriptionPending"
-                    @click="cancelEditingDescription"
-                  >
-                    Cancel
-                  </button>
-                  <span v-if="descriptionError" class="text-xs text-rose-300">{{ descriptionError }}</span>
-                </div>
-              </div>
-              <button
-                v-else-if="!(ticket.description || ticket.descriptionAdf)"
-                class="flex min-h-24 w-full items-start rounded-lg border border-dashed border-white/[0.08] px-4 py-3 text-left text-sm text-slate-600 transition hover:border-white/[0.14] hover:bg-white/[0.025] hover:text-slate-400"
-                @click="startEditingDescription"
-              >
-                Add description...
-              </button>
-              <div v-else class="prose prose-invert max-w-none rounded-lg border border-transparent py-1 text-sm leading-6 text-slate-300">
-                <JiraAdfRenderer v-if="ticket.descriptionAdf?.content?.length" :nodes="ticket.descriptionAdf.content" />
-                <div v-else class="whitespace-pre-wrap">
-                  {{ ticket.description }}
                 </div>
               </div>
             </section>
@@ -1910,15 +2018,5 @@ async function submitMessage() {
       </div>
     </div>
 
-    <AiDescriptionModal
-      :open="showAiModal"
-      :current-description="ticket?.description ?? ''"
-      :current-description-adf="ticket?.descriptionAdf ?? null"
-      :ticket-key="ticket?.key ?? ''"
-      :ticket-title="ticket?.summary ?? ''"
-      :is-saving="anyDescriptionPending"
-      @close="showAiModal = false"
-      @confirm="handleAiDescriptionConfirm"
-    />
   </div>
 </template>

@@ -62,17 +62,17 @@ const listGroupingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.grou
 const listOrderingDirection = useLocalStorage<'asc' | 'desc'>('jira2.linear.orderingDirection', 'asc')
 const issueGroupOrders = useLocalStorage<IssueGroupConfigMap>('jira2.linear.issueGroupOrders', {})
 const hiddenIssueGroupIds = useLocalStorage<IssueGroupConfigMap>('jira2.linear.hiddenIssueGroupIds', {})
-const completedRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.completedRange', 'all')
+const completedRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.completedRange', 'hidden')
 const showSubIssueContext = useLocalStorage('jira2.linear.showSubIssueContext', true)
-const showSubIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showSubIssuesRange', 'all')
-const showTriageIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showTriageIssuesRange', 'all')
+const showSubIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showSubIssuesRange', 'hidden')
+const showTriageIssuesRange = useLocalStorage<IssueVisibilityRange>('jira2.linear.showTriageIssuesRange', 'hidden')
 const showSubIssues = computed({
   get: () => showSubIssuesRange.value !== 'hidden',
   set: (value: boolean) => {
     showSubIssuesRange.value = value ? 'all' : 'hidden'
   },
 })
-const showTriageAndBacklogIssues = computed({
+const showBacklogIssues = computed({
   get: () => showTriageIssuesRange.value !== 'hidden',
   set: (value: boolean) => {
     showTriageIssuesRange.value = value ? 'all' : 'hidden'
@@ -412,6 +412,23 @@ interface ViewFilterClause {
   valueLabel: string
 }
 
+type IssueInclusionFilterId = 'completed' | 'subIssues' | 'backlog'
+type ActiveFilterChip =
+  | {
+      kind: 'clause'
+      id: string
+      filterId: string
+      fieldLabel: string
+      valueLabel: string
+    }
+  | {
+      kind: 'inclusion'
+      id: string
+      inclusionId: IssueInclusionFilterId
+      fieldLabel: string
+      valueLabel: string
+    }
+
 function getDefaultViewDisplay(): CustomViewDisplay {
   return {
     grouping: 'none',
@@ -419,7 +436,7 @@ function getDefaultViewDisplay(): CustomViewDisplay {
     ordering: 'manual',
     groupingDirection: 'asc',
     orderingDirection: 'asc',
-    completedRange: 'all',
+    completedRange: 'hidden',
     showSubIssueContext: true,
     showSubIssuesRange: 'hidden',
     showTriageIssuesRange: 'hidden',
@@ -868,13 +885,10 @@ function getDefaultDisplayForView(viewId: string): CustomViewDisplay {
 
   const display = getDefaultViewDisplay()
   const [, , section] = viewId.split(':')
-  const nextDisplay: CustomViewDisplay = isMyIssuesView(viewId) || section === 'all'
-    ? { ...display, completedRange: 'day' }
-    : display
 
   return section === 'backlog' || section === 'triage'
-    ? { ...nextDisplay, showTriageIssuesRange: 'all' }
-    : nextDisplay
+    ? { ...display, showTriageIssuesRange: 'all' }
+    : display
 }
 
 function copyCustomView(view: CustomView): CustomView {
@@ -1044,7 +1058,7 @@ const projectTicketKeySet = computed(() => {
   return keys
 })
 const issueTickets = computed(() => enabledTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)))
-const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
+const backlogTickets = computed(() => issueTickets.value.filter(isBacklogIssueTicket))
 const currentUserName = computed(() => jiraMeQuery.data.value?.displayName.trim() ?? '')
 const selectedTicket = computed(() => (
   selectedKey.value ? tickets.value.find(ticket => ticket.key === selectedKey.value) ?? null : null
@@ -1283,7 +1297,7 @@ const viewTabs = computed<ViewTab[]>(() => {
 
 const scopedTickets = computed(() => {
   if (activeBaseViewId.value === 'inbox') {
-    return triageTickets.value
+    return backlogTickets.value
   }
 
   if (activeBaseViewId.value === 'ready-qa') {
@@ -1325,11 +1339,58 @@ const hasIssueInclusionFilters = computed(() => {
     return false
   }
 
-  return completedRange.value !== 'all'
-    || showSubIssuesRange.value === 'hidden'
-    || showTriageIssuesRange.value === 'hidden'
+  const defaults = getDefaultDisplayForView(currentView.value)
+  return completedRange.value !== defaults.completedRange
+    || showSubIssuesRange.value !== defaults.showSubIssuesRange
+    || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
 })
 const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0 || hasIssueInclusionFilters.value)
+const activeFilterChips = computed<ActiveFilterChip[]>(() => {
+  const chips: ActiveFilterChip[] = currentViewFilters.value.map((filter): ActiveFilterChip => ({
+    kind: 'clause',
+    id: filter.id,
+    filterId: filter.id,
+    fieldLabel: filter.fieldLabel,
+    valueLabel: filter.valueLabel,
+  }))
+
+  if (!isIssueDisplayView.value) {
+    return chips
+  }
+
+  const defaults = getDefaultDisplayForView(currentView.value)
+  if (completedRange.value !== defaults.completedRange) {
+    chips.push({
+      kind: 'inclusion',
+      id: 'issue-inclusion:completed',
+      inclusionId: 'completed',
+      fieldLabel: 'Completed issues',
+      valueLabel: getIssueVisibilityRangeLabel(completedRange.value),
+    })
+  }
+
+  if (showSubIssuesRange.value !== defaults.showSubIssuesRange) {
+    chips.push({
+      kind: 'inclusion',
+      id: 'issue-inclusion:sub-issues',
+      inclusionId: 'subIssues',
+      fieldLabel: 'Sub-issues',
+      valueLabel: getIssueVisibilityRangeLabel(showSubIssuesRange.value),
+    })
+  }
+
+  if (showTriageIssuesRange.value !== defaults.showTriageIssuesRange) {
+    chips.push({
+      kind: 'inclusion',
+      id: 'issue-inclusion:backlog',
+      inclusionId: 'backlog',
+      fieldLabel: 'Backlog',
+      valueLabel: getIssueVisibilityRangeLabel(showTriageIssuesRange.value),
+    })
+  }
+
+  return chips
+})
 const hasModifiedFilterOptions = computed(() => {
   const defaults = getDefaultDisplayForView(currentView.value)
 
@@ -1615,7 +1676,7 @@ const inboxArchivedKeySet = computed(() => new Set(inboxArchivedKeys.value))
 const inboxReadKeySet = computed(() => new Set(inboxReadKeys.value))
 
 const inboxItems = computed<InboxItem[]>(() => (
-  sortTicketsByActivity(applyViewFiltersToTickets(triageTickets.value))
+  sortTicketsByActivity(applyViewFiltersToTickets(backlogTickets.value))
     .filter(ticket => !inboxArchivedKeySet.value.has(ticket.key))
     .slice(0, 100)
     .map(ticket => ({
@@ -1934,7 +1995,7 @@ function hasKnownFilterFieldId(filter: FavoriteViewFilter): filter is FavoriteVi
 }
 
 function getTeamSectionLabel(section: string | undefined): string {
-  if (section === 'triage') return 'Triage'
+  if (section === 'triage') return 'Backlog'
   if (section === 'all') return 'All issues'
   if (section === 'backlog') return 'Backlog'
   if (section === 'projects') return 'Projects'
@@ -2017,12 +2078,12 @@ const navigationCommands = computed<CommandMenuItem[]>(() => {
       execute: () => handleViewChange(`team:${space.key}:active`),
     },
     {
-      id: `team:${space.key}:triage`,
-      label: `${space.name || space.key} triage`,
-      description: `Open triage for ${space.key}`,
+      id: `team:${space.key}:backlog`,
+      label: `${space.name || space.key} backlog`,
+      description: `Open backlog for ${space.key}`,
       section: 'Teams',
       icon: space.key.slice(0, 1).toUpperCase(),
-      execute: () => handleViewChange(`team:${space.key}:triage`),
+      execute: () => handleViewChange(`team:${space.key}:backlog`),
     },
     {
       id: `team:${space.key}:projects`,
@@ -2362,15 +2423,15 @@ function filterTicketsForCurrentView(nextTickets: JiraTicket[]): JiraTicket[] {
     isTicketInCurrentTeamSection(ticket)
     && isCompletedIssueVisible(ticket)
     && isSubIssueVisible(ticket)
-    && isTriageIssueVisible(ticket)
+    && isBacklogIssueVisible(ticket)
   ))
 }
 
 function isTicketInCurrentTeamSection(ticket: JiraTicket): boolean {
   const section = currentTeamSection.value
   if (section === null) return true
-  if (section === 'active' || !section) return isActiveIssueTicket(ticket)
-  if (section === 'triage') return getStatusGroup(ticket.statusCategory) === 'new'
+  if (section === 'active' || !section) return true
+  if (section === 'triage') return isBacklogIssueTicket(ticket)
   if (section === 'backlog') return isBacklogIssueTicket(ticket)
   return true
 }
@@ -2380,7 +2441,7 @@ function isBacklogIssueTicket(ticket: JiraTicket): boolean {
 }
 
 function isActiveIssueTicket(ticket: JiraTicket): boolean {
-  return getStatusGroup(ticket.statusCategory) !== 'done' && !isBacklogIssueTicket(ticket)
+  return getStatusGroup(ticket.statusCategory) !== 'done'
 }
 
 function isCompletedIssueVisible(ticket: JiraTicket): boolean {
@@ -2393,12 +2454,8 @@ function isSubIssueTicket(ticket: JiraTicket): boolean {
   return Boolean(parentIssueType && !parentIssueType.includes('epic'))
 }
 
-function getIssueRowKey(ticket: JiraTicket): string {
-  return isSubIssueTicket(ticket) && ticket.parent?.key ? ticket.parent.key : ticket.key
-}
-
 function getDisplayedIssueRowKey(ticket: JiraTicket): string {
-  return showSubIssueContext.value ? getIssueRowKey(ticket) : ticket.key
+  return ticket.key
 }
 
 function hideSubIssuesWithVisibleParents(nextTickets: JiraTicket[]): JiraTicket[] {
@@ -2411,12 +2468,8 @@ function isSubIssueVisible(ticket: JiraTicket): boolean {
   return isDateVisibleInRange(showSubIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
 }
 
-function isTriageOrBacklogIssueTicket(ticket: JiraTicket): boolean {
-  return getStatusGroup(ticket.statusCategory) === 'new' || isBacklogIssueTicket(ticket)
-}
-
-function isTriageIssueVisible(ticket: JiraTicket): boolean {
-  if (!isTriageOrBacklogIssueTicket(ticket)) return true
+function isBacklogIssueVisible(ticket: JiraTicket): boolean {
+  if (!isBacklogIssueTicket(ticket)) return true
   return isDateVisibleInRange(showTriageIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
 }
 
@@ -2795,6 +2848,10 @@ function getSavedViewFilterOptions(fieldId: FilterFieldId): FilterOption[] {
   return []
 }
 
+function getIssueVisibilityRangeLabel(range: IssueVisibilityRange): string {
+  return issueVisibilityRangeOptions.find(option => option.id === range)?.label ?? range
+}
+
 function countFilterOptions(entries: Array<{ value: string, label: string, icon: string }>): FilterOption[] {
   const optionMap = new Map<string, FilterOption>()
   for (const entry of entries) {
@@ -3157,6 +3214,26 @@ function removeFilterClause(filterId: string) {
     ...savedViewFilters.value,
     [currentView.value]: currentViewFilters.value.filter(filter => filter.id !== filterId),
   }
+}
+
+function removeActiveFilterChip(chip: ActiveFilterChip): void {
+  if (chip.kind === 'clause') {
+    removeFilterClause(chip.filterId)
+    return
+  }
+
+  const defaults = getDefaultDisplayForView(currentView.value)
+  if (chip.inclusionId === 'completed') {
+    completedRange.value = normalizeIssueVisibilityRange(defaults.completedRange)
+    return
+  }
+
+  if (chip.inclusionId === 'subIssues') {
+    showSubIssuesRange.value = normalizeIssueVisibilityRange(defaults.showSubIssuesRange)
+    return
+  }
+
+  showTriageIssuesRange.value = normalizeIssueVisibilityRange(defaults.showTriageIssuesRange)
 }
 
 function clearCurrentViewFilters() {
@@ -4711,17 +4788,17 @@ onBeforeUnmount(() => {
                     type="button"
                     class="flex w-full items-center justify-between gap-4 rounded-md py-1.5 text-left transition hover:bg-white/[0.025]"
                     role="switch"
-                    :aria-checked="showTriageAndBacklogIssues"
-                    @click="showTriageAndBacklogIssues = !showTriageAndBacklogIssues"
+                    :aria-checked="showBacklogIssues"
+                    @click="showBacklogIssues = !showBacklogIssues"
                   >
-                    <span class="text-[12px] text-[#aeb0b7]">Show triage (backlog)</span>
+                    <span class="text-[12px] text-[#aeb0b7]">Show backlog</span>
                     <span
                       class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
-                      :class="showTriageAndBacklogIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                      :class="showBacklogIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
                     >
                       <span
                         class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
-                        :class="showTriageAndBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
+                        :class="showBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
                       ></span>
                     </span>
                   </button>
@@ -5257,12 +5334,12 @@ onBeforeUnmount(() => {
         />
 
         <div
-          v-if="!selectedTicket && currentViewFilters.length"
+          v-if="!selectedTicket && activeFilterChips.length"
           class="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2"
         >
           <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
             <span
-              v-for="filter in currentViewFilters"
+              v-for="filter in activeFilterChips"
               :key="filter.id"
               class="inline-flex h-7 max-w-[18rem] items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.045] px-2 text-[12px] text-[#d7d8dc]"
             >
@@ -5273,7 +5350,7 @@ onBeforeUnmount(() => {
                 type="button"
                 class="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-[#777a83] hover:bg-white/[0.08] hover:text-[#f0f1f4]"
                 :aria-label="`Remove ${filter.fieldLabel} filter`"
-                @click="removeFilterClause(filter.id)"
+                @click="removeActiveFilterChip(filter)"
               >
                 ×
               </button>
@@ -5364,7 +5441,7 @@ onBeforeUnmount(() => {
                 <IssueRow
                   v-for="ticket in searchedTickets.slice(0, 12)"
                   :key="getDisplayedIssueRowKey(ticket)"
-                  :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
+                  :ticket="ticket"
                   :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
                   :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"
@@ -5445,7 +5522,7 @@ onBeforeUnmount(() => {
                 <IssueRow
                   v-for="ticket in searchedTickets"
                   :key="getDisplayedIssueRowKey(ticket)"
-                  :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
+                  :ticket="ticket"
                   :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
                   :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"
@@ -5599,7 +5676,7 @@ onBeforeUnmount(() => {
             <div v-else class="flex h-full min-h-80 items-center justify-center px-8 text-center">
               <div class="max-w-sm">
                 <p class="text-[13px] font-medium text-[#d7d8dc]">Inbox is clear</p>
-                <p class="mt-1 text-[12px] text-[#777a83]">New triage issues will appear here.</p>
+                <p class="mt-1 text-[12px] text-[#777a83]">Backlog issues will appear here.</p>
               </div>
             </div>
           </div>
@@ -5893,7 +5970,7 @@ onBeforeUnmount(() => {
                   <IssueRow
                     v-for="ticket in section.tickets"
                     :key="getDisplayedIssueRowKey(ticket)"
-                    :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
+                    :ticket="ticket"
                     :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
                     :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                     v-bind="issueRowDisplayProps"
@@ -6027,7 +6104,7 @@ onBeforeUnmount(() => {
                 <IssueRow
                   v-for="ticket in section.tickets"
                   :key="getDisplayedIssueRowKey(ticket)"
-                  :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
+                  :ticket="ticket"
                   :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
                   :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"

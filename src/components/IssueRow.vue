@@ -78,14 +78,8 @@ const visibleLabels = computed(() => {
 const displayedLabels = computed(() => visibleLabels.value.slice(0, MAX_VISIBLE_LABELS))
 const hiddenLabelCount = computed(() => Math.max(0, visibleLabels.value.length - displayedLabels.value.length))
 const hiddenLabelSummary = computed(() => visibleLabels.value.slice(MAX_VISIBLE_LABELS).join(', '))
-const parentContext = computed(() => {
-  const parent = props.ticket.parent
-  if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
-  return parent
-})
-const rowIssueKey = computed(() => parentContext.value?.key ?? props.ticket.key)
-const rowPrimarySummary = computed(() => parentContext.value?.summary ?? props.ticket.summary)
-const rowContextSummary = computed(() => parentContext.value ? props.ticket.summary : '')
+const rowIssueKey = computed(() => props.ticket.key)
+const rowPrimarySummary = computed(() => props.ticket.summary)
 
 const rowGridTemplate = computed(() => {
   const columns = ['18px']
@@ -147,7 +141,6 @@ function formatDate(value: string | undefined): string {
 
     <span class="min-w-0 truncate">
       <span class="font-medium">{{ rowPrimarySummary }}</span>
-      <span v-if="rowContextSummary" class="ml-2 text-[#6f727b]">› {{ rowContextSummary }}</span>
     </span>
 
     <span v-if="showLabels !== false && visibleLabels.length > 0" class="hidden max-w-[28rem] flex-wrap items-center justify-end gap-1 md:flex">

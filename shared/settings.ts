@@ -347,7 +347,7 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
     ordering: 'manual',
     groupingDirection: 'asc',
     orderingDirection: 'asc',
-    completedRange: 'all',
+    completedRange: 'hidden',
     showSubIssueContext: true,
     showSubIssuesRange: 'hidden',
     showTriageIssuesRange: 'hidden',

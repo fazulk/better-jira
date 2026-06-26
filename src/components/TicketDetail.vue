@@ -1340,19 +1340,21 @@ async function submitMessage() {
             <header class="mb-6 pb-5">
               <div class="mb-5">
                 <div class="space-y-2">
-                  <textarea
-                    id="detail-title"
-                    ref="titleInputRef"
-                    v-model="titleDraft"
-                    class="block min-h-[2.25rem] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[28px] font-semibold leading-tight text-slate-100 outline-none placeholder:text-slate-700"
-                    maxlength="255"
-                    rows="1"
-                    placeholder="Issue title"
-                    @focusin="handleTitleFocusIn"
-                    @focusout="handleTitleFocusOut"
-                    @keydown.enter.prevent="blurTitleInput"
-                    @keydown.esc.prevent="blurTitleInput"
-                  />
+                  <div class="group/title flex items-start gap-3">
+                    <textarea
+                      id="detail-title"
+                      ref="titleInputRef"
+                      v-model="titleDraft"
+                      class="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 !text-[28px] !font-semibold !leading-tight text-slate-100 outline-none appearance-none placeholder:text-slate-700"
+                      maxlength="255"
+                      rows="1"
+                      placeholder="Issue title"
+                      @focusin="handleTitleFocusIn"
+                      @focusout="handleTitleFocusOut"
+                      @keydown.enter.prevent="blurTitleInput"
+                      @keydown.esc.prevent="blurTitleInput"
+                    />
+                  </div>
                   <span v-if="titleError" class="text-xs text-rose-300">{{ titleError }}</span>
                 </div>
                 <div v-if="detailIssueParent" class="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">

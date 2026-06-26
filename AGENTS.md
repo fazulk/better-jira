@@ -4,5 +4,4 @@ The role of this file is to describe common mistakes and confusion points that a
 
 - No `any` types - Do not use `any` or `as any` casting
 - Avoid using `as` for type assertions, instead use more specific types or interfaces to ensure type safety.
-- Don't run type-check or tests until the work is complete first, also verify with the dev that work is complete and to run those.
 - Client-side API requests should go through Vue Query (`useQuery`, `useMutation`, or `queryClient` query helpers) rather than ad hoc component-level `fetch` calls. If a request intentionally bypasses Vue Query, document why in the change.

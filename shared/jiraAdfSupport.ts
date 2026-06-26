@@ -18,6 +18,7 @@ const SUPPORTED_NODE_TYPES = new Set([
   'media',
   'mediaSingle',
   'mediaGroup',
+  'mention',
   'hardBreak',
   'text',
 ])
@@ -60,6 +61,10 @@ function isSupportedNode(node: JiraAdfNode): boolean {
   if (node.marks && !node.marks.every(isSupportedMark))
     return false
 
+  if (node.type === 'mention') {
+    return typeof node.attrs?.id === 'string' && node.attrs.id.length > 0
+  }
+
   if (node.type === 'media') {
     if (node.attrs?.type === 'external') {
       return typeof node.attrs.url === 'string' && node.attrs.url.length > 0
@@ -86,6 +91,61 @@ export function isSupportedEditorAdf(doc: JiraAdfDocument | null | undefined): b
   if (!isJiraAdfDocument(doc))
     return false
   return doc.content.every(isSupportedNode)
+}
+
+function supportedMarks(marks: JiraAdfMark[] | undefined): JiraAdfMark[] | undefined {
+  const filteredMarks = marks?.filter(isSupportedMark) ?? []
+  return filteredMarks.length ? filteredMarks : undefined
+}
+
+function isSupportedMediaNode(node: JiraAdfNode): boolean {
+  if (node.attrs?.type === 'external') {
+    return typeof node.attrs.url === 'string' && node.attrs.url.length > 0
+  }
+
+  return typeof node.attrs?.id === 'string'
+    && node.attrs.id.length > 0
+    && typeof node.attrs.type === 'string'
+    && node.attrs.type.length > 0
+}
+
+function simplifyNodeForEditor(node: JiraAdfNode): JiraAdfNode[] {
+  if (typeof node.type !== 'string' || !SUPPORTED_NODE_TYPES.has(node.type)) {
+    return node.content?.flatMap(simplifyNodeForEditor) ?? []
+  }
+
+  if (node.type === 'media' && !isSupportedMediaNode(node)) {
+    return []
+  }
+
+  if (node.type === 'mention' && (typeof node.attrs?.id !== 'string' || !node.attrs.id)) {
+    return []
+  }
+
+  const simplifiedNode: JiraAdfNode = { type: node.type }
+
+  if (typeof node.text === 'string')
+    simplifiedNode.text = node.text
+  if (node.attrs)
+    simplifiedNode.attrs = { ...node.attrs }
+
+  const marks = supportedMarks(node.marks)
+  if (marks)
+    simplifiedNode.marks = marks
+
+  const content = node.content?.flatMap(simplifyNodeForEditor) ?? []
+  if (content.length)
+    simplifiedNode.content = content
+
+  return [simplifiedNode]
+}
+
+export function simplifyUnsupportedAdfForEditor(doc: JiraAdfDocument): JiraAdfDocument {
+  return normalizeAdf({
+    type: 'doc',
+    version: 1,
+    content: doc.content.flatMap(simplifyNodeForEditor),
+  }) ?? { type: 'doc', version: 1, content: [] }
 }
 
 export function coerceDescriptionToAdf(

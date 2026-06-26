@@ -43,6 +43,14 @@
   text-underline-offset: 3px;
 }
 
+.jira-description-editor .ProseMirror .jira-description-mention {
+  border-radius: 0.375rem;
+  background: rgba(111, 115, 255, 0.12);
+  padding: 0.0625rem 0.25rem;
+  color: #cbd5ff;
+  white-space: nowrap;
+}
+
 .jira-description-editor .ProseMirror li {
   display: list-item;
 }

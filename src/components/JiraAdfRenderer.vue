@@ -128,6 +128,19 @@ function textParts(text: string | undefined): string[] {
   return text.split('\n')
 }
 
+function mentionText(node: JiraAdfNode): string {
+  const text = nodeAttrString(node, 'text')
+  if (text)
+    return text
+
+  const id = nodeAttrString(node, 'id')
+  return id ? `@${id}` : ''
+}
+
+function mentionNodeClass(): string {
+  return 'rounded-md bg-accent-indigo/10 px-1 py-0.5 text-[#cbd5ff]'
+}
+
 function hasMark(node: JiraAdfNode, type: string): boolean {
   return node.marks?.some(mark => mark.type === type) ?? false
 }
@@ -186,6 +199,7 @@ function headingClass(node: JiraAdfNode): string {
               <span>{{ part }}</span>
             </template>
           </component>
+          <span v-else-if="child.type === 'mention'" :class="mentionNodeClass()">{{ mentionText(child) }}</span>
           <JiraAdfRenderer
             v-else
             :nodes="[child]"
@@ -213,6 +227,7 @@ function headingClass(node: JiraAdfNode): string {
               <span>{{ part }}</span>
             </template>
           </component>
+          <span v-else-if="child.type === 'mention'" :class="mentionNodeClass()">{{ mentionText(child) }}</span>
           <JiraAdfRenderer
             v-else
             :nodes="[child]"

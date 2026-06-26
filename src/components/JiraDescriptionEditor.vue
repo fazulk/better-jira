@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { JiraAdfDocument, JiraAttachment } from '@/types/jira'
+import { mergeAttributes, Node as TiptapNode } from '@tiptap/core'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
@@ -39,6 +40,40 @@ const mediaContext = {
 }
 const [JiraMedia, JiraMediaSingle, JiraMediaGroup] = createJiraMediaExtensions(mediaContext)
 const resolveMediaSrc = (attrs: Record<string, unknown> | undefined) => mediaImageSrc(attrs, mediaContext)
+const JiraMention = TiptapNode.create({
+  name: 'mention',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: false,
+  addAttributes() {
+    return {
+      accessLevel: { default: null },
+      id: { default: null },
+      text: { default: null },
+      userType: { default: null },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-jira-mention]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const text = typeof HTMLAttributes.text === 'string' && HTMLAttributes.text.length > 0
+      ? HTMLAttributes.text
+      : typeof HTMLAttributes.id === 'string' && HTMLAttributes.id.length > 0
+        ? `@${HTMLAttributes.id}`
+        : ''
+
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        'class': 'jira-description-mention',
+        'data-jira-mention': '',
+      }),
+      text,
+    ]
+  },
+})
 
 const editorTick = ref(0)
 const linkMenuOpen = ref(false)
@@ -96,6 +131,7 @@ const editor = useEditor({
       defaultProtocol: 'https',
     }),
     Underline,
+    JiraMention,
     JiraMedia,
     JiraMediaSingle,
     JiraMediaGroup,

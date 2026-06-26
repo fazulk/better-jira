@@ -49,6 +49,21 @@ function normalizePrimitiveAttrs(attrs: Record<string, unknown> | undefined): Re
   return Object.keys(normalizedAttrs).length ? normalizedAttrs : undefined
 }
 
+function normalizeMentionAttrs(attrs: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!attrs)
+    return undefined
+
+  const normalizedAttrs: Record<string, unknown> = {}
+  for (const key of ['accessLevel', 'id', 'text', 'userType']) {
+    const value = attrs[key]
+    if (typeof value === 'string' && value.length > 0) {
+      normalizedAttrs[key] = value
+    }
+  }
+
+  return Object.keys(normalizedAttrs).length ? normalizedAttrs : undefined
+}
+
 function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefined {
   if (node.type === 'heading') {
     const level = node.attrs?.level
@@ -70,6 +85,10 @@ function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
     return normalizePrimitiveAttrs(node.attrs)
   }
 
+  if (node.type === 'mention') {
+    return normalizeMentionAttrs(node.attrs)
+  }
+
   return undefined
 }
 
@@ -80,6 +99,18 @@ function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
 
   if (type === 'hardBreak') {
     return { type: 'hardBreak' }
+  }
+
+  if (type === 'mention') {
+    const normalizedAttrs = normalizeNodeAttrs(node)
+    const id = normalizedAttrs?.id
+    if (typeof id !== 'string' || !id)
+      return null
+
+    return {
+      type: 'mention',
+      attrs: normalizedAttrs,
+    }
   }
 
   if (type === 'text') {

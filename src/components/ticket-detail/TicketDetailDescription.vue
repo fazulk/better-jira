@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import type { JiraAdfDocument, JiraAdfNode, JiraAttachment, JiraTicket } from '@/types/jira'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import JiraAdfRenderer from '@/components/JiraAdfRenderer.vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
 import { useUpdateLocalTicketDescription } from '@/composables/useUpdateLocalTicketDescription'
 import { useUpdateTicketDescription } from '@/composables/useUpdateTicketDescription'
 import { useUploadTicketAttachment } from '@/composables/useUploadTicketAttachment'
-import { coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
+import { coerceDescriptionToAdf, isSupportedEditorAdf, simplifyUnsupportedAdfForEditor } from '~/shared/jiraAdf'
 import { isLocalTicketKey } from '~/shared/localTickets'
 
 const props = defineProps<{
@@ -52,8 +51,11 @@ function hasUnsupportedEditorContent(nextTicket: JiraTicket | null): boolean {
 function getEditableDescriptionAdf(nextTicket: JiraTicket | null): JiraAdfDocument | null {
   if (!nextTicket)
     return null
-  const descriptionAdf = hasUnsupportedEditorContent(nextTicket) ? undefined : nextTicket.descriptionAdf
-  return coerceDescriptionToAdf(nextTicket.description, descriptionAdf)
+  if (nextTicket.descriptionAdf && hasUnsupportedEditorContent(nextTicket)) {
+    return simplifyUnsupportedAdfForEditor(nextTicket.descriptionAdf)
+  }
+
+  return coerceDescriptionToAdf(nextTicket.description, nextTicket.descriptionAdf)
 }
 
 function adfSignature(doc: JiraAdfDocument | null): string {
@@ -224,6 +226,8 @@ async function flushDescriptionAutosave(): Promise<void> {
 watch(() => props.ticket, (nextTicket) => {
   const ticketChanged = nextTicket.key !== descriptionDraftTicketKey.value
   if (ticketChanged) {
+    descriptionEditorRef.value?.blurEditor()
+    descriptionEditorActive.value = false
     void flushDescriptionAutosave()
     syncDescriptionDraftFromTicket(nextTicket)
   }
@@ -310,24 +314,7 @@ defineExpose({
         >
           {{ descriptionSaveMessage }}
         </span>
-        <div
-          v-if="descriptionHasUnsupportedContent && !descriptionEditorActive && ticket.descriptionAdf"
-          role="button"
-          tabindex="0"
-          class="cursor-text rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-white/[0.12]"
-          @click="focusDescriptionEditor"
-          @keydown.enter.prevent="focusDescriptionEditor"
-          @keydown.space.prevent="focusDescriptionEditor"
-        >
-          <JiraAdfRenderer
-            :nodes="ticket.descriptionAdf.content"
-            :attachments="ticket.attachments"
-            :ticket-key="ticket.key"
-            @preview-image="emit('previewImage', $event)"
-          />
-        </div>
         <JiraDescriptionEditor
-          v-else
           ref="descriptionEditorRef"
           v-model="descriptionDraft"
           :attachments="ticket.attachments"

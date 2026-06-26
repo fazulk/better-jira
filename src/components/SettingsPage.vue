@@ -61,8 +61,6 @@ const editingPreset = ref<AiInstructionPresetDraft>({
 })
 
 type SettingsSectionId =
-  | 'account'
-  | 'preferences'
   | 'workspace'
   | 'ai'
   | 'instructions'
@@ -116,13 +114,6 @@ interface TeamMemberSettingsRow {
 const activeSettingsSection = ref<SettingsSectionId>('workspace')
 
 const settingsNavigationGroups: SettingsNavigationGroup[] = [
-  {
-    label: 'Personal',
-    items: [
-      { id: 'account', label: 'Account', description: 'Profile and identity' },
-      { id: 'preferences', label: 'Preferences', description: 'Theme and interface defaults' },
-    ],
-  },
   {
     label: 'Workspace',
     items: [
@@ -657,66 +648,6 @@ onBeforeUnmount(() => {
       </aside>
 
       <main class="min-w-0 overflow-y-auto px-5 py-8 lg:px-10">
-        <section v-show="activeSettingsSection === 'account'" class="mx-auto max-w-3xl space-y-5">
-          <div>
-            <h2 class="text-xl font-semibold text-slate-100">Account</h2>
-            <p class="mt-1 text-sm text-slate-500">Local identity used across this workspace.</p>
-          </div>
-
-          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
-            <div class="flex items-center gap-4 border-b border-white/[0.06] px-4 py-4">
-              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-indigo/[0.18] text-sm font-semibold text-slate-100">
-                {{ jiraConnection.email ? jiraConnection.email.slice(0, 2).toUpperCase() : 'BJ' }}
-              </div>
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-slate-100">{{ jiraConnection.email || 'No Jira email saved' }}</p>
-                <p class="mt-0.5 text-xs text-slate-500">{{ jiraConnection.baseUrl || 'Jira workspace not connected' }}</p>
-              </div>
-            </div>
-            <div class="divide-y divide-white/[0.06]">
-              <div class="grid gap-1 px-4 py-3 md:grid-cols-[10rem_minmax(0,1fr)]">
-                <p class="text-sm text-slate-400">Profile source</p>
-                <p class="text-sm text-slate-200">Jira connection</p>
-              </div>
-              <div class="grid gap-1 px-4 py-3 md:grid-cols-[10rem_minmax(0,1fr)]">
-                <p class="text-sm text-slate-400">Workspace role</p>
-                <p class="text-sm text-slate-200">Local administrator</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-show="activeSettingsSection === 'preferences'" class="mx-auto max-w-3xl space-y-5">
-          <div>
-            <h2 class="text-xl font-semibold text-slate-100">Preferences</h2>
-            <p class="mt-1 text-sm text-slate-500">Interface defaults aligned with the Linear workspace shell.</p>
-          </div>
-
-          <div class="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
-            <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
-              <div>
-                <p class="text-sm font-medium text-slate-200">Theme</p>
-                <p class="mt-0.5 text-xs text-slate-500">Dark</p>
-              </div>
-              <span class="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-500">System locked</span>
-            </div>
-            <div class="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
-              <div>
-                <p class="text-sm font-medium text-slate-200">Default view</p>
-                <p class="mt-0.5 text-xs text-slate-500">My issues</p>
-              </div>
-              <span class="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-500">Local</span>
-            </div>
-            <div class="flex items-center justify-between gap-4 px-4 py-3">
-              <div>
-                <p class="text-sm font-medium text-slate-200">Command menu</p>
-                <p class="mt-0.5 text-xs text-slate-500">Global navigation and issue actions</p>
-              </div>
-              <span class="rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-xs text-slate-300">Enabled</span>
-            </div>
-          </div>
-        </section>
-
         <section v-show="activeSettingsSection === 'ai'" class="mx-auto max-w-3xl space-y-5">
         <div>
           <h2 class="text-xl font-semibold text-slate-100">AI provider</h2>

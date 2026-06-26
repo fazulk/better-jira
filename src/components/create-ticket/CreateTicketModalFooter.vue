@@ -7,9 +7,9 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  attachment: []
-  close: []
-  submit: []
+  'attachment': []
+  'close': []
+  'submit': []
   'update:createMore': [value: boolean]
 }>()
 

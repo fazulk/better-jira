@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import type { JiraTicket } from '@/types/jira'
+import { computed, ref } from 'vue'
 import TicketDetailPropertiesSection from '@/components/ticket-detail/TicketDetailPropertiesSection.vue'
 
 const props = defineProps<{
@@ -32,7 +32,8 @@ const detailJiraTypeLabel = computed(() => (
 ))
 const detailProjectParent = computed(() => {
   const parent = props.ticket.parent
-  if (!parent || !parent.issueType.toLowerCase().includes('epic')) return null
+  if (!parent || !parent.issueType.toLowerCase().includes('epic'))
+    return null
   return parent
 })
 const detailProjectParentLabel = computed(() => detailProjectParent.value?.summary ?? '')
@@ -42,7 +43,8 @@ const detailLabels = computed(() => {
   for (const label of props.ticket.labels ?? []) {
     const trimmed = label.trim()
     const normalized = trimmed.toLowerCase()
-    if (!trimmed || seen.has(normalized)) continue
+    if (!trimmed || seen.has(normalized))
+      continue
     seen.add(normalized)
     labels.push(trimmed)
   }

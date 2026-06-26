@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { TextBlock } from '@anthropic-ai/sdk/resources/messages'
 import type { ProviderPrompt } from './openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 function isTextBlock(block: Anthropic.Messages.ContentBlock): block is TextBlock {
   return block.type === 'text'
@@ -21,7 +21,7 @@ export async function generateWithAnthropic(apiKey: string, prompt: ProviderProm
 
   return response.content
     .filter(isTextBlock)
-    .map((block) => block.text)
+    .map(block => block.text)
     .join('\n')
     .trim()
 }

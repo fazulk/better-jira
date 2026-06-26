@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
 import IssueRow from '../IssueRow.vue'
-import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 
 export default defineComponent({
   components: { IssueRow },
@@ -25,7 +25,7 @@ export default defineComponent({
           type="search"
           class="min-w-0 flex-1 bg-transparent text-[13px] text-[#e6e7ea] outline-none placeholder:text-[#6f727b]"
           placeholder="Search issues, projects, initiatives..."
-        />
+        >
         <button
           v-if="issueSearch"
           type="button"
@@ -103,9 +103,7 @@ export default defineComponent({
                 />
                 <span class="truncate">{{ project.name }}</span>
               </span>
-              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]"
-                >{{ project.key }} · {{ project.spaceName }}</span
-              >
+              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
             </span>
             <span>
               <span
@@ -160,7 +158,9 @@ export default defineComponent({
           class="flex min-h-80 items-center justify-center px-6 text-center"
         >
           <div class="max-w-sm">
-            <p class="text-[13px] font-medium text-[#d7d8dc]">No results found</p>
+            <p class="text-[13px] font-medium text-[#d7d8dc]">
+              No results found
+            </p>
             <p class="mt-1 text-[12px] text-[#777a83]">
               Try a different issue key, title, owner, status, or team.
             </p>
@@ -205,9 +205,7 @@ export default defineComponent({
                 />
                 <span class="truncate">{{ project.name }}</span>
               </span>
-              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]"
-                >{{ project.key }} · {{ project.spaceName }}</span
-              >
+              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
             </span>
             <span>
               <span
@@ -256,9 +254,9 @@ export default defineComponent({
 
       <div
         v-if="
-          searchResultTab === 'documents' ||
-          (searchResultTab !== 'all' &&
-            searchTabs.find((tab) => tab.id === searchResultTab)?.count === 0)
+          searchResultTab === 'documents'
+            || (searchResultTab !== 'all'
+              && searchTabs.find((tab) => tab.id === searchResultTab)?.count === 0)
         "
         class="flex min-h-80 items-center justify-center px-6 text-center"
       >

@@ -31,7 +31,7 @@ function handleContextMenu(event: MouseEvent): void {
     title="Right-click to change label color"
     @contextmenu="handleContextMenu"
   >
-    <span v-if="showDot" class="h-2 w-2 shrink-0 rounded-full" :style="dotStyle"></span>
+    <span v-if="showDot" class="h-2 w-2 shrink-0 rounded-full" :style="dotStyle" />
     <span class="truncate">{{ label }}</span>
   </span>
 </template>

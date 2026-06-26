@@ -1,5 +1,5 @@
-import { normalizeAiInstructionValue } from './settingsNormalizers'
 import type { AiInstructionPresetSetting } from './settingsTypes'
+import { normalizeAiInstructionValue } from './settingsNormalizers'
 
 function normalizeAiInstructionPresetSetting(value: unknown): AiInstructionPresetSetting | null {
   if (typeof value !== 'object' || value === null) {

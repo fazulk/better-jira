@@ -1,5 +1,6 @@
-import { computed, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { fetchTicketGithubPrLink } from '@/api/jira'
 
 export const ticketGithubPrLinkQueryKey = (ticketKey: string | null) => ['ticket-github-pr-link', ticketKey] as const

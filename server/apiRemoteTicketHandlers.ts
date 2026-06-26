@@ -2,6 +2,16 @@ import type { H3Event } from 'h3'
 import { readBody, readMultipartFormData } from 'h3'
 import { isJiraAdfDocument } from '../shared/jiraAdf'
 import {
+  API_HEADERS,
+  badRequestResponse,
+  decodePathSegment,
+  generateAiDescriptionResponse,
+  isJiraRemoteTicketKey,
+  isRecord,
+  jiraContentResponse,
+  notFoundResponse,
+} from './apiRouteUtils'
+import {
   addTicketMessage,
   getAssignableUsers,
   getJiraAttachmentContentByFilename,
@@ -19,16 +29,6 @@ import {
   uploadTicketAttachment,
 } from './jira'
 import { getTicketGithubPrLink, updateTicketGithubPrLink } from './ticketLinks'
-import {
-  API_HEADERS,
-  badRequestResponse,
-  decodePathSegment,
-  generateAiDescriptionResponse,
-  isJiraRemoteTicketKey,
-  isRecord,
-  jiraContentResponse,
-  notFoundResponse,
-} from './apiRouteUtils'
 
 const MAX_IMAGE_ATTACHMENT_BYTES = 25 * 1024 * 1024
 
@@ -67,7 +67,8 @@ export async function handleRemoteTicketApiRoute(
     try {
       const jiraResponse = await getJiraAttachmentContentByFilename(ticketKey, filename)
       return jiraContentResponse(jiraResponse)
-    } catch {
+    }
+    catch {
       return notFoundResponse()
     }
   }
@@ -149,7 +150,8 @@ export async function handleRemoteTicketApiRoute(
     try {
       const githubPrLink = updateTicketGithubPrLink(ticketKey, githubPrUrl)
       return Response.json(githubPrLink, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid GitHub PR URL.'
       return badRequestResponse(message)
     }
@@ -174,7 +176,7 @@ export async function handleRemoteTicketApiRoute(
 
 async function uploadAttachmentResponse(event: H3Event, ticketKey: string): Promise<Response> {
   const formData = await readMultipartFormData(event)
-  const filePart = formData?.find((part) => part.name === 'file' && part.filename)
+  const filePart = formData?.find(part => part.name === 'file' && part.filename)
   if (!filePart) {
     return badRequestResponse('Image file is required.')
   }
@@ -206,7 +208,8 @@ function sanitizeUploadedFilename(filename: string | undefined, mimeType: string
         : 'png'
   const fallbackFilename = `pasted-image-${new Date().toISOString().replace(/[:.]/g, '-')}.${fallbackExtension}`
   const trimmedFilename = filename?.trim()
-  if (!trimmedFilename) return fallbackFilename
+  if (!trimmedFilename)
+    return fallbackFilename
 
   return trimmedFilename.replace(/[\\/]/g, '-').slice(0, 180) || fallbackFilename
 }

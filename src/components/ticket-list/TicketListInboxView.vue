@@ -1,7 +1,7 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+
+import { defineComponent } from 'vue'
 
 export default defineComponent({
   props: ['controller'],
@@ -22,9 +22,7 @@ export default defineComponent({
       >
         <span>
           {{ inboxItems.length }} {{ inboxItems.length === 1 ? 'notification' : 'notifications' }}
-          <span v-if="inboxUnreadCount > 0" class="text-[#aeb0b7]"
-            >· {{ inboxUnreadCount }} unread</span
-          >
+          <span v-if="inboxUnreadCount > 0" class="text-[#aeb0b7]">· {{ inboxUnreadCount }} unread</span>
         </span>
         <div class="flex items-center gap-1">
           <button
@@ -73,7 +71,7 @@ export default defineComponent({
             <span
               v-if="item.unread"
               class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6f73ff]"
-            ></span>
+            />
           </span>
 
           <span class="min-w-0">
@@ -108,8 +106,12 @@ export default defineComponent({
 
       <div v-else class="flex h-full min-h-80 items-center justify-center px-8 text-center">
         <div class="max-w-sm">
-          <p class="text-[13px] font-medium text-[#d7d8dc]">Inbox is clear</p>
-          <p class="mt-1 text-[12px] text-[#777a83]">Backlog issues will appear here.</p>
+          <p class="text-[13px] font-medium text-[#d7d8dc]">
+            Inbox is clear
+          </p>
+          <p class="mt-1 text-[12px] text-[#777a83]">
+            Backlog issues will appear here.
+          </p>
         </div>
       </div>
     </div>
@@ -191,13 +193,19 @@ export default defineComponent({
         </div>
 
         <div class="py-5">
-          <h3 class="text-[13px] font-medium text-[#f0f1f4]">{{ activeInboxItem.summary }}</h3>
-          <p class="mt-2 text-[13px] leading-6 text-[#aeb0b7]">{{ activeInboxItem.excerpt }}</p>
+          <h3 class="text-[13px] font-medium text-[#f0f1f4]">
+            {{ activeInboxItem.summary }}
+          </h3>
+          <p class="mt-2 text-[13px] leading-6 text-[#aeb0b7]">
+            {{ activeInboxItem.excerpt }}
+          </p>
         </div>
       </div>
 
       <div v-else class="flex h-full min-h-80 items-center justify-center px-8 text-center">
-        <p class="text-[13px] text-[#777a83]">Select a notification to preview it.</p>
+        <p class="text-[13px] text-[#777a83]">
+          Select a notification to preview it.
+        </p>
       </div>
     </div>
   </div>

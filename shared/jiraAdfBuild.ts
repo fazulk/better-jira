@@ -41,7 +41,8 @@ function buildInlineContent(text: string): JiraAdfNode[] {
           },
         },
       ]))
-    } else {
+    }
+    else {
       const boldText = match[1]
       if (typeof boldText === 'string' && boldText.length > 0) {
         content.push(buildMarkedTextNode(boldText, [{ type: 'strong' }]))
@@ -89,7 +90,8 @@ function buildHeading(text: string, level: number): JiraAdfNode {
 
 export function plainTextToAdf(text: string): JiraAdfDocument | null {
   const normalizedText = text.replace(/\r\n/g, '\n')
-  if (!normalizedText.trim()) return null
+  if (!normalizedText.trim())
+    return null
 
   const lines = normalizedText.split('\n')
   const content: JiraAdfNode[] = []
@@ -119,7 +121,8 @@ export function plainTextToAdf(text: string): JiraAdfDocument | null {
       const items: JiraAdfNode[] = []
       while (index < lines.length) {
         const currentMatch = lines[index].match(/^\s*[-*•]\s+(.*)$/)
-        if (!currentMatch) break
+        if (!currentMatch)
+          break
         items.push(buildListItem(currentMatch[1]))
         index += 1
       }
@@ -138,7 +141,8 @@ export function plainTextToAdf(text: string): JiraAdfDocument | null {
 
       while (index < lines.length) {
         const currentMatch = lines[index].match(/^\s*(\d+)[.)]\s+(.*)$/)
-        if (!currentMatch) break
+        if (!currentMatch)
+          break
         items.push(buildListItem(currentMatch[2]))
         index += 1
       }

@@ -17,13 +17,21 @@ const {
 <template>
   <section class="mx-auto max-w-3xl space-y-5">
     <div>
-      <h2 class="text-xl font-semibold text-slate-100">Workspace</h2>
-      <p class="mt-1 text-sm text-slate-500">Manage Jira connection details.</p>
+      <h2 class="text-xl font-semibold text-slate-100">
+        Workspace
+      </h2>
+      <p class="mt-1 text-sm text-slate-500">
+        Manage Jira connection details.
+      </p>
     </div>
 
     <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-      <p class="text-sm font-medium text-slate-200">Jira connection</p>
-      <p class="mt-1 text-xs text-slate-500">{{ jiraConnectionSummary }}</p>
+      <p class="text-sm font-medium text-slate-200">
+        Jira connection
+      </p>
+      <p class="mt-1 text-xs text-slate-500">
+        {{ jiraConnectionSummary }}
+      </p>
       <p class="mt-2 text-xs text-slate-500">
         Saved Jira credentials live in <code>.data/settings.json</code>. The API token stays hidden after saving.
       </p>

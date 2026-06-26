@@ -1,11 +1,11 @@
+import type { AiProvider, AiProviderAvailability } from '../../shared/ai'
 import {
   AI_PROVIDERS,
+
   getAiModelsForProvider,
   getDefaultModelForProvider,
   getProviderLabel,
   isSupportedModel,
-  type AiProvider,
-  type AiProviderAvailability,
 } from '../../shared/ai'
 import { env } from '../config'
 import { assertLocalAiProviderConfigured, getLocalAiProviderAvailability } from './localProviders'

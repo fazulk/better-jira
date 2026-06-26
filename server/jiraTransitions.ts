@@ -1,13 +1,13 @@
-import { isRecord } from '../shared/jiraAdf'
-import { broadcast } from './events'
-import { jiraFetch } from './jiraClient'
-import { getTicket } from './jiraIssueQueries'
 import type {
   JiraApiTransition,
   JiraCurrentUser,
   JiraTicket,
   JiraTransition,
 } from './jiraTypes'
+import { isRecord } from '../shared/jiraAdf'
+import { broadcast } from './events'
+import { jiraFetch } from './jiraClient'
+import { getTicket } from './jiraIssueQueries'
 
 function isJiraApiTransition(value: JiraApiTransition): value is Required<Pick<JiraApiTransition, 'id' | 'name'>> & JiraApiTransition {
   return typeof value.id === 'string' && typeof value.name === 'string'
@@ -15,11 +15,12 @@ function isJiraApiTransition(value: JiraApiTransition): value is Required<Pick<J
 
 export async function getTransitions(key: string): Promise<JiraTransition[]> {
   const data = await jiraFetch(`/issue/${key}/transitions`)
-  if (!isRecord(data) || !Array.isArray(data.transitions)) return []
+  if (!isRecord(data) || !Array.isArray(data.transitions))
+    return []
 
   return data.transitions
     .filter(isJiraApiTransition)
-    .map((t) => ({
+    .map(t => ({
       id: t.id,
       name: t.name,
       statusCategory: t.to?.statusCategory?.key ?? 'indeterminate',
@@ -65,7 +66,8 @@ export async function updateTicketWatching(key: string, watching: boolean): Prom
       method: 'POST',
       body: currentUser.accountId,
     })
-  } else {
+  }
+  else {
     await jiraFetch(`/issue/${key}/watchers`, {
       method: 'DELETE',
       params: {

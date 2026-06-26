@@ -1,3 +1,10 @@
+import type {
+  CreateIssueInput,
+  JiraCreateFieldValue,
+  JiraCreateIssueType,
+  JiraCreateIssueTypeOption,
+  JiraTicket,
+} from './jiraTypes'
 import {
   isJiraAdfDocument,
   isRecord,
@@ -21,13 +28,6 @@ import {
   getProjectKeyFromIssueKey,
   resolveProjectKey,
 } from './jiraProjects'
-import type {
-  CreateIssueInput,
-  JiraCreateFieldValue,
-  JiraCreateIssueType,
-  JiraCreateIssueTypeOption,
-  JiraTicket,
-} from './jiraTypes'
 
 type SupportedCreateFieldKey = 'summary' | 'description' | 'priority' | 'assignee' | 'duedate'
 
@@ -56,7 +56,7 @@ async function getIssueTypeCreateFields(projectKey: string, issueTypeId: string)
     return []
   }
 
-  return data.fields.filter(isRecord).map((field) => ({
+  return data.fields.filter(isRecord).map(field => ({
     key: typeof field.key === 'string' ? field.key : undefined,
     required: typeof field.required === 'boolean' ? field.required : undefined,
   }))
@@ -71,7 +71,7 @@ async function getCreateIssueTypeOptions(projectKey: string): Promise<JiraCreate
     }
 
     const fields = await getIssueTypeCreateFields(projectKey, issueType.id)
-    const parentField = fields.find((field) => field.key === 'parent')
+    const parentField = fields.find(field => field.key === 'parent')
 
     return {
       id: issueType.id,
@@ -102,7 +102,7 @@ async function getParentValidatedCreateIssueTypeOptions(parentKey: string): Prom
     getCreateIssueTypeOptions(projectKey),
   ])
 
-  return issueTypeOptions.filter((issueType) => (
+  return issueTypeOptions.filter(issueType => (
     issueType.parentSupported
     && isAvailableChildIssueTypeForParent(parent.issueType, issueType, issueTypeOptions)
   ))
@@ -118,9 +118,10 @@ export async function getCreateIssueTypes(parentKey?: string | null): Promise<Ji
     try {
       const project = await getProject(configuredProjectKey)
       if (project?.key) {
-        return (await getCreateIssueTypeOptions(project.key)).filter((issueType) => !issueType.parentRequired)
+        return (await getCreateIssueTypeOptions(project.key)).filter(issueType => !issueType.parentRequired)
       }
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : ''
       const isMissingProject = message.includes('No project could be found')
         || message.includes('404')
@@ -160,7 +161,7 @@ export async function getCreateIssueTypes(parentKey?: string | null): Promise<Ji
 
 async function getIssueTypeId(issueType: JiraCreateIssueType, projectKey: string): Promise<string> {
   const issueTypes = await getProjectIssueTypes(projectKey)
-  const matchedIssueType = issueTypes.find((candidate) => matchesIssueType(candidate.name, issueType))
+  const matchedIssueType = issueTypes.find(candidate => matchesIssueType(candidate.name, issueType))
 
   if (!matchedIssueType?.id) {
     throw new Error(`Issue type ${issueType} is not available for project ${projectKey}`)
@@ -171,7 +172,7 @@ async function getIssueTypeId(issueType: JiraCreateIssueType, projectKey: string
 
 async function getIssueTypeOption(issueType: JiraCreateIssueType, projectKey: string): Promise<JiraCreateIssueTypeOption> {
   const issueTypeOptions = await getCreateIssueTypeOptions(projectKey)
-  const matchedIssueType = issueTypeOptions.find((candidate) => matchesIssueType(candidate.name, issueType))
+  const matchedIssueType = issueTypeOptions.find(candidate => matchesIssueType(candidate.name, issueType))
 
   if (!matchedIssueType) {
     throw new Error(`Issue type ${issueType} is not available for project ${projectKey}`)
@@ -185,7 +186,8 @@ function serializeFieldValue(
   value: JiraCreateFieldValue,
 ): unknown {
   if (definition.key === 'description') {
-    if (value === null) return null
+    if (value === null)
+      return null
     if (typeof value === 'string') {
       const nextValue = value.trim()
       return nextValue ? plainTextToAdf(nextValue) : null
@@ -195,21 +197,25 @@ function serializeFieldValue(
   }
 
   if (definition.key === 'priority') {
-    if (typeof value !== 'string' || !value.trim()) return null
+    if (typeof value !== 'string' || !value.trim())
+      return null
     return { id: value.trim() }
   }
 
   if (definition.key === 'assignee') {
-    if (typeof value !== 'string' || !value.trim()) return null
+    if (typeof value !== 'string' || !value.trim())
+      return null
     return { accountId: value.trim() }
   }
 
   if (definition.key === 'duedate') {
-    if (typeof value !== 'string' || !value.trim()) return null
+    if (typeof value !== 'string' || !value.trim())
+      return null
     return value.trim()
   }
 
-  if (typeof value !== 'string') return ''
+  if (typeof value !== 'string')
+    return ''
   return value.trim()
 }
 
@@ -218,7 +224,8 @@ function validateRequiredFields(
   providedFields: Record<string, JiraCreateFieldValue>,
 ): void {
   for (const definition of definitions) {
-    if (!definition.required) continue
+    if (!definition.required)
+      continue
 
     const value = providedFields[definition.key]
     if (typeof value !== 'string' || !value.trim()) {
@@ -235,13 +242,17 @@ function buildCreateFieldsPayload(
 
   for (const definition of definitions) {
     const value = providedFields[definition.key]
-    if (value === undefined) continue
+    if (value === undefined)
+      continue
 
     const serializedValue = serializeFieldValue(definition, value)
 
-    if (serializedValue === null) continue
-    if (typeof serializedValue === 'string' && serializedValue === '') continue
-    if (Array.isArray(serializedValue) && serializedValue.length === 0) continue
+    if (serializedValue === null)
+      continue
+    if (typeof serializedValue === 'string' && serializedValue === '')
+      continue
+    if (Array.isArray(serializedValue) && serializedValue.length === 0)
+      continue
 
     payload[definition.key] = serializedValue
   }
@@ -269,7 +280,7 @@ async function validateParent(
   }
 
   const allowedIssueTypes = await getParentValidatedCreateIssueTypeOptions(parentKey)
-  const isAllowedForParent = allowedIssueTypes.some((candidate) => matchesIssueType(candidate.name, issueType))
+  const isAllowedForParent = allowedIssueTypes.some(candidate => matchesIssueType(candidate.name, issueType))
   if (isAllowedForParent) {
     return
   }

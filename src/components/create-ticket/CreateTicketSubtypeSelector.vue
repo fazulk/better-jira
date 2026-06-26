@@ -21,7 +21,9 @@ const emit = defineEmits<{
 
 <template>
   <div v-if="!isLocalSpace" class="space-y-1.5">
-    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Subtype</p>
+    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">
+      Subtype
+    </p>
     <p v-if="effectiveParentKey && isLoadingIssueTypes" class="text-xs text-slate-500">
       Loading issue types available for this parent...
     </p>
@@ -49,7 +51,9 @@ const emit = defineEmits<{
   </div>
 
   <div v-else class="space-y-1.5">
-    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Subtype</p>
+    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">
+      Subtype
+    </p>
     <div
       class="inline-flex rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-xs font-medium text-slate-300"
     >

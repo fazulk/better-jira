@@ -1,26 +1,23 @@
-import { computed } from 'vue'
+import type { AiInstructionPresetSetting, AppSettings, AppSpaceSetting, LabelColors, UpdateAiConnectionInput, UpdateJiraConnectionInput, UpdateSidebarSettingsInput } from '~/shared/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import {
-  updateAiConnection as persistAiConnection,
   fetchAppSettings,
+  updateAiConnection as persistAiConnection,
   updateAppSettings as persistAppSettings,
   updateJiraConnection as persistJiraConnection,
 } from '@/api/settings'
+import { jiraSpaceDirectoryQueryKey, resetAvailableSpacesBootstrap } from '@/composables/useAvailableSpaces'
+import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
+import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import {
+
   getDefaultAppSettings,
   hasConfiguredJiraCredentials,
+
   reconcileAppSettings,
-  type AiInstructionPresetSetting,
-  type AppSettings,
-  type AppSpaceSetting,
-  type UpdateAiConnectionInput,
-  type UpdateJiraConnectionInput,
-  type UpdateSidebarSettingsInput,
-  type LabelColors,
+
 } from '~/shared/settings'
-import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
-import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
-import { jiraSpaceDirectoryQueryKey, resetAvailableSpacesBootstrap } from '@/composables/useAvailableSpaces'
 
 export const APP_SETTINGS_QUERY_KEY = ['app-settings'] as const
 const TICKETS_QUERY_KEY = ['tickets'] as const
@@ -82,7 +79,8 @@ export function useSpaceSettings() {
           queryKey: TICKETS_QUERY_KEY,
         })
       }
-    } catch (error) {
+    }
+    catch (error) {
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
       throw error
     }
@@ -94,7 +92,7 @@ export function useSpaceSettings() {
     await updateSettings({
       filterSpaceKeys: filterSpaceKeys
         .map(normalizeSpaceKey)
-        .filter((spaceKey) => enabledSpaceKeySet.has(spaceKey)),
+        .filter(spaceKey => enabledSpaceKeySet.has(spaceKey)),
     }, false)
   }
 
@@ -130,24 +128,24 @@ export function useSpaceSettings() {
 
     const nextSpaces = existingSpace
       ? settings.value.spaces.map((currentSpace): AppSpaceSetting => {
-        if (currentSpace.key !== key) {
-          return currentSpace
-        }
+          if (currentSpace.key !== key) {
+            return currentSpace
+          }
 
-        return {
-          key: currentSpace.key,
-          name: nextName || currentSpace.name || currentSpace.key,
-          enabled: true,
-        }
-      })
+          return {
+            key: currentSpace.key,
+            name: nextName || currentSpace.name || currentSpace.key,
+            enabled: true,
+          }
+        })
       : [
-        ...settings.value.spaces,
-        {
-          key,
-          name: nextName || key,
-          enabled: true,
-        },
-      ]
+          ...settings.value.spaces,
+          {
+            key,
+            name: nextName || key,
+            enabled: true,
+          },
+        ]
 
     await updateSettings({
       spaces: nextSpaces,
@@ -162,16 +160,16 @@ export function useSpaceSettings() {
     const nextSpaces = settings.value.spaces.map((space): AppSpaceSetting => (
       space.key === normalizedSpaceKey
         ? {
-          key: space.key,
-          name: space.name,
-          enabled: false,
-        }
+            key: space.key,
+            name: space.name,
+            enabled: false,
+          }
         : space
     ))
 
     await updateSettings({
       spaces: nextSpaces,
-      filterSpaceKeys: settings.value.filterSpaceKeys.filter((key) => key !== normalizedSpaceKey),
+      filterSpaceKeys: settings.value.filterSpaceKeys.filter(key => key !== normalizedSpaceKey),
     }, true)
   }
 
@@ -183,7 +181,7 @@ export function useSpaceSettings() {
 
     await updateSettings({
       spaces: settings.value.spaces.filter(space => space.key !== normalizedSpaceKey),
-      filterSpaceKeys: settings.value.filterSpaceKeys.filter((key) => key !== normalizedSpaceKey),
+      filterSpaceKeys: settings.value.filterSpaceKeys.filter(key => key !== normalizedSpaceKey),
     }, true)
   }
 
@@ -215,7 +213,8 @@ export function useSpaceSettings() {
       await queryClient.invalidateQueries({
         queryKey: jiraCurrentUserQueryKey,
       })
-    } catch (error) {
+    }
+    catch (error) {
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
       throw error
     }
@@ -239,7 +238,8 @@ export function useSpaceSettings() {
     try {
       const persistedSettings = await aiConnectionMutation.mutateAsync(input)
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
-    } catch (error) {
+    }
+    catch (error) {
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
       throw error
     }

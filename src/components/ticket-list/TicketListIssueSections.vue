@@ -82,8 +82,12 @@ const emit = defineEmits<{
 
     <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
       <div class="max-w-sm">
-        <p class="text-[13px] font-medium text-[#d7d8dc]">{{ emptyTitle }}</p>
-        <p class="mt-1 text-[12px] text-[#777a83]">{{ emptyDescription }}</p>
+        <p class="text-[13px] font-medium text-[#d7d8dc]">
+          {{ emptyTitle }}
+        </p>
+        <p class="mt-1 text-[12px] text-[#777a83]">
+          {{ emptyDescription }}
+        </p>
       </div>
     </div>
   </div>

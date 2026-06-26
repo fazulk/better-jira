@@ -1,7 +1,8 @@
-import { computed, type Ref } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { fetchAvailableSpaces } from '@/api/settings'
+import type { Ref } from 'vue'
 import type { JiraSpaceDirectoryEntry } from '~/shared/settings'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed } from 'vue'
+import { fetchAvailableSpaces } from '@/api/settings'
 
 export const jiraSpaceDirectoryQueryKey = ['jira-space-directory'] as const
 
@@ -57,7 +58,8 @@ export function useAvailableSpaces(enabled: Ref<boolean>) {
     try {
       await fetchAndCacheAvailableSpaces(queryClient)
       bootstrapComplete.value = true
-    } finally {
+    }
+    finally {
       bootstrapPending.value = false
     }
   }
@@ -69,7 +71,8 @@ export function useAvailableSpaces(enabled: Ref<boolean>) {
       const spaces = await fetchAndCacheAvailableSpaces(queryClient)
       bootstrapComplete.value = true
       return spaces
-    } finally {
+    }
+    finally {
       bootstrapPending.value = false
     }
   }

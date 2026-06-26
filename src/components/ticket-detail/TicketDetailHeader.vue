@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import type { JiraTicket } from '@/types/jira'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import { useUpdateTicketTitle } from '@/composables/useUpdateTicketTitle'
 import { useUpdateLocalTicketTitle } from '@/composables/useUpdateLocalTicketTitle'
-import { getStatusGroup, type JiraTicket } from '@/types/jira'
+import { useUpdateTicketTitle } from '@/composables/useUpdateTicketTitle'
+import { getStatusGroup } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
 
 type ProjectDetailHealth = 'On track' | 'At risk' | 'Completed'
@@ -34,22 +35,24 @@ const updateLocalTitleMutation = useUpdateLocalTicketTitle()
 
 const detailIssueParent = computed(() => {
   const parent = props.ticket.parent
-  if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
+  if (!parent || parent.issueType.toLowerCase().includes('epic'))
+    return null
   return parent
 })
 
 const detailIssueParentProgressLabel = computed(() => {
   const parent = detailIssueParent.value
-  if (!parent) return null
+  if (!parent)
+    return null
 
-  const children = props.childTickets.filter((child) => child.parent?.key === parent.key)
+  const children = props.childTickets.filter(child => child.parent?.key === parent.key)
   const scopedChildren = children.length > 0 ? children : [props.ticket]
-  const completedCount = scopedChildren.filter((child) => getStatusGroup(child.statusCategory) === 'done').length
+  const completedCount = scopedChildren.filter(child => getStatusGroup(child.statusCategory) === 'done').length
   return `${completedCount}/${scopedChildren.length}`
 })
 
 const projectCompletedIssueCount = computed(() => (
-  props.childTickets.filter((child) => getStatusGroup(child.statusCategory) === 'done').length
+  props.childTickets.filter(child => getStatusGroup(child.statusCategory) === 'done').length
 ))
 const projectProgress = computed(() => (
   props.childTickets.length > 0
@@ -57,8 +60,10 @@ const projectProgress = computed(() => (
     : 0
 ))
 const projectDetailHealth = computed<ProjectDetailHealth>(() => {
-  if (getStatusGroup(props.ticket.statusCategory) === 'done' || projectProgress.value === 100) return 'Completed'
-  if (props.ticket.status.toLowerCase().includes('block') || projectProgress.value < 25) return 'At risk'
+  if (getStatusGroup(props.ticket.statusCategory) === 'done' || projectProgress.value === 100)
+    return 'Completed'
+  if (props.ticket.status.toLowerCase().includes('block') || projectProgress.value < 25)
+    return 'At risk'
   return 'On track'
 })
 const projectTargetDateLabel = computed(() => formatDate(props.ticket.dueDate) ?? 'No target')
@@ -69,28 +74,35 @@ const projectLeadLabel = computed(() => {
 const projectPriorityLabel = computed(() => props.ticket.priority || 'No priority')
 const projectIssueProgressLabel = computed(() => `${projectCompletedIssueCount.value}/${props.childTickets.length}`)
 const projectProgressToneClass = computed(() => {
-  if (projectDetailHealth.value === 'At risk') return 'bg-rose-400/80'
-  if (projectDetailHealth.value === 'Completed') return 'bg-emerald-400/80'
+  if (projectDetailHealth.value === 'At risk')
+    return 'bg-rose-400/80'
+  if (projectDetailHealth.value === 'Completed')
+    return 'bg-emerald-400/80'
   return 'bg-sky-400/80'
 })
 
 const datePartFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
 function formatDate(value: string | undefined): string | null {
-  if (!value) return null
+  if (!value)
+    return null
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
+  if (Number.isNaN(parsed.getTime()))
+    return value
   return datePartFormatter.format(parsed)
 }
 
 function getProjectDetailHealthClass(health: ProjectDetailHealth): string {
-  if (health === 'At risk') return 'border-rose-500/20 bg-rose-500/10 text-rose-300'
-  if (health === 'Completed') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+  if (health === 'At risk')
+    return 'border-rose-500/20 bg-rose-500/10 text-rose-300'
+  if (health === 'Completed')
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
   return 'border-sky-500/20 bg-sky-500/10 text-sky-300'
 }
 
 function clearTitleSaveTimer(): void {
-  if (!titleSaveTimer.value) return
+  if (!titleSaveTimer.value)
+    return
   clearTimeout(titleSaveTimer.value)
   titleSaveTimer.value = null
 }
@@ -102,7 +114,8 @@ function isTitleDraftDirty(): boolean {
 function resizeTitleInput(): void {
   nextTick(() => {
     const input = titleInputRef.value
-    if (!input) return
+    if (!input)
+      return
     input.style.height = 'auto'
     input.style.height = `${input.scrollHeight}px`
   })
@@ -160,7 +173,8 @@ async function persistTitleDraft(key: string, title: string): Promise<void> {
 
 async function flushTitleAutosave(): Promise<void> {
   const key = titleDraftTicketKey.value
-  if (!key || titleSaveInFlight.value) return
+  if (!key || titleSaveInFlight.value)
+    return
 
   const nextTitle = titleDraft.value.trim()
   if (!nextTitle) {
@@ -181,16 +195,20 @@ async function flushTitleAutosave(): Promise<void> {
 
   try {
     await persistTitleDraft(key, nextTitle)
-    if (titleDraftTicketKey.value !== key) return
+    if (titleDraftTicketKey.value !== key)
+      return
 
     titlePersistedValue.value = nextTitle
     if (titleDraft.value.trim() !== nextTitle) {
       scheduleTitleAutosave()
     }
-  } catch (err) {
-    if (titleDraftTicketKey.value !== key) return
+  }
+  catch (err) {
+    if (titleDraftTicketKey.value !== key)
+      return
     titleError.value = err instanceof Error ? err.message : 'Failed to update title.'
-  } finally {
+  }
+  finally {
     titleSaveInFlight.value = false
   }
 }
@@ -201,15 +219,18 @@ watch(() => props.ticket, (nextTicket) => {
   if (titleTicketChanged) {
     void flushTitleAutosave()
     syncTitleDraftFromTicket(nextTicket)
-  } else if (!titleInputActive.value && !isTitleDraftDirty()) {
+  }
+  else if (!titleInputActive.value && !isTitleDraftDirty()) {
     syncTitleDraftFromTicket(nextTicket)
   }
 }, { immediate: true })
 
 watch(titleDraft, () => {
   resizeTitleInput()
-  if (isSyncingTitleDraft.value) return
-  if (!titleDraftTicketKey.value) return
+  if (isSyncingTitleDraft.value)
+    return
+  if (!titleDraftTicketKey.value)
+    return
 
   const nextTitle = titleDraft.value.trim()
   if (!nextTitle) {
@@ -282,7 +303,7 @@ defineExpose({
           v-if="detailIssueParentProgressLabel"
           class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.025] px-2.5 text-xs text-slate-500"
         >
-          <span class="h-2 w-2 rounded-full border border-cyan-400/50"></span>
+          <span class="h-2 w-2 rounded-full border border-cyan-400/50" />
           {{ detailIssueParentProgressLabel }}
         </span>
       </div>
@@ -293,30 +314,50 @@ defineExpose({
       class="grid overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.015] text-xs md:grid-cols-3 xl:grid-cols-6"
     >
       <div class="border-b border-white/[0.06] px-3 py-2.5 md:border-r xl:border-b-0">
-        <p class="text-[11px] text-slate-600">Health</p>
+        <p class="text-[11px] text-slate-600">
+          Health
+        </p>
         <span class="mt-1 inline-flex max-w-full rounded-md border px-2 py-0.5 font-medium" :class="getProjectDetailHealthClass(projectDetailHealth)">
           {{ projectDetailHealth }}
         </span>
       </div>
       <div class="border-b border-white/[0.06] px-3 py-2.5 md:border-r xl:border-b-0">
-        <p class="text-[11px] text-slate-600">Lead</p>
-        <p class="mt-1 truncate font-medium text-slate-300">{{ projectLeadLabel }}</p>
+        <p class="text-[11px] text-slate-600">
+          Lead
+        </p>
+        <p class="mt-1 truncate font-medium text-slate-300">
+          {{ projectLeadLabel }}
+        </p>
       </div>
       <div class="border-b border-white/[0.06] px-3 py-2.5 xl:border-b-0 xl:border-r">
-        <p class="text-[11px] text-slate-600">Priority</p>
-        <p class="mt-1 truncate font-medium text-slate-300">{{ projectPriorityLabel }}</p>
+        <p class="text-[11px] text-slate-600">
+          Priority
+        </p>
+        <p class="mt-1 truncate font-medium text-slate-300">
+          {{ projectPriorityLabel }}
+        </p>
       </div>
       <div class="border-b border-white/[0.06] px-3 py-2.5 md:border-r md:border-b-0">
-        <p class="text-[11px] text-slate-600">Target date</p>
-        <p class="mt-1 truncate font-medium text-slate-300">{{ projectTargetDateLabel }}</p>
+        <p class="text-[11px] text-slate-600">
+          Target date
+        </p>
+        <p class="mt-1 truncate font-medium text-slate-300">
+          {{ projectTargetDateLabel }}
+        </p>
       </div>
       <div class="border-b border-white/[0.06] px-3 py-2.5 md:border-b-0 md:border-r">
-        <p class="text-[11px] text-slate-600">Issues</p>
-        <p class="mt-1 truncate font-medium text-slate-300">{{ projectIssueProgressLabel }}</p>
+        <p class="text-[11px] text-slate-600">
+          Issues
+        </p>
+        <p class="mt-1 truncate font-medium text-slate-300">
+          {{ projectIssueProgressLabel }}
+        </p>
       </div>
       <div class="px-3 py-2.5">
         <div class="flex items-center justify-between gap-2">
-          <p class="text-[11px] text-slate-600">Progress</p>
+          <p class="text-[11px] text-slate-600">
+            Progress
+          </p>
           <span class="font-medium text-slate-300">{{ projectProgress }}%</span>
         </div>
         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
@@ -324,7 +365,7 @@ defineExpose({
             class="h-full rounded-full transition-all"
             :class="projectProgressToneClass"
             :style="{ width: `${projectProgress}%` }"
-          ></div>
+          />
         </div>
       </div>
     </div>

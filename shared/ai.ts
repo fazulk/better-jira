@@ -79,18 +79,26 @@ export function isAiProvider(value: unknown): value is AiProvider {
 }
 
 export function getProviderLabel(provider: AiProvider): string {
-  if (provider === 'openai') return 'OpenAI'
-  if (provider === 'anthropic') return 'Anthropic'
-  if (provider === 'codex') return 'Codex'
-  if (provider === 'claude') return 'Claude Code'
+  if (provider === 'openai')
+    return 'OpenAI'
+  if (provider === 'anthropic')
+    return 'Anthropic'
+  if (provider === 'codex')
+    return 'Codex'
+  if (provider === 'claude')
+    return 'Claude Code'
   return 'Cerebras'
 }
 
 export function getDefaultModelForProvider(provider: AiProvider): string {
-  if (provider === 'openai') return DEFAULT_OPENAI_MODEL
-  if (provider === 'anthropic') return DEFAULT_ANTHROPIC_MODEL
-  if (provider === 'codex') return DEFAULT_CODEX_MODEL
-  if (provider === 'claude') return DEFAULT_CLAUDE_MODEL
+  if (provider === 'openai')
+    return DEFAULT_OPENAI_MODEL
+  if (provider === 'anthropic')
+    return DEFAULT_ANTHROPIC_MODEL
+  if (provider === 'codex')
+    return DEFAULT_CODEX_MODEL
+  if (provider === 'claude')
+    return DEFAULT_CLAUDE_MODEL
   return DEFAULT_CEREBRAS_MODEL
 }
 
@@ -99,7 +107,7 @@ export function getAiModelsForProvider(provider: AiProvider): AiModelOption[] {
 }
 
 export function isSupportedModel(provider: AiProvider, model: string): boolean {
-  return getAiModelsForProvider(provider).some((option) => option.id === model)
+  return getAiModelsForProvider(provider).some(option => option.id === model)
 }
 
 function getFallbackProvider(allowedProviders: readonly AiProvider[], fallbackProvider: AiProvider): AiProvider {

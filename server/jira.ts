@@ -1,35 +1,38 @@
+import type { JiraAdfDocument, JiraAdfNode } from '../shared/jiraAdf'
+import type { CacheEntry } from './jiraClient'
+import type {
+  JiraApiPriority,
+  JiraAssignableUser,
+  JiraCreateIssueType,
+  JiraTicket,
+} from './jiraTypes'
+import {
+  isRecord,
+
+  normalizeAdf,
+} from '../shared/jiraAdf'
 import { broadcast } from './events'
 import {
+
   getCachedValue,
   jiraFetch,
   setCachedValue,
   THIRTY_DAYS_MS,
-  type CacheEntry,
 } from './jiraClient'
-import {
-  isRecord,
-  normalizeAdf,
-  type JiraAdfDocument,
-  type JiraAdfNode,
-} from '../shared/jiraAdf'
 import { isJiraApiUser } from './jiraIssueMapping'
+import { getTicket } from './jiraIssueQueries'
 import {
+  getCandidateProjects,
   getProject,
   resolveProjectKey,
-  getCandidateProjects,
 } from './jiraProjects'
-import type {
-  JiraApiPriority,
-  JiraAssignableUser,
-  JiraAttachment,
-  JiraCreateIssueType,
-  JiraCurrentUser,
-  RefreshTicketsResult,
-  JiraTicket,
-  JiraTransition,
-} from './jiraTypes'
-import { getTicket } from './jiraIssueQueries'
 
+export { addTicketMessage, getTicketActivity, getTicketMessages } from './jiraActivity'
+export { getJiraAttachmentContent, getJiraAttachmentContentByFilename, uploadTicketAttachment } from './jiraAttachments'
+export { createIssue, getCreateIssueTypes } from './jiraCreateIssue'
+export { forceRefreshTickets, getTicket, searchTickets } from './jiraIssueQueries'
+export { getAccessibleSpaces } from './jiraProjects'
+export { getJiraCurrentUser, getTransitions, updateTicketStatus, updateTicketWatching } from './jiraTransitions'
 export type {
   CreateIssueInput,
   JiraActivityComment,
@@ -42,19 +45,14 @@ export type {
   JiraCreateIssueTypeOption,
   JiraCurrentUser,
   JiraMessage,
-  RefreshTicketsResult,
   JiraTicket,
   JiraTransition,
+  RefreshTicketsResult,
 } from './jiraTypes'
-export { addTicketMessage, getTicketActivity, getTicketMessages } from './jiraActivity'
-export { getJiraAttachmentContent, getJiraAttachmentContentByFilename, uploadTicketAttachment } from './jiraAttachments'
-export { createIssue, getCreateIssueTypes } from './jiraCreateIssue'
-export { getAccessibleSpaces } from './jiraProjects'
-export { forceRefreshTickets, getTicket, searchTickets } from './jiraIssueQueries'
-export { getJiraCurrentUser, getTransitions, updateTicketStatus, updateTicketWatching } from './jiraTransitions'
 
 function isJiraApiPriority(value: unknown): value is Required<JiraApiPriority> {
-  if (!isRecord(value)) return false
+  if (!isRecord(value))
+    return false
   return typeof value.id === 'string' && typeof value.name === 'string'
 }
 
@@ -99,7 +97,8 @@ export async function updateTicketTitle(key: string, summary: string): Promise<J
 }
 
 function jiraSafeMediaAttrs(node: JiraAdfNode): Record<string, unknown> | undefined {
-  if (!node.attrs) return undefined
+  if (!node.attrs)
+    return undefined
 
   if (node.type === 'media') {
     const attrs: Record<string, unknown> = {}
@@ -110,8 +109,10 @@ function jiraSafeMediaAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
 
     for (const key of allowedKeys) {
       const value = node.attrs[key]
-      if (value === undefined || value === null) continue
-      if (value === '' && !(node.type === 'media' && key === 'collection')) continue
+      if (value === undefined || value === null)
+        continue
+      if (value === '' && !(node.type === 'media' && key === 'collection'))
+        continue
       attrs[key] = value
     }
 
@@ -144,7 +145,8 @@ function jiraSafeMediaAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
 
   const attrs: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.attrs)) {
-    if (key === 'src' || key === 'uploadState' || key === 'uploadError' || key === 'clientId') continue
+    if (key === 'src' || key === 'uploadState' || key === 'uploadError' || key === 'clientId')
+      continue
     attrs[key] = value
   }
 
@@ -166,7 +168,7 @@ function stripEditorOnlyMediaAttrs(node: JiraAdfNode): JiraAdfNode {
   }
 
   if (node.marks?.length) {
-    nextNode.marks = node.marks.map((mark) => ({ ...mark }))
+    nextNode.marks = node.marks.map(mark => ({ ...mark }))
   }
 
   if (node.content?.length) {
@@ -178,7 +180,8 @@ function stripEditorOnlyMediaAttrs(node: JiraAdfNode): JiraAdfNode {
 
 function prepareDescriptionForJira(descriptionAdf: JiraAdfDocument | null): JiraAdfDocument | null {
   const normalizedDescription = normalizeAdf(descriptionAdf)
-  if (!normalizedDescription) return null
+  if (!normalizedDescription)
+    return null
 
   return {
     type: 'doc',
@@ -276,7 +279,7 @@ function parsePrioritySearchResponse(data: unknown): JiraPriority[] {
 
   return priorities
     .filter(isJiraApiPriority)
-    .map((priority) => ({
+    .map(priority => ({
       id: priority.id,
       name: priority.name,
     }))
@@ -319,7 +322,8 @@ export async function getAllPriorities(): Promise<JiraPriority[]> {
       if (project?.key) {
         candidateProjectKeys.add(project.key)
       }
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : ''
       const isMissingProject = message.includes('No project could be found')
         || message.includes('404')

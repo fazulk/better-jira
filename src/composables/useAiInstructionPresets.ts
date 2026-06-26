@@ -1,6 +1,6 @@
+import type { AiInstructionPresetSetting } from '~/shared/settings'
 import { computed, onMounted, watch } from 'vue'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
-import type { AiInstructionPresetSetting } from '~/shared/settings'
 
 export interface AiInstructionPreset {
   id: string
@@ -27,16 +27,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizePresetSetting(value: unknown): AiInstructionPresetSetting | null {
-  if (!isRecord(value)) return null
-  if (typeof value.id !== 'string') return null
-  if (typeof value.label !== 'string') return null
-  if (typeof value.text !== 'string') return null
+  if (!isRecord(value))
+    return null
+  if (typeof value.id !== 'string')
+    return null
+  if (typeof value.label !== 'string')
+    return null
+  if (typeof value.text !== 'string')
+    return null
 
   const id = value.id.trim()
   const label = value.label.trim()
   const text = value.text.trim()
 
-  if (!id || !label || !text) return null
+  if (!id || !label || !text)
+    return null
 
   return {
     id,
@@ -47,11 +52,13 @@ function normalizePresetSetting(value: unknown): AiInstructionPresetSetting | nu
 }
 
 function parseLegacyLocalPresets(value: string | null): AiInstructionPresetSetting[] {
-  if (!value) return []
+  if (!value)
+    return []
 
   try {
     const parsedValue: unknown = JSON.parse(value)
-    if (!Array.isArray(parsedValue)) return []
+    if (!Array.isArray(parsedValue))
+      return []
 
     return parsedValue.flatMap((item): AiInstructionPresetSetting[] => {
       const preset = normalizePresetSetting(item)
@@ -105,7 +112,7 @@ export function useAiInstructionPresets() {
   )
 
   const visibleInstructionPresets = computed<AiInstructionPreset[]>(() =>
-    allInstructionPresets.value.filter((preset) => preset.enabled),
+    allInstructionPresets.value.filter(preset => preset.enabled),
   )
 
   function persistInstructionPresets(nextPresets: AiInstructionPresetSetting[]): void {
@@ -115,7 +122,7 @@ export function useAiInstructionPresets() {
   }
 
   function togglePresetEnabled(presetId: string): void {
-    persistInstructionPresets(settings.value.aiInstructionPresets.map((preset) => (
+    persistInstructionPresets(settings.value.aiInstructionPresets.map(preset => (
       preset.id === presetId
         ? { ...preset, enabled: !preset.enabled }
         : preset
@@ -135,7 +142,7 @@ export function useAiInstructionPresets() {
   }
 
   function updateLocalPreset(presetId: string, draft: AiInstructionPresetDraft): void {
-    persistInstructionPresets(settings.value.aiInstructionPresets.map((preset) => (
+    persistInstructionPresets(settings.value.aiInstructionPresets.map(preset => (
       preset.id === presetId
         ? {
             ...preset,
@@ -147,7 +154,7 @@ export function useAiInstructionPresets() {
   }
 
   function removeLocalPreset(presetId: string): void {
-    persistInstructionPresets(settings.value.aiInstructionPresets.filter((preset) => preset.id !== presetId))
+    persistInstructionPresets(settings.value.aiInstructionPresets.filter(preset => preset.id !== presetId))
   }
 
   onMounted(() => {

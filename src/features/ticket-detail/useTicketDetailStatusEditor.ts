@@ -1,8 +1,9 @@
-import { computed, ref, watch, type Ref } from 'vue'
-import { useTransitions } from '@/composables/useTransitions'
-import { useUpdateTicketStatus } from '@/composables/useUpdateTicketStatus'
-import { useUpdateLocalTicketStatus } from '@/composables/useUpdateLocalTicketStatus'
+import type { Ref } from 'vue'
 import type { JiraTicket } from '@/types/jira'
+import { computed, ref, watch } from 'vue'
+import { useTransitions } from '@/composables/useTransitions'
+import { useUpdateLocalTicketStatus } from '@/composables/useUpdateLocalTicketStatus'
+import { useUpdateTicketStatus } from '@/composables/useUpdateTicketStatus'
 import { getLocalStatusIdFromDisplayName, getLocalTransitions } from '~/shared/localTickets'
 
 interface TicketDetailStatusEditorInput {
@@ -21,7 +22,8 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
   const statusError = ref<string | null>(null)
 
   const localTransitionsList = computed(() => {
-    if (!input.ticket.value || !input.isLocalTicket.value) return []
+    if (!input.ticket.value || !input.isLocalTicket.value)
+      return []
     const currentId = getLocalStatusIdFromDisplayName(input.ticket.value.status)
     return getLocalTransitions(currentId)
   })
@@ -31,17 +33,20 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
   ))
 
   async function startEditingStatus() {
-    if (!input.ticket.value || anyStatusPending.value) return
+    if (!input.ticket.value || anyStatusPending.value)
+      return
     statusDraft.value = ''
     statusError.value = null
     isEditingStatus.value = true
 
-    if (input.isLocalTicket.value) return
+    if (input.isLocalTicket.value)
+      return
 
     if (!transitionsQuery.data.value && !transitionsQuery.isFetching.value) {
       try {
         await transitionsQuery.refetch()
-      } catch {
+      }
+      catch {
         statusError.value = 'Failed to load transitions.'
       }
     }
@@ -54,7 +59,8 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
   }
 
   async function saveStatus() {
-    if (!input.ticket.value || anyStatusPending.value) return
+    if (!input.ticket.value || anyStatusPending.value)
+      return
 
     if (!statusDraft.value) {
       statusError.value = 'Select a status.'
@@ -62,7 +68,7 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
     }
 
     if (input.isLocalTicket.value) {
-      const selectedTransition = localTransitionsList.value.find((transition) => transition.id === statusDraft.value)
+      const selectedTransition = localTransitionsList.value.find(transition => transition.id === statusDraft.value)
       if (!selectedTransition) {
         statusError.value = 'Invalid transition.'
         return
@@ -75,13 +81,14 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
         })
         isEditingStatus.value = false
         statusError.value = null
-      } catch (err) {
+      }
+      catch (err) {
         statusError.value = err instanceof Error ? err.message : 'Failed to update status.'
       }
       return
     }
 
-    const selectedTransition = transitionsQuery.data.value?.find((transition) => transition.id === statusDraft.value)
+    const selectedTransition = transitionsQuery.data.value?.find(transition => transition.id === statusDraft.value)
     if (!selectedTransition) {
       statusError.value = 'Invalid transition.'
       return
@@ -96,7 +103,8 @@ export function useTicketDetailStatusEditor(input: TicketDetailStatusEditorInput
       })
       isEditingStatus.value = false
       statusError.value = null
-    } catch (err) {
+    }
+    catch (err) {
       statusError.value = err instanceof Error ? err.message : 'Failed to update status.'
     }
   }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue'
-import { useJiraActivity } from '@/composables/useJiraMessages'
-import { useAddTicketMessage } from '@/composables/useAddTicketMessage'
-import { useUpdateTicketWatching } from '@/composables/useUpdateTicketWatching'
 import type { JiraActivityComment, JiraActivityItem, JiraTicket } from '@/types/jira'
+import { computed, nextTick, ref } from 'vue'
+import { useAddTicketMessage } from '@/composables/useAddTicketMessage'
+import { useJiraActivity } from '@/composables/useJiraMessages'
+import { useUpdateTicketWatching } from '@/composables/useUpdateTicketWatching'
 
 const props = defineProps<{
   queryEnabled: boolean
@@ -32,13 +32,15 @@ const detailWatchButtonLabel = computed(() => (
 ))
 const detailWatchCountLabel = computed(() => {
   const watchCount = props.ticket.watchCount
-  if (typeof watchCount !== 'number') return null
+  if (typeof watchCount !== 'number')
+    return null
   return `${watchCount} ${watchCount === 1 ? 'subscriber' : 'subscribers'}`
 })
 
 function addActivityParticipantName(names: string[], name: string | undefined): void {
   const nextName = name?.trim()
-  if (!nextName || nextName === 'Unassigned' || names.includes(nextName)) return
+  if (!nextName || nextName === 'Unassigned' || names.includes(nextName))
+    return
   names.push(nextName)
 }
 
@@ -57,7 +59,8 @@ const detailActivityParticipantNames = computed(() => {
 })
 
 function getAssigneeAvatarColor(name: string | undefined) {
-  if (!name || name === 'Unassigned') return 'bg-slate-500/15 text-slate-400 border-slate-500/15'
+  if (!name || name === 'Unassigned')
+    return 'bg-slate-500/15 text-slate-400 border-slate-500/15'
   const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const avatarColors = [
     'bg-white/[0.045] text-slate-300 border-white/[0.08]',
@@ -70,11 +73,13 @@ function getAssigneeAvatarColor(name: string | undefined) {
 }
 
 function getAssigneeInitials(name: string | undefined) {
-  if (!name || name === 'Unassigned') return '?'
+  if (!name || name === 'Unassigned')
+    return '?'
   const parts = name.split(/\s+/)
   const firstPart = parts[0]
   const secondPart = parts[1]
-  if (firstPart && secondPart) return `${firstPart[0] ?? ''}${secondPart[0] ?? ''}`
+  if (firstPart && secondPart)
+    return `${firstPart[0] ?? ''}${secondPart[0] ?? ''}`
   return name.slice(0, 2)
 }
 
@@ -93,7 +98,8 @@ const activityTimelineItems = computed(() => (
 const activityCommentById = computed(() => {
   const comments = new Map<string, JiraActivityComment>()
   for (const item of activityItems.value) {
-    if (item.kind === 'comment') comments.set(item.id, item)
+    if (item.kind === 'comment')
+      comments.set(item.id, item)
   }
   return comments
 })
@@ -104,29 +110,40 @@ function getActivityCommentParent(comment: JiraActivityComment): JiraActivityCom
 }
 
 function getActivityCommentParentAuthor(item: JiraActivityItem): string | null {
-  if (item.kind !== 'comment') return null
+  if (item.kind !== 'comment')
+    return null
   return getActivityCommentParent(item)?.author ?? null
 }
 
 function getActivityHistoryMarkerClass(item: JiraActivityItem): string {
-  if (item.kind !== 'history') return 'border-white/[0.14] text-slate-500'
+  if (item.kind !== 'history')
+    return 'border-white/[0.14] text-slate-500'
 
   const field = item.field.trim().toLowerCase()
-  if (field === 'created') return 'border-sky-400/35 text-sky-300'
-  if (field === 'status') return 'border-amber-400/40 text-amber-300'
-  if (field === 'assignee') return 'border-emerald-400/35 text-emerald-300'
-  if (field === 'priority') return 'border-rose-400/35 text-rose-300'
+  if (field === 'created')
+    return 'border-sky-400/35 text-sky-300'
+  if (field === 'status')
+    return 'border-amber-400/40 text-amber-300'
+  if (field === 'assignee')
+    return 'border-emerald-400/35 text-emerald-300'
+  if (field === 'priority')
+    return 'border-rose-400/35 text-rose-300'
   return 'border-white/[0.14] text-slate-500'
 }
 
 function getActivityHistoryDotClass(item: JiraActivityItem): string {
-  if (item.kind !== 'history') return 'bg-slate-500'
+  if (item.kind !== 'history')
+    return 'bg-slate-500'
 
   const field = item.field.trim().toLowerCase()
-  if (field === 'created') return 'bg-sky-300'
-  if (field === 'status') return 'bg-amber-300'
-  if (field === 'assignee') return 'bg-emerald-300'
-  if (field === 'priority') return 'bg-rose-300'
+  if (field === 'created')
+    return 'bg-sky-300'
+  if (field === 'status')
+    return 'bg-amber-300'
+  if (field === 'assignee')
+    return 'bg-emerald-300'
+  if (field === 'priority')
+    return 'bg-rose-300'
   return 'bg-slate-500'
 }
 
@@ -134,9 +151,10 @@ const datePartFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', d
 
 function formatActivityTime(value: string): string {
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
+  if (Number.isNaN(parsed.getTime()))
+    return value
 
-  const diffMs = new Date().getTime() - parsed.getTime()
+  const diffMs = Date.now() - parsed.getTime()
   const absDiffMs = Math.abs(diffMs)
   const isFuture = diffMs < 0
   const minutes = Math.floor(absDiffMs / 60000)
@@ -146,19 +164,26 @@ function formatActivityTime(value: string): string {
   const months = Math.floor(days / 30)
 
   let label: string
-  if (minutes < 1) label = 'just now'
-  else if (minutes < 60) label = `${minutes}m`
-  else if (hours < 24) label = `${hours}h`
-  else if (days < 7) label = `${days}d`
-  else if (weeks < 5) label = `${weeks}w`
+  if (minutes < 1)
+    label = 'just now'
+  else if (minutes < 60)
+    label = `${minutes}m`
+  else if (hours < 24)
+    label = `${hours}h`
+  else if (days < 7)
+    label = `${days}d`
+  else if (weeks < 5)
+    label = `${weeks}w`
   else label = `${months}mo`
 
-  if (label === 'just now') return label
+  if (label === 'just now')
+    return label
   return isFuture ? `in ${label}` : `${label} ago`
 }
 
 async function toggleTicketWatching() {
-  if (updateWatchingMutation.isPending.value) return
+  if (updateWatchingMutation.isPending.value)
+    return
 
   try {
     await updateWatchingMutation.mutateAsync({
@@ -166,7 +191,8 @@ async function toggleTicketWatching() {
       watching: props.ticket.isWatching !== true,
     })
     watchError.value = null
-  } catch (err) {
+  }
+  catch (err) {
     watchError.value = err instanceof Error ? err.message : 'Failed to update subscription.'
   }
 }
@@ -179,10 +205,12 @@ function focusMessageComposer(): void {
 }
 
 async function submitMessage() {
-  if (addMessageMutation.isPending.value) return
+  if (addMessageMutation.isPending.value)
+    return
 
   const nextMessage = messageDraft.value.trim()
-  if (!nextMessage) return
+  if (!nextMessage)
+    return
 
   try {
     await addMessageMutation.mutateAsync({
@@ -192,7 +220,8 @@ async function submitMessage() {
     messageDraft.value = ''
     messageError.value = null
     activityComposerOpen.value = false
-  } catch (err) {
+  }
+  catch (err) {
     messageError.value = err instanceof Error ? err.message : 'Failed to add message.'
   }
 }
@@ -208,7 +237,9 @@ defineExpose({
   <section class="mb-8">
     <div class="mb-4 flex items-center justify-between gap-4">
       <div class="flex min-w-0 items-center gap-2">
-        <h2 class="text-[15px] font-semibold text-slate-100">Activity</h2>
+        <h2 class="text-[15px] font-semibold text-slate-100">
+          Activity
+        </h2>
         <span v-if="activityQuery.isFetching.value" class="text-[11px] text-slate-600">Loading...</span>
       </div>
       <div class="flex shrink-0 items-center gap-3">
@@ -248,12 +279,12 @@ defineExpose({
             v-if="activityTimelineItems[activityIndex + 1]?.kind === 'history'"
             class="absolute left-[7px] top-[18px] -bottom-[8px] border-l border-white/[0.08]"
             aria-hidden="true"
-          ></span>
+          />
           <div
             class="relative z-10 mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-surface-0"
             :class="getActivityHistoryMarkerClass(activityItem)"
           >
-            <span class="h-1.5 w-1.5 rounded-full" :class="getActivityHistoryDotClass(activityItem)"></span>
+            <span class="h-1.5 w-1.5 rounded-full" :class="getActivityHistoryDotClass(activityItem)" />
           </div>
           <p class="min-w-0 flex-1 text-[13px] leading-5 text-slate-500">
             {{ activityItem.body }}
@@ -303,7 +334,7 @@ defineExpose({
       />
       <div class="mt-2 flex items-center justify-between gap-3">
         <span v-if="messageError" class="min-w-0 flex-1 truncate text-xs text-rose-300">{{ messageError }}</span>
-        <span v-else class="min-w-0 flex-1"></span>
+        <span v-else class="min-w-0 flex-1" />
         <span class="flex shrink-0 items-center gap-3 text-slate-600">
           <button
             type="button"
@@ -326,7 +357,7 @@ defineExpose({
             <svg v-if="!addMessageMutation.isPending.value" class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 3.2 3.9 7.3l.9.9 2.6-2.6v7.2h1.2V5.6l2.6 2.6.9-.9L8 3.2Z" />
             </svg>
-            <span v-else class="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent"></span>
+            <span v-else class="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
           </button>
         </span>
       </div>

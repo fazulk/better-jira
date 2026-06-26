@@ -1,22 +1,21 @@
-import { isRecord } from '../shared/jiraAdf'
-import {
-  buildEnabledSpaceSearchQuery,
-  type JiraSpaceDirectoryEntry,
-} from '../shared/settings'
-import { getAppSettings } from './settings'
-import { getJiraConfig, jiraFetch } from './jiraClient'
-import { isJiraApiProject } from './jiraIssueMapping'
-import { matchesIssueType } from './jiraIssueTypePolicy'
+import type { JiraSpaceDirectoryEntry } from '../shared/settings'
 import type {
   JiraApiIssueType,
   JiraApiProject,
   JiraCreateIssueType,
 } from './jiraTypes'
+import { isRecord } from '../shared/jiraAdf'
+import {
+  buildEnabledSpaceSearchQuery,
+
+} from '../shared/settings'
+import { getJiraConfig, jiraFetch } from './jiraClient'
+import { isJiraApiProject } from './jiraIssueMapping'
+import { matchesIssueType } from './jiraIssueTypePolicy'
+import { getAppSettings } from './settings'
 
 export function buildDefaultSearchQuery(): string | null {
-  const enabledSpaceKeys = getAppSettings().spaces
-    .filter(space => space.enabled)
-    .map(space => space.key)
+  const enabledSpaceKeys = getAppSettings().spaces.filter(space => space.enabled).map(space => space.key)
   return buildEnabledSpaceSearchQuery(enabledSpaceKeys)
 }
 
@@ -81,7 +80,7 @@ function normalizeProjectKey(value: string | null | undefined): string | null {
 
 async function projectSupportsIssueType(projectKey: string, issueType: JiraCreateIssueType): Promise<boolean> {
   const issueTypes = await getProjectIssueTypes(projectKey)
-  return issueTypes.some((candidate) => matchesIssueType(candidate.name, issueType))
+  return issueTypes.some(candidate => matchesIssueType(candidate.name, issueType))
 }
 
 export async function resolveProjectKey(
@@ -126,7 +125,8 @@ export async function resolveProjectKey(
           return project.key
         }
       }
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : ''
       const isMissingProject = message.includes('No project could be found')
         || message.includes('404')
@@ -159,7 +159,7 @@ export async function getProjectIssueTypes(projectKey: string): Promise<JiraApiI
 
   return data.issueTypes
     .filter(isRecord)
-    .map((issueType) => ({
+    .map(issueType => ({
       id: typeof issueType.id === 'string' ? issueType.id : undefined,
       name: typeof issueType.name === 'string' ? issueType.name : undefined,
       subtask: typeof issueType.subtask === 'boolean' ? issueType.subtask : undefined,

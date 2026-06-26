@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
+import { computed, ref, watch } from 'vue'
 import { fetchJiraCurrentUser } from '@/api/jira'
 import { jiraCurrentUserQueryKey } from '@/composables/useJiraCurrentUser'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
@@ -84,7 +84,8 @@ async function saveCredentials(): Promise<void> {
     apiToken.value = ''
     cerebrasApiKey.value = ''
     setupStep.value = 'success'
-  } catch (error) {
+  }
+  catch (error) {
     setupStep.value = 'form'
     isVisible.value = true
     errorMessage.value = error instanceof Error ? error.message : 'Failed to connect to Jira.'
@@ -117,7 +118,9 @@ async function continueToSettings(): Promise<void> {
         </div>
 
         <div class="border-b border-white/[0.06] px-4 py-3">
-          <h2 class="text-[15px] font-semibold text-slate-100">Connect workspace to Jira</h2>
+          <h2 class="text-[15px] font-semibold text-slate-100">
+            Connect workspace to Jira
+          </h2>
           <p class="mt-1 max-w-lg text-[12px] leading-5 text-slate-500">
             Store local credentials, verify the Atlassian account, then choose the spaces that should load in the sidebar.
           </p>
@@ -219,11 +222,13 @@ async function continueToSettings(): Promise<void> {
         aria-live="polite"
       >
         <div class="mx-auto mb-5 flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025]">
-          <div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-200"></div>
+          <div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-200" />
         </div>
 
         <div class="space-y-2 text-center">
-          <h2 class="text-[15px] font-semibold text-slate-100">Connecting to Jira</h2>
+          <h2 class="text-[15px] font-semibold text-slate-100">
+            Connecting to Jira
+          </h2>
           <p class="mx-auto max-w-sm text-[12px] leading-5 text-slate-500">
             Saving your credentials and checking the workspace connection before you continue.
           </p>
@@ -242,7 +247,9 @@ async function continueToSettings(): Promise<void> {
         </div>
 
         <div class="space-y-2 text-center">
-          <h2 class="text-[15px] font-semibold text-slate-100">Jira is connected</h2>
+          <h2 class="text-[15px] font-semibold text-slate-100">
+            Jira is connected
+          </h2>
           <p class="mx-auto max-w-md text-[12px] leading-5 text-slate-400">
             <span v-if="connectedDisplayName">{{ connectedDisplayName }} is signed in.</span>
             Add the spaces you want to load next, then continue into the workspace.

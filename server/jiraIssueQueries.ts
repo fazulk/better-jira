@@ -1,10 +1,10 @@
+import type { JiraTicket, RefreshTicketsResult } from './jiraTypes'
 import { isRecord } from '../shared/jiraAdf'
 import { buildUpdatedSinceSearchQuery } from '../shared/settings'
 import { broadcast } from './events'
 import { jiraFetch } from './jiraClient'
 import { isJiraApiIssue, mapIssue, resolveSprintFieldId } from './jiraIssueMapping'
 import { buildDefaultSearchQuery } from './jiraProjects'
-import type { JiraTicket, RefreshTicketsResult } from './jiraTypes'
 
 const summaryIssueFields = [
   'project',
@@ -67,7 +67,8 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
 
     if (nextPageToken) {
       params.nextPageToken = nextPageToken
-    } else {
+    }
+    else {
       params.startAt = String(startAt)
     }
 
@@ -97,7 +98,7 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
     startAt += batch.length
   }
 
-  return issues.filter(isJiraApiIssue).map((issue) => mapIssue(issue, false, sprintFieldId))
+  return issues.filter(isJiraApiIssue).map(issue => mapIssue(issue, false, sprintFieldId))
 }
 
 function getIncrementalRefreshQuery(updatedSince?: Date): string | null {
@@ -141,7 +142,8 @@ export async function forceRefreshTickets(updatedSince?: Date): Promise<RefreshT
     }
     broadcast('tickets', payload)
     return payload
-  } catch (err: unknown) {
+  }
+  catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Background refresh failed'
     console.error('Background refresh failed:', message)
     broadcast('error', { message })

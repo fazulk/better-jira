@@ -1,8 +1,8 @@
+import type { AiProvider, AiProviderAvailability } from '../../shared/ai'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
-import type { AiProvider, AiProviderAvailability } from '../../shared/ai'
 
 export type LocalAiProvider = 'codex' | 'claude'
 
@@ -57,7 +57,8 @@ function getPathEntries(): string[] {
           entries.add(join(fnmMultishellsPath, entry.name, 'bin'))
         }
       }
-    } catch {
+    }
+    catch {
       // Ignore unreadable shell-manager directories; shell resolution below is still attempted.
     }
   }
@@ -97,7 +98,8 @@ function resolveFromUserShell(command: string): string | null {
       if (firstLine && firstLine.startsWith('/')) {
         return firstLine
       }
-    } catch {
+    }
+    catch {
       // Try the next shell or path-based fallback.
     }
   }
@@ -144,12 +146,12 @@ export function getLocalAiProviderAvailability(): AiProviderAvailability[] {
 }
 
 export function resolveLocalAiCommand(provider: LocalAiProvider): string | null {
-  const cachedAvailability = getLocalAiProviderAvailability().find((entry) => entry.provider === provider)
+  const cachedAvailability = getLocalAiProviderAvailability().find(entry => entry.provider === provider)
   if (cachedAvailability?.commandPath) {
     return cachedAvailability.commandPath
   }
 
-  const config = LOCAL_PROVIDER_COMMANDS.find((entry) => entry.provider === provider)
+  const config = LOCAL_PROVIDER_COMMANDS.find(entry => entry.provider === provider)
   return config ? resolveCommandPath(config.command) : null
 }
 

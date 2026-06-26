@@ -1,7 +1,7 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+
+import { defineComponent } from 'vue'
 
 export default defineComponent({
   props: ['controller'],
@@ -25,7 +25,7 @@ export default defineComponent({
           name="linear-filter-field-search"
           class="h-8 w-full rounded-md border border-white/[0.06] bg-black/20 px-2 text-[12px] text-[#d7d8dc] outline-none placeholder:text-[#6f727b] focus:border-white/[0.14]"
           placeholder="Add Filter..."
-        />
+        >
       </div>
 
       <button
@@ -54,8 +54,7 @@ export default defineComponent({
               ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
               : 'border-white/[0.18] text-transparent'
           "
-          >✓</span
-        >
+        >✓</span>
         <span v-else class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
         <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
         <span v-if="entry.hasSubmenu" class="text-[11px] text-[#777a83]">›</span>
@@ -84,7 +83,9 @@ export default defineComponent({
       </div>
 
       <div v-if="isIssueDisplayView" class="border-b border-white/[0.06] px-3 py-2">
-        <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">Issue inclusion</p>
+        <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">
+          Issue inclusion
+        </p>
         <label class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1.5">
           <span class="text-[12px] text-[#aeb0b7]">Completed issues</span>
           <select
@@ -121,7 +122,7 @@ export default defineComponent({
             <span
               class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
               :class="showSubIssues ? 'translate-x-3' : 'translate-x-0'"
-            ></span>
+            />
           </span>
         </button>
 
@@ -144,13 +145,15 @@ export default defineComponent({
             <span
               class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
               :class="showBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
-            ></span>
+            />
           </span>
         </button>
       </div>
 
       <div v-else-if="isProjectDisplayView" class="border-b border-white/[0.06] px-3 py-2">
-        <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">Project inclusion</p>
+        <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">
+          Project inclusion
+        </p>
         <label class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1.5">
           <span class="text-[12px] text-[#aeb0b7]">Completed projects</span>
           <select
@@ -207,8 +210,7 @@ export default defineComponent({
                   ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
                   : 'border-white/[0.18] text-transparent'
               "
-              >✓</span
-            >
+            >✓</span>
             <span class="w-4 text-center text-[#8f9198]">◷</span>
             <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
             <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
@@ -258,8 +260,7 @@ export default defineComponent({
                   ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
                   : 'border-white/[0.18] text-transparent'
               "
-              >✓</span
-            >
+            >✓</span>
             <span class="w-4 text-center text-[#8f9198]">{{ option.icon }}</span>
             <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
             <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
@@ -275,7 +276,7 @@ export default defineComponent({
             name="linear-filter-search"
             class="h-8 w-full rounded-md border border-white/[0.06] bg-black/20 px-2 text-[12px] text-[#d7d8dc] outline-none placeholder:text-[#6f727b] focus:border-white/[0.14]"
             :placeholder="`Filter ${activeFilterEntry.label.toLowerCase()}...`"
-          />
+          >
         </div>
         <div class="max-h-[30rem] overflow-y-auto px-2">
           <button
@@ -299,8 +300,7 @@ export default defineComponent({
                   ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
                   : 'border-white/[0.18] text-transparent'
               "
-              >✓</span
-            >
+            >✓</span>
             <span class="w-4 shrink-0 text-center text-[#8f9198]">{{ option.icon }}</span>
             <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
             <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>

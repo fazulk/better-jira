@@ -1,8 +1,3 @@
-import {
-  normalizeBoolean,
-  normalizeStringList,
-  normalizeStringListRecord,
-} from './settingsNormalizers'
 import type {
   CustomView,
   CustomViewDisplay,
@@ -10,6 +5,11 @@ import type {
   FavoriteView,
   FavoriteViewFilter,
 } from './settingsTypes'
+import {
+  normalizeBoolean,
+  normalizeStringList,
+  normalizeStringListRecord,
+} from './settingsNormalizers'
 
 function normalizeFavoriteViewFilter(value: unknown): FavoriteViewFilter | null {
   if (typeof value !== 'object' || value === null) {
@@ -57,8 +57,8 @@ export function normalizeFavoriteViews(value: unknown): FavoriteView[] {
 
     const filters = Array.isArray(recordValue.filters)
       ? recordValue.filters
-        .map(normalizeFavoriteViewFilter)
-        .filter((filter): filter is FavoriteViewFilter => filter !== null)
+          .map(normalizeFavoriteViewFilter)
+          .filter((filter): filter is FavoriteViewFilter => filter !== null)
       : []
 
     favoriteViewsById.set(id, {
@@ -164,8 +164,8 @@ export function normalizeCustomViews(value: unknown): CustomView[] {
 
     const filters = Array.isArray(recordValue.filters)
       ? recordValue.filters
-        .map(normalizeCustomViewFilter)
-        .filter((filter): filter is CustomViewFilter => filter !== null)
+          .map(normalizeCustomViewFilter)
+          .filter((filter): filter is CustomViewFilter => filter !== null)
       : []
 
     customViewsById.set(id, {

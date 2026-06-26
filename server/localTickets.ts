@@ -1,16 +1,15 @@
+import type { JiraAdfDocument } from '../shared/jiraAdf'
+import type { JiraTicketLike, LocalStatusId, LocalTicketsFile, StoredLocalTicket } from '../shared/localTickets'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { JiraAdfDocument } from '../shared/jiraAdf'
 import {
+
   normalizeDescriptionAdf,
-  normalizeLocalTicketKey,
   normalizeLocalStatusId,
+  normalizeLocalTicketKey,
   normalizePriorityInput,
+
   storedLocalToJiraShape,
-  type JiraTicketLike,
-  type LocalStatusId,
-  type LocalTicketsFile,
-  type StoredLocalTicket,
 } from '../shared/localTickets'
 import { getAppDataDir } from './runtimePaths'
 
@@ -25,12 +24,14 @@ function defaultFileState(): LocalTicketsFile {
 }
 
 function normalizeStoredTicket(value: unknown): StoredLocalTicket | null {
-  if (typeof value !== 'object' || value === null) return null
+  if (typeof value !== 'object' || value === null)
+    return null
   const record = value as Record<string, unknown>
   const numericId = typeof record.numericId === 'number' && Number.isInteger(record.numericId) && record.numericId > 0
     ? record.numericId
     : null
-  if (!numericId) return null
+  if (!numericId)
+    return null
 
   const rawSummary = typeof record.summary === 'string' ? record.summary.trim() : ''
   const summary = rawSummary || '(Untitled)'
@@ -89,9 +90,10 @@ function readFileState(): LocalTicketsFile {
 
     tickets.sort((left, right) => left.numericId - right.numericId)
 
-    const maxId = tickets.length > 0 ? Math.max(...tickets.map((t) => t.numericId)) : 0
+    const maxId = tickets.length > 0 ? Math.max(...tickets.map(t => t.numericId)) : 0
     return { nextId: Math.max(nextId, maxId + 1), tickets }
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Failed to read local tickets file:', error)
     return defaultFileState()
   }
@@ -103,27 +105,30 @@ function writeFileState(state: LocalTicketsFile): void {
 }
 
 function ticketByNumericId(tickets: StoredLocalTicket[], numericId: number): StoredLocalTicket | undefined {
-  return tickets.find((t) => t.numericId === numericId)
+  return tickets.find(t => t.numericId === numericId)
 }
 
 function ticketByKey(tickets: StoredLocalTicket[], key: string): StoredLocalTicket | undefined {
   const normalized = normalizeLocalTicketKey(key)
-  if (!normalized) return undefined
+  if (!normalized)
+    return undefined
   const match = /^LOCAL-(\d+)$/.exec(normalized)
-  if (!match?.[1]) return undefined
+  if (!match?.[1])
+    return undefined
   const id = Number.parseInt(match[1], 10)
   return ticketByNumericId(tickets, id)
 }
 
 function parentSummaryFor(tickets: StoredLocalTicket[], parentKey: string | null): string | null {
-  if (!parentKey) return null
+  if (!parentKey)
+    return null
   const parent = ticketByKey(tickets, parentKey)
   return parent?.summary ?? null
 }
 
 export function listLocalTicketsAsJiraShape(): JiraTicketLike[] {
   const state = readFileState()
-  return state.tickets.map((stored) =>
+  return state.tickets.map(stored =>
     storedLocalToJiraShape(stored, parentSummaryFor(state.tickets, stored.parentKey)),
   )
 }
@@ -131,7 +136,8 @@ export function listLocalTicketsAsJiraShape(): JiraTicketLike[] {
 export function getLocalTicketAsJiraShape(key: string): JiraTicketLike | null {
   const state = readFileState()
   const stored = ticketByKey(state.tickets, key)
-  if (!stored) return null
+  if (!stored)
+    return null
   return storedLocalToJiraShape(stored, parentSummaryFor(state.tickets, stored.parentKey))
 }
 
@@ -194,7 +200,7 @@ function updateStored(
   updater: (stored: StoredLocalTicket, tickets: StoredLocalTicket[]) => StoredLocalTicket,
 ): JiraTicketLike {
   const state = readFileState()
-  const index = state.tickets.findIndex((t) => normalizeLocalTicketKey(key) === `LOCAL-${t.numericId}`)
+  const index = state.tickets.findIndex(t => normalizeLocalTicketKey(key) === `LOCAL-${t.numericId}`)
   if (index === -1) {
     throw new Error('Ticket not found.')
   }
@@ -217,7 +223,7 @@ export function updateLocalTicketTitle(key: string, title: string): JiraTicketLi
     throw new Error('Title cannot be empty.')
   }
 
-  return updateStored(key, (stored) => ({
+  return updateStored(key, stored => ({
     ...stored,
     summary: trimmed.slice(0, 255),
     updatedAt: new Date().toISOString(),
@@ -225,7 +231,7 @@ export function updateLocalTicketTitle(key: string, title: string): JiraTicketLi
 }
 
 export function updateLocalTicketDescription(key: string, descriptionAdf: unknown): JiraTicketLike {
-  return updateStored(key, (stored) => ({
+  return updateStored(key, stored => ({
     ...stored,
     descriptionAdf: normalizeDescriptionAdf(descriptionAdf),
     updatedAt: new Date().toISOString(),
@@ -251,7 +257,7 @@ export function updateLocalTicketStatus(key: string, transitionId: string): Jira
 }
 
 export function updateLocalTicketPriority(key: string, priority: string): JiraTicketLike {
-  return updateStored(key, (stored) => ({
+  return updateStored(key, stored => ({
     ...stored,
     priority: normalizePriorityInput(priority),
     updatedAt: new Date().toISOString(),
@@ -263,7 +269,7 @@ export function updateLocalTicketAssignee(key: string, assigneeName: string | nu
     ? assigneeName.trim()
     : null
 
-  return updateStored(key, (stored) => ({
+  return updateStored(key, stored => ({
     ...stored,
     assigneeName: normalized,
     updatedAt: new Date().toISOString(),

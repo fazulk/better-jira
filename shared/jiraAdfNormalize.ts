@@ -1,13 +1,15 @@
+import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from './jiraAdfTypes'
 import { plainTextToAdf } from './jiraAdfBuild'
 import { isJiraAdfDocument } from './jiraAdfTypes'
-import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from './jiraAdfTypes'
 
 function normalizeMark(mark: JiraAdfMark): JiraAdfMark | null {
-  if (typeof mark.type !== 'string' || !mark.type) return null
+  if (typeof mark.type !== 'string' || !mark.type)
+    return null
 
   if (mark.type === 'link') {
     const href = mark.attrs?.href
-    if (typeof href !== 'string' || !href) return null
+    if (typeof href !== 'string' || !href)
+      return null
 
     return {
       type: 'link',
@@ -21,7 +23,8 @@ function normalizeMark(mark: JiraAdfMark): JiraAdfMark | null {
 }
 
 function normalizeMarks(marks: JiraAdfMark[] | undefined): JiraAdfMark[] | undefined {
-  if (!marks?.length) return undefined
+  if (!marks?.length)
+    return undefined
 
   const normalizedMarks = marks
     .map(normalizeMark)
@@ -31,11 +34,13 @@ function normalizeMarks(marks: JiraAdfMark[] | undefined): JiraAdfMark[] | undef
 }
 
 function normalizePrimitiveAttrs(attrs: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  if (!attrs) return undefined
+  if (!attrs)
+    return undefined
 
   const normalizedAttrs: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(attrs)) {
-    if (key === 'src') continue
+    if (key === 'src')
+      continue
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       normalizedAttrs[key] = value
     }
@@ -70,7 +75,8 @@ function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
 
 function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
   const type = typeof node.type === 'string' ? node.type : ''
-  if (!type) return null
+  if (!type)
+    return null
 
   if (type === 'hardBreak') {
     return { type: 'hardBreak' }
@@ -78,7 +84,8 @@ function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
 
   if (type === 'text') {
     const text = typeof node.text === 'string' ? node.text : ''
-    if (!text.length) return null
+    if (!text.length)
+      return null
 
     const normalizedTextNode: JiraAdfNode = {
       type: 'text',
@@ -133,7 +140,8 @@ function normalizeNode(node: JiraAdfNode): JiraAdfNode | null {
       if (typeof mediaUrl !== 'string' || !mediaUrl) {
         return null
       }
-    } else {
+    }
+    else {
       const mediaId = normalizedNode.attrs?.id
       if (typeof mediaId !== 'string' || !mediaId || typeof mediaType !== 'string' || !mediaType) {
         return null
@@ -151,21 +159,24 @@ function normalizeNodes(nodes: JiraAdfNode[]): JiraAdfNode[] {
 }
 
 function extractSingleParagraphTextBlob(doc: JiraAdfDocument): string | null {
-  if (doc.content.length !== 1) return null
+  if (doc.content.length !== 1)
+    return null
 
   const [firstNode] = doc.content
-  if (firstNode?.type !== 'paragraph') return null
+  if (firstNode?.type !== 'paragraph')
+    return null
 
   const paragraphContent = firstNode.content ?? []
-  if (!paragraphContent.every((node) => node.type === 'text' && !node.marks?.length && typeof node.text === 'string')) {
+  if (!paragraphContent.every(node => node.type === 'text' && !node.marks?.length && typeof node.text === 'string')) {
     return null
   }
 
-  return paragraphContent.map((node) => node.text ?? '').join('')
+  return paragraphContent.map(node => node.text ?? '').join('')
 }
 
 export function normalizeAdf(doc: JiraAdfDocument | null): JiraAdfDocument | null {
-  if (!doc || !isJiraAdfDocument(doc)) return null
+  if (!doc || !isJiraAdfDocument(doc))
+    return null
 
   const normalizedDoc: JiraAdfDocument = {
     type: 'doc',

@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateLocalTicketPriority } from '@/api/localTickets'
-import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { getCachedTickets, getCachedTicketsQueryKey } from '@/composables/useJiraTickets'
+import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { mergeLocalTicketList } from '@/composables/useLocalTickets'
 
 export function useUpdateLocalTicketPriority() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ key, priorityName }: { key: string; priorityName: string }) =>
+    mutationFn: ({ key, priorityName }: { key: string, priorityName: string }) =>
       updateLocalTicketPriority(key, priorityName),
     onSuccess: (updatedTicket) => {
       const ticketsQueryKey = getCachedTicketsQueryKey(queryClient)

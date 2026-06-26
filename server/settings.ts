@@ -1,11 +1,12 @@
+import type { AppSettings, UpdateAppSettingsInput } from '../shared/settings'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
+
   getDefaultAppSettings,
   normalizeAppSettings,
   reconcileAppSettings,
-  type AppSettings,
-  type UpdateAppSettingsInput,
+
 } from '../shared/settings'
 import { getAppDataDir } from './runtimePaths'
 
@@ -136,7 +137,8 @@ function readStoredSettings(): StoredAppSettings {
   try {
     const rawSettings = readFileSync(settingsFilePath, 'utf8')
     return normalizeStoredSettings(JSON.parse(rawSettings))
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Failed to read settings file:', error)
     return createDefaultStoredSettings()
   }

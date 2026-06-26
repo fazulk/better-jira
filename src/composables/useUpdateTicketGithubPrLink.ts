@@ -1,7 +1,7 @@
+import type { TicketGithubPrLink } from '~/shared/ticketLinks'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateTicketGithubPrLink } from '@/api/jira'
 import { ticketGithubPrLinkQueryKey } from '@/composables/useTicketGithubPrLink'
-import type { TicketGithubPrLink } from '~/shared/ticketLinks'
 
 interface UpdateTicketGithubPrLinkMutationInput {
   key: string

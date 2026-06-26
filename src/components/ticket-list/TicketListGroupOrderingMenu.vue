@@ -1,6 +1,6 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+import { defineComponent } from 'vue'
 
 export default defineComponent({
   props: ['controller'],
@@ -47,7 +47,7 @@ export default defineComponent({
           <span
             class="h-3.5 w-3.5 shrink-0 rounded-full border"
             :class="getIssueGroupMarkerClass(row.label)"
-          ></span>
+          />
           <span class="min-w-0 flex-1 truncate">{{ row.label }}</span>
           <button
             type="button"
@@ -89,7 +89,9 @@ export default defineComponent({
           </button>
         </div>
       </div>
-      <div v-else class="px-3 py-8 text-center text-[12px] text-[#777a83]">No groups to order</div>
+      <div v-else class="px-3 py-8 text-center text-[12px] text-[#777a83]">
+        No groups to order
+      </div>
     </div>
   </div>
 </template>

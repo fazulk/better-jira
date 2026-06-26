@@ -1,5 +1,5 @@
-import { computed } from 'vue'
 import type { CustomView } from '~/shared/settings'
+import { computed } from 'vue'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 
 export function useCustomViews() {

@@ -1,5 +1,6 @@
-import { nextTick, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { JiraCreateIssueType } from '@/types/jira'
+import { nextTick } from 'vue'
 
 interface CreateTicketShortcutsInput {
   canSubmit: ComputedRef<boolean>
@@ -16,7 +17,8 @@ interface CreateTicketShortcutsInput {
 }
 
 function isEditableShortcutTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  if (!(target instanceof HTMLElement))
+    return false
 
   const tagName = target.tagName.toLowerCase()
   return target.isContentEditable
@@ -48,18 +50,21 @@ export function useCreateTicketShortcuts(input: CreateTicketShortcutsInput) {
   }
 
   function selectNextIssueType() {
-    if (input.isCreatePending.value || input.isIssueTypeLocked.value || input.isLocalSpace.value) return
+    if (input.isCreatePending.value || input.isIssueTypeLocked.value || input.isLocalSpace.value)
+      return
 
     const options = input.issueTypeOptions.value
-    if (options.length <= 1) return
+    if (options.length <= 1)
+      return
 
-    const currentIndex = options.findIndex((issueType) => issueType === input.selectedIssueType.value)
+    const currentIndex = options.findIndex(issueType => issueType === input.selectedIssueType.value)
     const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % options.length
     input.selectedIssueType.value = options[nextIndex] ?? input.selectedIssueType.value
   }
 
   function handleComposerKeydown(event: KeyboardEvent) {
-    if (event.defaultPrevented) return
+    if (event.defaultPrevented)
+      return
 
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
@@ -75,8 +80,10 @@ export function useCreateTicketShortcuts(input: CreateTicketShortcutsInput) {
       return
     }
 
-    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
-    if (isEditableShortcutTarget(event.target)) return
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+      return
+    if (isEditableShortcutTarget(event.target))
+      return
 
     const key = event.key.toLowerCase()
     if (key === 's') {

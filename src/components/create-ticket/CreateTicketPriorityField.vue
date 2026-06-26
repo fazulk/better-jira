@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { CreateFieldOption } from '@/features/create-ticket/types'
 import { ref } from 'vue'
 import { priorityConfig } from '@/features/create-ticket/constants'
-import type { CreateFieldOption } from '@/features/create-ticket/types'
 
 defineProps<{
   fieldError: string | null
@@ -58,7 +58,7 @@ defineExpose({ focus })
           <span
             class="h-1.5 w-1.5 rounded-full"
             :class="priorityConfig[priorityName]?.bg || 'bg-slate-500'"
-          ></span>
+          />
           <span class="text-[11px] font-medium text-slate-400">{{ priorityName }}</span>
         </div>
       </div>

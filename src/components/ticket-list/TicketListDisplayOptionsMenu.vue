@@ -1,8 +1,8 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-
-import TicketListGroupOrderingMenu from './TicketListGroupOrderingMenu.vue'
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+
+import { defineComponent } from 'vue'
+import TicketListGroupOrderingMenu from './TicketListGroupOrderingMenu.vue'
 
 export default defineComponent({
   components: { TicketListGroupOrderingMenu },
@@ -152,14 +152,16 @@ export default defineComponent({
             <span
               class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
               :class="orderCompletedByRecency ? 'translate-x-3' : 'translate-x-0'"
-            ></span>
+            />
           </span>
         </button>
       </template>
     </div>
 
     <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-3">
-      <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">List options</p>
+      <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">
+        List options
+      </p>
       <button
         type="button"
         class="mb-3 flex w-full items-center justify-between gap-4 rounded-md px-0 py-1 text-left transition"
@@ -179,7 +181,7 @@ export default defineComponent({
           <span
             class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
             :class="showEmptyGroups ? 'translate-x-3' : 'translate-x-0'"
-          ></span>
+          />
         </span>
       </button>
       <div class="mb-2 flex items-center justify-between gap-3">
@@ -298,9 +300,7 @@ export default defineComponent({
     >
       <div class="mb-2 flex items-center justify-between gap-3">
         <span class="text-[12px] text-[#8f9198]">Visible properties</span>
-        <span class="text-[11px] text-[#6f727b]"
-          >{{ visibleInitiativeRowFields.length }} shown</span
-        >
+        <span class="text-[11px] text-[#6f727b]">{{ visibleInitiativeRowFields.length }} shown</span>
       </div>
       <div class="flex flex-wrap gap-1.5">
         <button

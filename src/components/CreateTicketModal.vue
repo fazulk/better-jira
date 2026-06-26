@@ -1,12 +1,6 @@
 <script setup lang="ts">
+import type { JiraAssignableUser, JiraCreateIssueType, JiraTicket } from '@/types/jira'
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { useCreateAssignableUsers } from '@/composables/useCreateAssignableUsers'
-import { useCreateIssueTypes } from '@/composables/useCreateIssueTypes'
-import { useCreateLocalTicket } from '@/composables/useCreateLocalTicket'
-import { useCreatePriorities } from '@/composables/useCreatePriorities'
-import { useCreateTicket } from '@/composables/useCreateTicket'
-import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
-import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import CreateTicketAssigneeField from '@/components/create-ticket/CreateTicketAssigneeField.vue'
 import CreateTicketDueDateField from '@/components/create-ticket/CreateTicketDueDateField.vue'
 import CreateTicketModalFooter from '@/components/create-ticket/CreateTicketModalFooter.vue'
@@ -17,17 +11,23 @@ import CreateTicketPrimaryFields from '@/components/create-ticket/CreateTicketPr
 import CreateTicketPriorityField from '@/components/create-ticket/CreateTicketPriorityField.vue'
 import CreateTicketSubtypeSelector from '@/components/create-ticket/CreateTicketSubtypeSelector.vue'
 import CreateTicketTeamSelector from '@/components/create-ticket/CreateTicketTeamSelector.vue'
-import { readLocalStorageString } from '@/utils/browserStorage'
-import { LOCAL_ISSUE_TYPE } from '~/shared/localTickets'
-import type { JiraAssignableUser, JiraCreateIssueType, JiraTicket } from '@/types/jira'
+import { useCreateAssignableUsers } from '@/composables/useCreateAssignableUsers'
+import { useCreateIssueTypes } from '@/composables/useCreateIssueTypes'
+import { useCreateLocalTicket } from '@/composables/useCreateLocalTicket'
+import { useCreatePriorities } from '@/composables/useCreatePriorities'
+import { useCreateTicket } from '@/composables/useCreateTicket'
+import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { HARDCODED_CREATE_FIELDS } from '@/features/create-ticket/constants'
 import { getAllowedIssueTypesForParent, getCreateIssueTypeLabel, getIssueTypeBadgeClass } from '@/features/create-ticket/issueTypePolicy'
+import { useCreateFieldOptions } from '@/features/create-ticket/useCreateFieldOptions'
 import { useCreateTicketDerivedState } from '@/features/create-ticket/useCreateTicketDerivedState'
 import { useCreateTicketFieldValues } from '@/features/create-ticket/useCreateTicketFieldValues'
-import { useCreateFieldOptions } from '@/features/create-ticket/useCreateFieldOptions'
 import { useCreateTicketFormSync } from '@/features/create-ticket/useCreateTicketFormSync'
 import { focusElementById, useCreateTicketShortcuts } from '@/features/create-ticket/useCreateTicketShortcuts'
 import { useCreateTicketSubmit } from '@/features/create-ticket/useCreateTicketSubmit'
+import { readLocalStorageString } from '@/utils/browserStorage'
+import { LOCAL_ISSUE_TYPE } from '~/shared/localTickets'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -115,14 +115,15 @@ const issueTypeOptions = computed<JiraCreateIssueType[]>(() => {
   }
 
   if (effectiveParentKey.value) {
-    return createIssueTypesQuery.data.value?.map((issueType) => issueType.name) ?? []
+    return createIssueTypesQuery.data.value?.map(issueType => issueType.name) ?? []
   }
 
   return getAllowedIssueTypesForParent(selectedParentTicket.value?.issueType ?? null)
 })
 
 const createIssueTypesError = computed(() => {
-  if (!effectiveParentKey.value) return null
+  if (!effectiveParentKey.value)
+    return null
 
   const error = createIssueTypesQuery.error.value
   return error instanceof Error ? error.message : null
@@ -133,17 +134,18 @@ const hasSelectedIssueTypeOption = computed(() => (
   && (isLocalSpace.value || issueTypeOptions.value.includes(selectedIssueType.value))
 ))
 const canSubmit = computed(() => (
-  !isCreatePending
+  !isCreatePending.value
   && hasSelectedIssueTypeOption.value
   && Boolean(effectiveSpaceKey.value)
   && !(isLocalSpace.value && (jiraMeQuery.isLoading.value || jiraMeQuery.isFetching.value))
 ))
 
 const fields = computed(() => HARDCODED_CREATE_FIELDS)
-const primaryFields = computed(() => fields.value.filter((field) => field.key === 'summary' || field.key === 'description'))
+const primaryFields = computed(() => fields.value.filter(field => field.key === 'summary' || field.key === 'description'))
 
 function closeModal() {
-  if (isCreatePending) return
+  if (isCreatePending.value)
+    return
   emit('close')
 }
 
@@ -272,7 +274,7 @@ onUnmounted(() => {
         v-if="open"
         class="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-3 py-[9vh] backdrop-blur-sm"
         @click.self="closeModal"
-        >
+      >
         <div
           class="w-full max-w-[42rem] overflow-hidden rounded-lg border border-white/[0.08] bg-surface-1 shadow-xl shadow-black/40"
           role="dialog"

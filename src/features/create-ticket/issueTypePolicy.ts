@@ -1,4 +1,5 @@
-import { getLinearIssueSubtype, type JiraCreateIssueType } from '@/types/jira'
+import type { JiraCreateIssueType } from '@/types/jira'
+import { getLinearIssueSubtype } from '@/types/jira'
 
 export function getAllowedIssueTypesForParent(parentIssueType: string | null): JiraCreateIssueType[] {
   if (!parentIssueType) {
@@ -68,10 +69,14 @@ export function canIssueTypeUseParent(childIssueType: string, parentIssueType: s
 
 export function getIssueTypeBadgeClass(issueType: JiraCreateIssueType): string {
   const normalizedType = issueType.toLowerCase()
-  if (normalizedType.includes('bug')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
-  if (normalizedType.includes('epic')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
-  if (normalizedType.includes('story')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
-  if (normalizedType.includes('sub')) return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('bug'))
+    return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('epic'))
+    return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('story'))
+    return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+  if (normalizedType.includes('sub'))
+    return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
   return 'border-white/[0.08] bg-white/[0.035] text-slate-300'
 }
 

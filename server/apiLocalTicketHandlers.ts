@@ -3,6 +3,13 @@ import { readBody } from 'h3'
 import { isJiraAdfDocument } from '../shared/jiraAdf'
 import { normalizeLocalTicketKey } from '../shared/localTickets'
 import {
+  API_HEADERS,
+  badRequestResponse,
+  generateAiDescriptionResponse,
+  isRecord,
+  notFoundResponse,
+} from './apiRouteUtils'
+import {
   createLocalTicket,
   getLocalTicketAsJiraShape,
   listLocalTicketsAsJiraShape,
@@ -13,13 +20,6 @@ import {
   updateLocalTicketTitle,
 } from './localTickets'
 import { getTicketGithubPrLink, updateTicketGithubPrLink } from './ticketLinks'
-import {
-  API_HEADERS,
-  badRequestResponse,
-  generateAiDescriptionResponse,
-  isRecord,
-  notFoundResponse,
-} from './apiRouteUtils'
 
 export async function handleLocalTicketApiRoute(
   event: H3Event,
@@ -63,7 +63,8 @@ export async function handleLocalTicketApiRoute(
     try {
       const ticket = updateLocalTicketTitle(ticketKey, title)
       return Response.json(ticket, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update title.'
       return badRequestResponse(message)
     }
@@ -77,7 +78,8 @@ export async function handleLocalTicketApiRoute(
     try {
       const ticket = updateLocalTicketDescription(ticketKey, descriptionAdf)
       return Response.json(ticket, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update description.'
       return badRequestResponse(message)
     }
@@ -93,7 +95,8 @@ export async function handleLocalTicketApiRoute(
     try {
       const ticket = updateLocalTicketStatus(ticketKey, transitionId)
       return Response.json(ticket, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update status.'
       return badRequestResponse(message)
     }
@@ -105,7 +108,8 @@ export async function handleLocalTicketApiRoute(
     try {
       const ticket = updateLocalTicketPriority(ticketKey, priorityName)
       return Response.json(ticket, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update priority.'
       return badRequestResponse(message)
     }
@@ -121,7 +125,8 @@ export async function handleLocalTicketApiRoute(
     try {
       const ticket = updateLocalTicketAssignee(ticketKey, assigneeName)
       return Response.json(ticket, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update assignee.'
       return badRequestResponse(message)
     }
@@ -159,7 +164,8 @@ async function createLocalTicketResponse(event: H3Event): Promise<Response> {
       dueDate,
     })
     return Response.json(ticket, { headers: API_HEADERS })
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create ticket.'
     return badRequestResponse(message)
   }
@@ -193,7 +199,8 @@ async function handleLocalGithubPrRoute(
     try {
       const githubPrLink = updateTicketGithubPrLink(ticketKey, githubPrUrl)
       return Response.json(githubPrLink, { headers: API_HEADERS })
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid GitHub PR URL.'
       return badRequestResponse(message)
     }

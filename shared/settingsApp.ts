@@ -1,3 +1,7 @@
+import type {
+  AppSettings,
+  UpdateAppSettingsInput,
+} from './settingsTypes'
 import { DEFAULT_AI_PROVIDER, getDefaultModelForProvider } from './ai'
 import {
   getDefaultAiConnectionSettings,
@@ -12,23 +16,19 @@ import {
   normalizeSpaceKeyList,
 } from './settingsNormalizers'
 import {
-  reconcileAiInstructionPresets,
   normalizeAiInstructionPresetSettings,
+  reconcileAiInstructionPresets,
 } from './settingsPresets'
-import {
-  normalizeSpacesFromRecord,
-  reconcileSpaceSettings,
-} from './settingsSpaces'
 import {
   getDefaultSidebarSettings,
   normalizeSidebarSettings,
   normalizeSidebarSettingsUpdate,
   reconcileSidebarSettings,
 } from './settingsSidebar'
-import type {
-  AppSettings,
-  UpdateAppSettingsInput,
-} from './settingsTypes'
+import {
+  normalizeSpacesFromRecord,
+  reconcileSpaceSettings,
+} from './settingsSpaces'
 
 export function getDefaultAppSettings(): AppSettings {
   return {
@@ -117,7 +117,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
 
   return {
     spaces,
-    filterSpaceKeys: settings.filterSpaceKeys.filter((spaceKey) => enabledSpaceKeys.has(spaceKey)),
+    filterSpaceKeys: settings.filterSpaceKeys.filter(spaceKey => enabledSpaceKeys.has(spaceKey)),
     sidebar: reconcileSidebarSettings(settings.sidebar),
     jira: {
       baseUrl: settings.jira.baseUrl.trim(),

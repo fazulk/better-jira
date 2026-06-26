@@ -1,6 +1,3 @@
-import { isRecord } from '../shared/jiraAdf'
-import { jiraFetch } from './jiraClient'
-import { extractDescription, extractDescriptionAdf } from './jiraDescription'
 import type {
   JiraApiAttachment,
   JiraApiIssue,
@@ -11,11 +8,15 @@ import type {
   JiraAttachment,
   JiraTicket,
 } from './jiraTypes'
+import { isRecord } from '../shared/jiraAdf'
+import { jiraFetch } from './jiraClient'
+import { extractDescription, extractDescriptionAdf } from './jiraDescription'
 
 let sprintFieldIdPromise: Promise<string | null> | null = null
 
 export function isJiraApiUser(value: unknown): value is Required<JiraApiUser> {
-  if (!isRecord(value)) return false
+  if (!isRecord(value))
+    return false
   return typeof value.accountId === 'string' && typeof value.displayName === 'string'
 }
 
@@ -69,7 +70,8 @@ async function getSprintFieldId(): Promise<string | null> {
 export async function resolveSprintFieldId(): Promise<string | null> {
   try {
     return await getSprintFieldId()
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error'
     console.warn('Unable to resolve Jira sprint field:', message)
     return null
@@ -86,12 +88,14 @@ function isTicketInCurrentSprint(fields: JiraApiIssueFields | undefined, sprintF
     return false
   }
 
-  return sprintValue.some((sprint) => isJiraApiSprint(sprint) && sprint.state === 'active')
+  return sprintValue.some(sprint => isJiraApiSprint(sprint) && sprint.state === 'active')
 }
 
 export function mapAttachment(attachment: JiraApiAttachment): JiraAttachment | null {
-  if (typeof attachment.id !== 'string' || !attachment.id) return null
-  if (typeof attachment.filename !== 'string' || !attachment.filename) return null
+  if (typeof attachment.id !== 'string' || !attachment.id)
+    return null
+  if (typeof attachment.filename !== 'string' || !attachment.filename)
+    return null
 
   const mapped: JiraAttachment = {
     id: attachment.id,
@@ -114,7 +118,8 @@ export function mapAttachment(attachment: JiraApiAttachment): JiraAttachment | n
 }
 
 function mapAttachments(attachments: JiraApiAttachment[] | undefined): JiraAttachment[] | undefined {
-  if (!attachments?.length) return undefined
+  if (!attachments?.length)
+    return undefined
 
   const mappedAttachments = attachments
     .map(mapAttachment)

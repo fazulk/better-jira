@@ -1,97 +1,98 @@
-import { cp, mkdtemp, mkdir, readlink, readdir, rm, symlink, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
-import { OUTPUT_FILENAME, fail, log } from "./config.mjs";
-import { buildEnv, runCommand } from "./command.mjs";
+import { cp, mkdir, mkdtemp, readdir, readlink, rm, symlink, unlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join, relative } from 'node:path'
+import { buildEnv, runCommand } from './command.mjs'
+import { fail, log, OUTPUT_FILENAME } from './config.mjs'
 
 async function findAppBundle(distDir) {
-  const files = await readdir(distDir, { withFileTypes: true });
+  const files = await readdir(distDir, { withFileTypes: true })
   for (const entry of files) {
-    const entryPath = join(distDir, entry.name);
+    const entryPath = join(distDir, entry.name)
     if (entry.isDirectory()) {
-      if (entry.name.endsWith(".app")) {
-        return entryPath;
+      if (entry.name.endsWith('.app')) {
+        return entryPath
       }
-      const nested = await findAppBundle(entryPath);
+      const nested = await findAppBundle(entryPath)
       if (nested) {
-        return nested;
+        return nested
       }
     }
   }
 
-  return null;
+  return null
 }
 
 async function patchAndSignMacApp(appBundlePath, verbose) {
-  const frameworksDir = join(appBundlePath, "Contents", "Frameworks");
-  const frameworkEntries = await readdir(frameworksDir, { withFileTypes: true });
+  const frameworksDir = join(appBundlePath, 'Contents', 'Frameworks')
+  const frameworkEntries = await readdir(frameworksDir, { withFileTypes: true })
   for (const frameworkEntry of frameworkEntries) {
-    if (!frameworkEntry.isDirectory() || !frameworkEntry.name.endsWith(".framework")) {
-      continue;
+    if (!frameworkEntry.isDirectory() || !frameworkEntry.name.endsWith('.framework')) {
+      continue
     }
 
-    const frameworkDir = join(frameworksDir, frameworkEntry.name);
-    const frameworkChildren = await readdir(frameworkDir);
+    const frameworkDir = join(frameworksDir, frameworkEntry.name)
+    const frameworkChildren = await readdir(frameworkDir)
     for (const childName of frameworkChildren) {
-      if (childName === "Versions") {
-        continue;
+      if (childName === 'Versions') {
+        continue
       }
 
-      const linkPath = join(frameworkDir, childName);
+      const linkPath = join(frameworkDir, childName)
       try {
-        await readlink(linkPath);
-      } catch {
-        continue;
+        await readlink(linkPath)
+      }
+      catch {
+        continue
       }
 
-      await unlink(linkPath);
-      await symlink(join("Versions", "Current", childName), linkPath);
+      await unlink(linkPath)
+      await symlink(join('Versions', 'Current', childName), linkPath)
     }
   }
 
-  const plistPath = join(appBundlePath, "Contents", "Info.plist");
-  await runCommand("plutil", ["-remove", "ElectronAsarIntegrity", plistPath], {
+  const plistPath = join(appBundlePath, 'Contents', 'Info.plist')
+  await runCommand('plutil', ['-remove', 'ElectronAsarIntegrity', plistPath], {
     cwd: dirname(appBundlePath),
     env: process.env,
     verbose,
-  });
-  await runCommand("codesign", ["--force", "--deep", "-s", "-", appBundlePath], {
+  })
+  await runCommand('codesign', ['--force', '--deep', '-s', '-', appBundlePath], {
     cwd: dirname(appBundlePath),
     env: process.env,
     verbose,
-  });
+  })
 }
 
 function artifactBaseName(version, arch) {
-  return `${OUTPUT_FILENAME}-${version}-${arch}`;
+  return `${OUTPUT_FILENAME}-${version}-${arch}`
 }
 
 async function createMacDmg(appBundlePath, version, arch, outputDir, verbose) {
-  const dmgStageDir = await mkdtemp(join(tmpdir(), "betterjira-dmg-stage-"));
-  const stagedAppPath = join(dmgStageDir, basename(appBundlePath));
-  const dmgPath = join(outputDir, `${artifactBaseName(version, arch)}.dmg`);
-  await rm(dmgPath, { force: true });
-  await mkdir(outputDir, { recursive: true });
+  const dmgStageDir = await mkdtemp(join(tmpdir(), 'betterjira-dmg-stage-'))
+  const stagedAppPath = join(dmgStageDir, basename(appBundlePath))
+  const dmgPath = join(outputDir, `${artifactBaseName(version, arch)}.dmg`)
+  await rm(dmgPath, { force: true })
+  await mkdir(outputDir, { recursive: true })
   try {
-    await cp(appBundlePath, stagedAppPath, { recursive: true, verbatimSymlinks: true });
-    await runCommand("ln", ["-s", "/Applications", join(dmgStageDir, "Applications")], {
+    await cp(appBundlePath, stagedAppPath, { recursive: true, verbatimSymlinks: true })
+    await runCommand('ln', ['-s', '/Applications', join(dmgStageDir, 'Applications')], {
       cwd: dmgStageDir,
       env: process.env,
       verbose,
       shell: false,
-    });
+    })
 
     await runCommand(
-      "hdiutil",
+      'hdiutil',
       [
-        "create",
-        "-volname",
+        'create',
+        '-volname',
         OUTPUT_FILENAME,
-        "-srcfolder",
+        '-srcfolder',
         dmgStageDir,
-        "-ov",
-        "-format",
-        "UDZO",
+        '-ov',
+        '-format',
+        'UDZO',
         dmgPath,
       ],
       {
@@ -99,55 +100,56 @@ async function createMacDmg(appBundlePath, version, arch, outputDir, verbose) {
         env: process.env,
         verbose,
       },
-    );
-    return [dmgPath];
-  } finally {
-    await rm(dmgStageDir, { recursive: true, force: true });
+    )
+    return [dmgPath]
+  }
+  finally {
+    await rm(dmgStageDir, { recursive: true, force: true })
   }
 }
 
 async function copyMacDirArtifact(appBundlePath, distDir, outputDir) {
-  const relativeBundlePath = relative(distDir, appBundlePath);
-  const destination = join(outputDir, relativeBundlePath);
-  await rm(destination, { recursive: true, force: true });
-  await mkdir(dirname(destination), { recursive: true });
-  await cp(appBundlePath, destination, { recursive: true, verbatimSymlinks: true });
-  return [destination];
+  const relativeBundlePath = relative(distDir, appBundlePath)
+  const destination = join(outputDir, relativeBundlePath)
+  await rm(destination, { recursive: true, force: true })
+  await mkdir(dirname(destination), { recursive: true })
+  await cp(appBundlePath, destination, { recursive: true, verbatimSymlinks: true })
+  return [destination]
 }
 
 export async function buildMacArtifact(stageAppDir, options, version) {
-  log(`[desktop-artifact] Packaging mac/${options.target} (arch=${options.arch})...`);
+  log(`[desktop-artifact] Packaging mac/${options.target} (arch=${options.arch})...`)
   await runCommand(
-    "bun",
+    'bun',
     [
-      "x",
-      "electron-builder",
-      "--config",
-      "electron-builder.yml",
-      "--mac",
-      "--dir",
+      'x',
+      'electron-builder',
+      '--config',
+      'electron-builder.yml',
+      '--mac',
+      '--dir',
       `--${options.arch}`,
-      "--publish",
-      "never",
+      '--publish',
+      'never',
     ],
     {
       cwd: stageAppDir,
       env: buildEnv(),
       verbose: options.verbose,
     },
-  );
+  )
 
-  const distDir = join(stageAppDir, "dist");
-  const appBundlePath = await findAppBundle(distDir);
+  const distDir = join(stageAppDir, 'dist')
+  const appBundlePath = await findAppBundle(distDir)
   if (!appBundlePath) {
-    fail(`Could not find macOS app bundle in ${distDir}`);
+    fail(`Could not find macOS app bundle in ${distDir}`)
   }
 
-  await patchAndSignMacApp(appBundlePath, options.verbose);
+  await patchAndSignMacApp(appBundlePath, options.verbose)
 
-  if (options.target === "dir") {
-    return copyMacDirArtifact(appBundlePath, distDir, options.outputDir);
+  if (options.target === 'dir') {
+    return copyMacDirArtifact(appBundlePath, distDir, options.outputDir)
   }
 
-  return createMacDmg(appBundlePath, version, options.arch, options.outputDir, options.verbose);
+  return createMacDmg(appBundlePath, version, options.arch, options.outputDir, options.verbose)
 }

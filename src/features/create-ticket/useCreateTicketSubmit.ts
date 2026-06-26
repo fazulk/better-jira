@@ -56,7 +56,8 @@ const LAST_CREATED_SPACE_KEY = 'jira2.last-created-space-key'
 
 export function useCreateTicketSubmit(input: CreateTicketSubmitInput) {
   async function submit() {
-    if (input.isCreatePending.value) return
+    if (input.isCreatePending.value)
+      return
 
     input.submitError.value = null
 
@@ -115,7 +116,8 @@ export function useCreateTicketSubmit(input: CreateTicketSubmitInput) {
       input.lastCreatedSpaceKey.value = nextSpaceKey
       localStorage.setItem(LAST_CREATED_SPACE_KEY, LOCAL_SPACE_KEY)
       input.finishSuccessfulCreate(createdTicket.key)
-    } catch (err) {
+    }
+    catch (err) {
       input.submitError.value = err instanceof Error ? err.message : 'Failed to create ticket.'
     }
   }
@@ -138,7 +140,8 @@ export function useCreateTicketSubmit(input: CreateTicketSubmitInput) {
       input.lastCreatedSpaceKey.value = persistedSpaceKey
       localStorage.setItem(LAST_CREATED_SPACE_KEY, persistedSpaceKey)
       input.finishSuccessfulCreate(createdTicket.key)
-    } catch (err) {
+    }
+    catch (err) {
       input.submitError.value = err instanceof Error ? err.message : 'Failed to create ticket.'
     }
   }

@@ -24,7 +24,9 @@ function childStatusClass(category: string) {
 <template>
   <section class="mb-8">
     <div class="mb-2 flex items-center justify-between">
-      <h2 class="text-xs font-medium text-slate-400">{{ sectionLabel }}</h2>
+      <h2 class="text-xs font-medium text-slate-400">
+        {{ sectionLabel }}
+      </h2>
       <button
         type="button"
         class="rounded-md px-2 py-1 text-xs text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-200"
@@ -41,7 +43,7 @@ function childStatusClass(category: string) {
         @click="emit('select', child.key)"
         @mouseenter="emit('prefetch', child.key)"
       >
-        <span class="h-2.5 w-2.5 shrink-0 rounded-full border" :class="childStatusClass(child.statusCategory)"></span>
+        <span class="h-2.5 w-2.5 shrink-0 rounded-full border" :class="childStatusClass(child.statusCategory)" />
         <span class="w-20 shrink-0 text-xs text-slate-500">{{ child.key }}</span>
         <span class="min-w-0 flex-1 truncate text-sm text-slate-300 group-hover:text-slate-100">{{ child.summary }}</span>
         <span class="hidden shrink-0 text-xs text-slate-600 md:inline">{{ child.status }}</span>

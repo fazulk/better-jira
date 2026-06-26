@@ -1,12 +1,12 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, getMethod, getRequestURL, readBody } from 'h3'
-import { forceRefreshTickets } from '../jira'
-import { addClient, removeClient } from '../events'
-import { MissingJiraCredentialsError } from '../jiraCredentials'
 import { handleGeneralApiRoute } from '../apiGeneralHandlers'
 import { handleLocalTicketApiRoute } from '../apiLocalTicketHandlers'
 import { handleRemoteTicketApiRoute } from '../apiRemoteTicketHandlers'
 import { API_HEADERS, isRecord, notFoundResponse, parseRefreshUpdatedSince } from '../apiRouteUtils'
+import { addClient, removeClient } from '../events'
+import { forceRefreshTickets } from '../jira'
+import { MissingJiraCredentialsError } from '../jiraCredentials'
 
 function eventStreamResponse(event: H3Event): Response {
   let clientId = -1
@@ -33,7 +33,7 @@ function eventStreamResponse(event: H3Event): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
+      'Connection': 'keep-alive',
       'Content-Type': 'text/event-stream',
     },
   })
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   const method = getMethod(event)
   const url = getRequestURL(event)
   const path = url.pathname.replace(/^\/api\/?/, '')
-  const segments = path.split('/').filter((segment) => segment.length > 0)
+  const segments = path.split('/').filter(segment => segment.length > 0)
 
   if (method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: API_HEADERS })
@@ -55,13 +55,16 @@ export default defineEventHandler(async (event) => {
     }
 
     const generalResponse = await handleGeneralApiRoute(event, segments, method)
-    if (generalResponse) return generalResponse
+    if (generalResponse)
+      return generalResponse
 
     const localTicketResponse = await handleLocalTicketApiRoute(event, segments, method)
-    if (localTicketResponse) return localTicketResponse
+    if (localTicketResponse)
+      return localTicketResponse
 
     const remoteTicketResponse = await handleRemoteTicketApiRoute(event, segments, method)
-    if (remoteTicketResponse) return remoteTicketResponse
+    if (remoteTicketResponse)
+      return remoteTicketResponse
 
     if (segments.length === 1 && segments[0] === 'refresh' && method === 'POST') {
       const body = await readBody<unknown>(event)
@@ -71,7 +74,8 @@ export default defineEventHandler(async (event) => {
     }
 
     return notFoundResponse()
-  } catch (error: unknown) {
+  }
+  catch (error: unknown) {
     if (error instanceof MissingJiraCredentialsError) {
       console.error('Request blocked: Jira credentials missing')
       return Response.json({

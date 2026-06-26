@@ -107,15 +107,20 @@ export type StatusGroup = 'new' | 'indeterminate' | 'done'
 export type LinearIssueSubtype = 'Bug' | 'Feature' | 'Story' | 'Task'
 
 export function getStatusGroup(statusCategory: string): StatusGroup {
-  if (statusCategory === 'done') return 'done'
-  if (statusCategory === 'new') return 'new'
+  if (statusCategory === 'done')
+    return 'done'
+  if (statusCategory === 'new')
+    return 'new'
   return 'indeterminate'
 }
 
 export function getLinearIssueSubtype(issueType: string): LinearIssueSubtype {
   const normalized = issueType.trim().toLowerCase()
-  if (normalized.includes('bug')) return 'Bug'
-  if (normalized.includes('feature')) return 'Feature'
-  if (normalized.includes('story')) return 'Story'
+  if (normalized.includes('bug'))
+    return 'Bug'
+  if (normalized.includes('feature'))
+    return 'Feature'
+  if (normalized.includes('story'))
+    return 'Story'
   return 'Task'
 }

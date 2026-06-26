@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { JiraTicket } from '@/types/jira'
-import { LOCAL_PRIORITY_NAMES } from '~/shared/localTickets'
+import { computed } from 'vue'
 import {
   priorityConfig,
   statusColors,
   useTicketDetailPropertyEditors,
 } from '@/features/ticket-detail/useTicketDetailPropertyEditors'
 import { useTicketDetailStatusEditor } from '@/features/ticket-detail/useTicketDetailStatusEditor'
+import { LOCAL_PRIORITY_NAMES } from '~/shared/localTickets'
 
 const props = defineProps<{
   collapsed: boolean
@@ -115,7 +115,9 @@ defineExpose({
             v-model="statusDraft"
             class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
           >
-            <option value="" disabled>Move to...</option>
+            <option value="" disabled>
+              Move to...
+            </option>
             <option
               v-for="transition in (isLocalTicket ? localTransitionsList : (transitionsQuery.data.value ?? []))"
               :key="transition.id"
@@ -189,10 +191,12 @@ defineExpose({
             class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
             placeholder="Search assignees..."
             @keydown="handleAssigneeKeydown"
-          />
+          >
           <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-2 py-1 shadow-xl shadow-black/40">
             <template v-if="recentComboOptions.length">
-              <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">Recent</div>
+              <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">
+                Recent
+              </div>
               <button
                 v-for="(option, i) in recentComboOptions"
                 :key="option.accountId"
@@ -204,7 +208,7 @@ defineExpose({
               >
                 {{ option.displayName }}
               </button>
-              <div class="mx-2 my-1 border-t border-white/[0.06]"></div>
+              <div class="mx-2 my-1 border-t border-white/[0.06]" />
             </template>
             <button
               v-for="(option, j) in nonRecentComboOptions"
@@ -237,19 +241,21 @@ defineExpose({
       <div class="flex items-start rounded-md px-1 py-2">
         <div v-if="isEditingPriority" class="min-w-0 space-y-2">
           <select
-            id="detail-priority"
             v-if="!isLocalTicket"
+            id="detail-priority"
             v-model="priorityDraft"
             class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
           >
-            <option value="" disabled>Set priority...</option>
+            <option value="" disabled>
+              Set priority...
+            </option>
             <option v-for="priority in prioritiesQuery.data.value ?? []" :key="priority.id" :value="priority.id">
               {{ priority.name }}
             </option>
           </select>
           <select
-            id="detail-local-priority"
             v-else
+            id="detail-local-priority"
             v-model="priorityDraftLocal"
             class="w-full rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
           >
@@ -272,7 +278,7 @@ defineExpose({
           </div>
         </div>
         <button v-else class="flex min-w-0 items-center gap-2 text-left" @click="startEditingPriority">
-          <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="priorityConfig[ticket.priority]?.bg || 'bg-slate-500'"></span>
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="priorityConfig[ticket.priority]?.bg || 'bg-slate-500'" />
           <span class="truncate text-sm text-slate-300">{{ ticket.priority }}</span>
         </button>
       </div>

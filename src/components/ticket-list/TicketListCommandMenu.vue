@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
 import type { CommandMenuItem } from '@/features/ticket-list/types'
+import { nextTick, ref, watch } from 'vue'
 
 const props = defineProps<{
   open: boolean
@@ -9,15 +9,15 @@ const props = defineProps<{
   activeIndex: number
 }>()
 
-const inputRef = ref<HTMLInputElement | null>(null)
-
 const emit = defineEmits<{
-  close: []
+  'close': []
   'update:query': [value: string]
-  keydown: [event: KeyboardEvent]
-  activate: [index: number]
-  run: [item: CommandMenuItem]
+  'keydown': [event: KeyboardEvent]
+  'activate': [index: number]
+  'run': [item: CommandMenuItem]
 }>()
+
+const inputRef = ref<HTMLInputElement | null>(null)
 
 function emitQueryInput(event: Event): void {
   if (event.target instanceof HTMLInputElement) {
@@ -63,11 +63,10 @@ watch(
                 placeholder="Find an issue or command..."
                 @input="emitQueryInput"
                 @keydown="emit('keydown', $event)"
-              />
+              >
               <span
                 class="hidden rounded border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-slate-500 sm:inline"
-                >Esc</span
-              >
+              >Esc</span>
             </div>
           </div>
 
@@ -116,7 +115,9 @@ watch(
             </template>
 
             <div v-else class="px-6 py-10 text-center">
-              <p class="text-sm font-medium text-slate-300">No results</p>
+              <p class="text-sm font-medium text-slate-300">
+                No results
+              </p>
               <p class="mt-1 text-xs text-slate-600">
                 Try a different issue key, title, assignee, or command.
               </p>

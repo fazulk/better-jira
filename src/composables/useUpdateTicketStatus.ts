@@ -1,9 +1,9 @@
+import type { JiraTicket } from '@/types/jira'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateTicketStatus } from '@/api/jira'
 import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { getCachedTickets, getCachedTicketsQueryKey, TICKETS_QUERY_KEY } from '@/composables/useJiraTickets'
 import { transitionsQueryKey } from '@/composables/useTransitions'
-import type { JiraTicket } from '@/types/jira'
 
 function mergeTicket(tickets: JiraTicket[], updatedTicket: JiraTicket) {
   return tickets.map((ticket) => {
@@ -33,7 +33,7 @@ export function useUpdateTicketStatus() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ key, transitionId }: { key: string; transitionId: string; statusName: string; statusCategory: string }) =>
+    mutationFn: ({ key, transitionId }: { key: string, transitionId: string, statusName: string, statusCategory: string }) =>
       updateTicketStatus(key, transitionId),
     onMutate: async ({ key, statusName, statusCategory }) => {
       const ticketsQueryKey = getCachedTicketsQueryKey(queryClient)
@@ -43,7 +43,7 @@ export function useUpdateTicketStatus() {
 
       const previousTickets = getCachedTickets(queryClient)
       const previousTicket = queryClient.getQueryData<JiraTicket>(ticketQueryKey(key))
-      const optimisticBaseTicket = previousTicket ?? previousTickets?.find((ticket) => ticket.key === key)
+      const optimisticBaseTicket = previousTicket ?? previousTickets?.find(ticket => ticket.key === key)
 
       if (previousTickets && optimisticBaseTicket) {
         queryClient.setQueryData<JiraTicket[]>(
@@ -67,7 +67,8 @@ export function useUpdateTicketStatus() {
       return { previousTickets, previousTicket, key, ticketsQueryKey }
     },
     onError: (_err, _variables, context) => {
-      if (!context) return
+      if (!context)
+        return
       if (context.previousTickets) {
         queryClient.setQueryData(context.ticketsQueryKey, context.previousTickets)
       }

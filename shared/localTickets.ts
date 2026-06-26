@@ -1,4 +1,5 @@
-import { adfToPlainText, isJiraAdfDocument, plainTextToAdf, type JiraAdfDocument } from './jiraAdf'
+import type { JiraAdfDocument } from './jiraAdf'
+import { adfToPlainText, isJiraAdfDocument, plainTextToAdf } from './jiraAdf'
 
 export const LOCAL_SPACE_KEY = 'LOCAL'
 export const LOCAL_SPACE_NAME = 'Local'
@@ -35,7 +36,8 @@ export function isLocalPriorityName(value: string): value is LocalPriorityName {
 }
 
 export function normalizeLocalTicketKey(value: unknown): string | null {
-  if (typeof value !== 'string') return null
+  if (typeof value !== 'string')
+    return null
   const trimmed = value.trim().toUpperCase()
   return LOCAL_KEY_REGEX.test(trimmed) ? trimmed : null
 }
@@ -45,11 +47,11 @@ export function isLocalTicketKey(key: string | null): boolean {
 }
 
 export function getLocalStatusById(id: string): LocalStatusDefinition | undefined {
-  return LOCAL_STATUS_DEFINITIONS.find((entry) => entry.id === id)
+  return LOCAL_STATUS_DEFINITIONS.find(entry => entry.id === id)
 }
 
 export function getLocalStatusIdFromDisplayName(display: string): LocalStatusId {
-  const found = LOCAL_STATUS_DEFINITIONS.find((entry) => entry.name === display)
+  const found = LOCAL_STATUS_DEFINITIONS.find(entry => entry.name === display)
   return found?.id ?? 'todo'
 }
 
@@ -59,7 +61,7 @@ export function getLocalTransitions(currentStatusId: LocalStatusId): Array<{
   name: string
   statusCategory: string
 }> {
-  return LOCAL_STATUS_DEFINITIONS.filter((def) => def.id !== currentStatusId).map((def) => ({
+  return LOCAL_STATUS_DEFINITIONS.filter(def => def.id !== currentStatusId).map(def => ({
     id: def.id,
     name: `Move to ${def.name}`,
     statusCategory: def.statusCategory,
@@ -158,19 +160,24 @@ export function storedLocalToJiraShape(
 }
 
 export function normalizeDescriptionAdf(value: unknown): JiraAdfDocument | null {
-  if (value === null || value === undefined) return null
-  if (isJiraAdfDocument(value)) return value
-  if (typeof value === 'string') return plainTextToAdf(value)
+  if (value === null || value === undefined)
+    return null
+  if (isJiraAdfDocument(value))
+    return value
+  if (typeof value === 'string')
+    return plainTextToAdf(value)
   return null
 }
 
 export function normalizeLocalStatusId(value: unknown): LocalStatusId | null {
-  if (value === 'todo' || value === 'in_progress' || value === 'done') return value
+  if (value === 'todo' || value === 'in_progress' || value === 'done')
+    return value
   return null
 }
 
 export function normalizePriorityInput(value: unknown): string {
-  if (typeof value !== 'string') return 'Medium'
+  if (typeof value !== 'string')
+    return 'Medium'
   const trimmed = value.trim()
   return isLocalPriorityName(trimmed) ? trimmed : 'Medium'
 }

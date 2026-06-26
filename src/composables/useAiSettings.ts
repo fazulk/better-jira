@@ -1,5 +1,7 @@
-import { computed, watch } from 'vue'
+import type { AiProvider, AiProviderAvailability, AiSettings } from '~/shared/ai'
+import type { AppSettings, UpdateAiConnectionInput } from '~/shared/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, watch } from 'vue'
 import {
   fetchAiProviderAvailability,
   fetchAppSettings,
@@ -9,19 +11,17 @@ import { APP_SETTINGS_QUERY_KEY } from '@/composables/useSpaceSettings'
 import {
   AI_MODEL_CATALOG,
   AI_PROVIDERS,
+
   DEFAULT_AI_PROVIDER,
   getDefaultModelForProvider,
   isSupportedModel,
   normalizeAiSettings,
-  type AiProvider,
-  type AiProviderAvailability,
-  type AiSettings,
 } from '~/shared/ai'
 import {
+
   getDefaultAppSettings,
   reconcileAppSettings,
-  type AppSettings,
-  type UpdateAiConnectionInput,
+
 } from '~/shared/settings'
 
 const LEGACY_AI_PROVIDER_STORAGE_KEY = 'jira2.settings.aiProvider'
@@ -41,8 +41,8 @@ const FALLBACK_PROVIDER_AVAILABILITY: AiProviderAvailability[] = [
 
 function getAvailableProviders(providerAvailability: readonly AiProviderAvailability[]): AiProvider[] {
   return providerAvailability
-    .filter((entry) => entry.available)
-    .map((entry) => entry.provider)
+    .filter(entry => entry.available)
+    .map(entry => entry.provider)
 }
 
 function appendProviderIfMissing(providers: readonly AiProvider[], provider: AiProvider): AiProvider[] {
@@ -149,7 +149,8 @@ export function useAiSettings() {
     try {
       const persistedSettings = await aiSettingsMutation.mutateAsync(input)
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
-    } catch (error) {
+    }
+    catch (error) {
       queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
       throw error
     }

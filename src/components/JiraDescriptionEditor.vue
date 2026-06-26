@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { EditorContent, useEditor } from '@tiptap/vue-3'
+import type { JiraAdfDocument, JiraAttachment } from '@/types/jira'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
-import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
-import type { JiraAdfDocument, JiraAttachment } from '@/types/jira'
+import StarterKit from '@tiptap/starter-kit'
+import { EditorContent, useEditor } from '@tiptap/vue-3'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import JiraDescriptionEditorToolbar from '@/components/jira-description-editor/JiraDescriptionEditorToolbar.vue'
 import { readAdfDocument, toEditorDocument } from '@/features/jira-description-editor/adfDocument'
 import { createJiraMediaExtensions, mediaImageSrc } from '@/features/jira-description-editor/mediaExtensions'
@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: JiraAdfDocument | null]
-  'preview-image': [payload: { src: string; alt: string }]
+  'preview-image': [payload: { src: string, alt: string }]
 }>()
 
 const mediaContext = {
@@ -49,21 +49,25 @@ function bumpEditorTick() {
 }
 
 function syncLinkTitlesSoon() {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined')
+    return
   window.requestAnimationFrame(() => {
     const root = editor.value?.view.dom
-    if (!root) return
+    if (!root)
+      return
 
     for (const link of root.querySelectorAll('a[href]')) {
       const href = link.getAttribute('href')
-      if (href) link.setAttribute('title', href)
+      if (href)
+        link.setAttribute('title', href)
     }
   })
 }
 
 function readEditorDocument(): JiraAdfDocument | null {
   const instance = editor.value
-  if (!instance) return null
+  if (!instance)
+    return null
 
   return readAdfDocument(instance.getJSON())
 }
@@ -116,7 +120,8 @@ const editor = useEditor({
 
 watch(() => props.modelValue, (nextValue) => {
   const instance = editor.value
-  if (!instance) return
+  if (!instance)
+    return
 
   const currentValue = readEditorDocument()
   if (JSON.stringify(currentValue) === JSON.stringify(normalizeAdf(nextValue))) {
@@ -139,18 +144,25 @@ onBeforeUnmount(() => {
 const currentBlockType = computed(() => {
   editorTick.value
   const instance = editor.value
-  if (!instance) return 'paragraph'
-  if (instance.isActive('heading', { level: 1 })) return 'heading-1'
-  if (instance.isActive('heading', { level: 2 })) return 'heading-2'
-  if (instance.isActive('heading', { level: 3 })) return 'heading-3'
-  if (instance.isActive('blockquote')) return 'blockquote'
-  if (instance.isActive('codeBlock')) return 'codeBlock'
+  if (!instance)
+    return 'paragraph'
+  if (instance.isActive('heading', { level: 1 }))
+    return 'heading-1'
+  if (instance.isActive('heading', { level: 2 }))
+    return 'heading-2'
+  if (instance.isActive('heading', { level: 3 }))
+    return 'heading-3'
+  if (instance.isActive('blockquote'))
+    return 'blockquote'
+  if (instance.isActive('codeBlock'))
+    return 'codeBlock'
   return 'paragraph'
 })
 
 function applyBlockType(value: string) {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   if (value === 'heading-1') {
     instance.chain().focus().toggleHeading({ level: 1 }).run()
@@ -182,32 +194,44 @@ function applyBlockType(value: string) {
 
 function toggleMark(action: 'bold' | 'italic' | 'underline' | 'strike' | 'code') {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   const chain = instance.chain().focus()
 
-  if (action === 'bold') chain.toggleBold().run()
-  if (action === 'italic') chain.toggleItalic().run()
-  if (action === 'underline') chain.toggleUnderline().run()
-  if (action === 'strike') chain.toggleStrike().run()
-  if (action === 'code') chain.toggleCode().run()
+  if (action === 'bold')
+    chain.toggleBold().run()
+  if (action === 'italic')
+    chain.toggleItalic().run()
+  if (action === 'underline')
+    chain.toggleUnderline().run()
+  if (action === 'strike')
+    chain.toggleStrike().run()
+  if (action === 'code')
+    chain.toggleCode().run()
 }
 
 function toggleNode(action: 'bulletList' | 'orderedList' | 'blockquote' | 'codeBlock') {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   const chain = instance.chain().focus()
 
-  if (action === 'bulletList') chain.toggleBulletList().run()
-  if (action === 'orderedList') chain.toggleOrderedList().run()
-  if (action === 'blockquote') chain.toggleBlockquote().run()
-  if (action === 'codeBlock') chain.toggleCodeBlock().run()
+  if (action === 'bulletList')
+    chain.toggleBulletList().run()
+  if (action === 'orderedList')
+    chain.toggleOrderedList().run()
+  if (action === 'blockquote')
+    chain.toggleBlockquote().run()
+  if (action === 'codeBlock')
+    chain.toggleCodeBlock().run()
 }
 
 function openLinkMenu() {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   const currentHref = instance.getAttributes('link').href
   linkDraft.value = typeof currentHref === 'string' ? currentHref : ''
@@ -220,7 +244,8 @@ function closeLinkMenu() {
 
 function applyLink() {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   const nextHref = linkDraft.value.trim()
   if (!nextHref) {
@@ -236,7 +261,8 @@ function applyLink() {
 
 function removeLink() {
   const instance = editor.value
-  if (!instance || props.disabled || props.unsupported) return
+  if (!instance || props.disabled || props.unsupported)
+    return
 
   instance.chain().focus().extendMarkRange('link').unsetLink().run()
   linkMenuOpen.value = false
@@ -252,13 +278,16 @@ function blurEditor() {
 
 function handleEditorDoubleClick(event: MouseEvent): void {
   const target = event.target
-  if (!(target instanceof Element)) return
+  if (!(target instanceof Element))
+    return
 
   const mediaImage = target.closest('.jira-description-media img')
-  if (!(mediaImage instanceof HTMLImageElement)) return
+  if (!(mediaImage instanceof HTMLImageElement))
+    return
 
   const src = mediaImage.currentSrc || mediaImage.src
-  if (!src) return
+  if (!src)
+    return
 
   emit('preview-image', {
     src,

@@ -1,12 +1,13 @@
+import type { AiProvider } from '../shared/ai'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
+
   DEFAULT_AI_PROVIDER,
   DEFAULT_ANTHROPIC_MODEL,
   DEFAULT_CEREBRAS_MODEL,
   DEFAULT_OPENAI_MODEL,
   isAiProvider,
-  type AiProvider,
 } from '../shared/ai'
 import { getExplicitEnvFilePath } from './runtimePaths'
 import { getStoredAiSettings } from './settings'
@@ -47,7 +48,7 @@ function parseEnvFile(content: string): Record<string, string> {
       continue
     }
 
-    const match = trimmedLine.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/)
+    const match = trimmedLine.match(/^(?:export\s+)?([A-Za-z_]\w*)\s*=\s*(.*)$/)
     if (!match) {
       continue
     }

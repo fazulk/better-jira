@@ -1,20 +1,20 @@
-import { spawn } from "node:child_process";
-import { repoDir } from "./config.mjs";
+import { spawn } from 'node:child_process'
+import { repoDir } from './config.mjs'
 
 export function buildEnv() {
-  const env = { ...process.env };
+  const env = { ...process.env }
   for (const [key, value] of Object.entries(env)) {
-    if (value === "") {
-      delete env[key];
+    if (value === '') {
+      delete env[key]
     }
   }
-  env.CSC_IDENTITY_AUTO_DISCOVERY = "false";
-  delete env.CSC_LINK;
-  delete env.CSC_KEY_PASSWORD;
-  delete env.APPLE_API_KEY;
-  delete env.APPLE_API_KEY_ID;
-  delete env.APPLE_API_ISSUER;
-  return env;
+  env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+  delete env.CSC_LINK
+  delete env.CSC_KEY_PASSWORD
+  delete env.APPLE_API_KEY
+  delete env.APPLE_API_KEY_ID
+  delete env.APPLE_API_ISSUER
+  return env
 }
 
 export function runCommand(command, args, options = {}) {
@@ -22,37 +22,37 @@ export function runCommand(command, args, options = {}) {
     const child = spawn(command, args, {
       cwd: options.cwd ?? repoDir,
       env: options.env ?? process.env,
-      stdio: options.verbose ? "inherit" : ["ignore", "pipe", "pipe"],
-      shell: options.shell ?? process.platform === "win32",
-    });
+      stdio: options.verbose ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+      shell: options.shell ?? process.platform === 'win32',
+    })
 
-    let stderr = "";
-    let stdout = "";
+    let stderr = ''
+    let stdout = ''
     if (!options.verbose) {
-      child.stdout?.on("data", (chunk) => {
-        stdout += chunk.toString();
-      });
-      child.stderr?.on("data", (chunk) => {
-        stderr += chunk.toString();
-      });
+      child.stdout?.on('data', (chunk) => {
+        stdout += chunk.toString()
+      })
+      child.stderr?.on('data', (chunk) => {
+        stderr += chunk.toString()
+      })
     }
 
-    child.once("error", (error) => {
-      rejectPromise(error);
-    });
+    child.once('error', (error) => {
+      rejectPromise(error)
+    })
 
-    child.once("exit", (code) => {
+    child.once('exit', (code) => {
       if (code === 0) {
-        resolvePromise({ stdout, stderr });
-        return;
+        resolvePromise({ stdout, stderr })
+        return
       }
 
-      const detail = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n");
+      const detail = [stdout.trim(), stderr.trim()].filter(Boolean).join('\n')
       rejectPromise(
         new Error(
-          `Command failed (${command} ${args.join(" ")}): exit ${String(code)}${detail ? `\n${detail}` : ""}`,
+          `Command failed (${command} ${args.join(' ')}): exit ${String(code)}${detail ? `\n${detail}` : ''}`,
         ),
-      );
-    });
-  });
+      )
+    })
+  })
 }

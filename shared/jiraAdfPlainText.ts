@@ -1,25 +1,27 @@
-import { normalizeAdf } from './jiraAdfNormalize'
 import type { JiraAdfDocument, JiraAdfNode } from './jiraAdfTypes'
+import { normalizeAdf } from './jiraAdfNormalize'
 
 function listItemToPlainText(node: JiraAdfNode, depth: number): string {
   return nodesToPlainText(node.content ?? [], depth).trim()
 }
 
 function nodesToPlainText(nodes: JiraAdfNode[], depth: number): string {
-  return nodes.map((node) => nodeToPlainText(node, depth)).join('')
+  return nodes.map(node => nodeToPlainText(node, depth)).join('')
 }
 
 function nodeToPlainText(node: JiraAdfNode, depth: number): string {
-  if (node.type === 'text') return node.text ?? ''
-  if (node.type === 'hardBreak') return '\n'
+  if (node.type === 'text')
+    return node.text ?? ''
+  if (node.type === 'hardBreak')
+    return '\n'
 
   if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'blockquote') {
-    return nodesToPlainText(node.content ?? [], depth) + '\n'
+    return `${nodesToPlainText(node.content ?? [], depth)}\n`
   }
 
   if (node.type === 'bulletList') {
     return (node.content ?? [])
-      .map((listItem) => `${'  '.repeat(depth)}• ${listItemToPlainText(listItem, depth + 1)}\n`)
+      .map(listItem => `${'  '.repeat(depth)}• ${listItemToPlainText(listItem, depth + 1)}\n`)
       .join('')
   }
 
@@ -43,8 +45,10 @@ function nodeToPlainText(node: JiraAdfNode, depth: number): string {
 }
 
 export function adfToPlainText(doc: JiraAdfDocument | null | undefined): string {
-  if (!doc) return ''
+  if (!doc)
+    return ''
   const normalizedDoc = normalizeAdf(doc)
-  if (!normalizedDoc) return ''
+  if (!normalizedDoc)
+    return ''
   return nodesToPlainText(normalizedDoc.content, 0).trimEnd()
 }

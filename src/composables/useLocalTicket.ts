@@ -1,8 +1,8 @@
-import { computed, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { fetchLocalTicket } from '@/api/localTickets'
 import { getCachedTickets } from '@/composables/useJiraTickets'
-import type { JiraTicket } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
 
 export const localTicketQueryKey = (ticketKey: string | null) => ['local-ticket', ticketKey] as const
@@ -19,10 +19,11 @@ export function useLocalTicket(ticketKey: Ref<string | null>) {
     enabled: computed(() => Boolean(ticketKey.value && isLocalTicketKey(ticketKey.value))),
     initialData: () => {
       const key = ticketKey.value
-      if (!key) return undefined
+      if (!key)
+        return undefined
 
       const tickets = getCachedTickets(queryClient)
-      return tickets?.find((ticket) => ticket.key === key)
+      return tickets?.find(ticket => ticket.key === key)
     },
   })
 }

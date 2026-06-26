@@ -4,7 +4,7 @@ const projectRoot = process.cwd()
 
 function getOptionalEnv(name: string): string | null {
   const value = process.env[name]?.trim()
-  return value ? value : null
+  return value || null
 }
 
 export function getAppDataDir(): string {

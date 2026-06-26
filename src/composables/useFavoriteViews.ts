@@ -1,5 +1,5 @@
-import { computed } from 'vue'
 import type { FavoriteView, FavoriteViewFilter } from '~/shared/settings'
+import { computed } from 'vue'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 
 function normalizeFavoriteViewList(value: unknown): FavoriteView[] {

@@ -1,54 +1,54 @@
 import type { JiraTicket } from '@/types/jira'
 
 export type SearchResultTab = 'all' | 'issues' | 'projects' | 'initiatives' | 'documents'
-export type IssueGroupingFieldId =
-  | 'none'
-  | 'status'
-  | 'assignee'
-  | 'agent'
-  | 'project'
-  | 'priority'
-  | 'label'
-export type IssueOrderingFieldId =
-  | 'manual'
-  | 'title'
-  | 'status'
-  | 'priority'
-  | 'assignee'
-  | 'agent'
-  | 'estimate'
-  | 'updated'
-  | 'created'
-  | 'due'
-  | 'linkCount'
-  | 'timeInStatus'
+export type IssueGroupingFieldId
+  = | 'none'
+    | 'status'
+    | 'assignee'
+    | 'agent'
+    | 'project'
+    | 'priority'
+    | 'label'
+export type IssueOrderingFieldId
+  = | 'manual'
+    | 'title'
+    | 'status'
+    | 'priority'
+    | 'assignee'
+    | 'agent'
+    | 'estimate'
+    | 'updated'
+    | 'created'
+    | 'due'
+    | 'linkCount'
+    | 'timeInStatus'
 export type ProjectGroupingFieldId = 'none' | 'health' | 'status' | 'priority' | 'lead'
-export type ProjectOrderingFieldId =
-  | 'manual'
-  | 'name'
-  | 'health'
-  | 'priority'
-  | 'lead'
-  | 'targetDate'
-  | 'updated'
-  | 'progress'
+export type ProjectOrderingFieldId
+  = | 'manual'
+    | 'name'
+    | 'health'
+    | 'priority'
+    | 'lead'
+    | 'targetDate'
+    | 'updated'
+    | 'progress'
 export type ProjectClosedRange = 'all' | 'day' | 'week' | 'hidden'
 export type IssueVisibilityRange = 'all' | 'day' | 'week' | 'month' | 'hidden'
 export type IssueGroupConfigMap = Partial<Record<IssueGroupingFieldId, string[]>>
-export type IssueRowFieldId =
-  | 'id'
-  | 'status'
-  | 'assignee'
-  | 'priority'
-  | 'project'
-  | 'due'
-  | 'milestone'
-  | 'release'
-  | 'labels'
-  | 'links'
-  | 'timeInStatus'
-  | 'created'
-  | 'updated'
+export type IssueRowFieldId
+  = | 'id'
+    | 'status'
+    | 'assignee'
+    | 'priority'
+    | 'project'
+    | 'due'
+    | 'milestone'
+    | 'release'
+    | 'labels'
+    | 'links'
+    | 'timeInStatus'
+    | 'created'
+    | 'updated'
 export type ProjectRowFieldId = 'health' | 'priority' | 'lead' | 'targetDate' | 'issues' | 'status'
 export type InitiativeRowFieldId = 'health' | 'lead' | 'projects' | 'issues' | 'updated'
 export type SavedViewRowFieldId = 'type' | 'items' | 'owner' | 'updated'
@@ -59,36 +59,36 @@ export type ProjectPropertyFilterFieldId = 'projectStatus' | 'projectPriority' |
 export type FilterContextKind = 'issues' | 'projects' | 'initiatives' | 'views'
 export type ViewsDirectoryTabId = 'views' | 'project-views'
 export type CustomViewKind = 'issues' | 'projects'
-export type FilterFieldId =
-  | 'status'
-  | 'assignee'
-  | 'reporter'
-  | 'priority'
-  | 'labels'
-  | 'suggestedLabel'
-  | DateFilterFieldId
-  | 'project'
-  | ProjectPropertyFilterFieldId
-  | 'initiative'
-  | 'subscribers'
-  | 'shared'
-  | 'sharedWith'
-  | 'externalSource'
-export type FilterEntryId =
-  | 'status'
-  | 'assignee'
-  | 'reporter'
-  | 'priority'
-  | 'labels'
-  | 'suggestedLabel'
-  | 'dates'
-  | 'project'
-  | 'projectProperties'
-  | 'initiative'
-  | 'subscribers'
-  | 'shared'
-  | 'sharedWith'
-  | 'externalSource'
+export type FilterFieldId
+  = | 'status'
+    | 'assignee'
+    | 'reporter'
+    | 'priority'
+    | 'labels'
+    | 'suggestedLabel'
+    | DateFilterFieldId
+    | 'project'
+    | ProjectPropertyFilterFieldId
+    | 'initiative'
+    | 'subscribers'
+    | 'shared'
+    | 'sharedWith'
+    | 'externalSource'
+export type FilterEntryId
+  = | 'status'
+    | 'assignee'
+    | 'reporter'
+    | 'priority'
+    | 'labels'
+    | 'suggestedLabel'
+    | 'dates'
+    | 'project'
+    | 'projectProperties'
+    | 'initiative'
+    | 'subscribers'
+    | 'shared'
+    | 'sharedWith'
+    | 'externalSource'
 
 export interface IssueSection {
   id: string
@@ -269,18 +269,18 @@ export interface ViewFilterClause {
 }
 
 export type InclusionFilterId = 'completed' | 'subIssues' | 'backlog' | 'completedProjects'
-export type ActiveFilterChip =
+export type ActiveFilterChip
+  = | {
+    kind: 'clause'
+    id: string
+    filterId: string
+    fieldLabel: string
+    valueLabel: string
+  }
   | {
-      kind: 'clause'
-      id: string
-      filterId: string
-      fieldLabel: string
-      valueLabel: string
-    }
-  | {
-      kind: 'inclusion'
-      id: string
-      inclusionId: InclusionFilterId
-      fieldLabel: string
-      valueLabel: string
-    }
+    kind: 'inclusion'
+    id: string
+    inclusionId: InclusionFilterId
+    fieldLabel: string
+    valueLabel: string
+  }

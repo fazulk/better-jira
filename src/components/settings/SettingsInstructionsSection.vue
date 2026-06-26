@@ -20,8 +20,12 @@ const {
 <template>
   <section class="mx-auto max-w-3xl space-y-5">
     <div>
-      <h2 class="text-xl font-semibold text-slate-100">AI instructions</h2>
-      <p class="mt-1 text-sm text-slate-500">Manage the prompt chips shown in the AI description assistant.</p>
+      <h2 class="text-xl font-semibold text-slate-100">
+        AI instructions
+      </h2>
+      <p class="mt-1 text-sm text-slate-500">
+        Manage the prompt chips shown in the AI description assistant.
+      </p>
     </div>
 
     <div class="space-y-3">
@@ -37,7 +41,7 @@ const {
             name="editing-preset-label"
             placeholder="Instruction label"
             class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
-          />
+          >
           <textarea
             v-model="editingPreset.text"
             name="editing-preset-text"
@@ -66,8 +70,12 @@ const {
 
         <div v-else class="flex items-start justify-between gap-4">
           <div class="min-w-0 flex-1">
-            <p class="text-sm text-slate-200">{{ preset.label }}</p>
-            <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ preset.text }}</p>
+            <p class="text-sm text-slate-200">
+              {{ preset.label }}
+            </p>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">
+              {{ preset.text }}
+            </p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -107,7 +115,9 @@ const {
     </div>
 
     <div class="rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02] p-4">
-      <h3 class="text-sm font-medium text-slate-200">Add instruction</h3>
+      <h3 class="text-sm font-medium text-slate-200">
+        Add instruction
+      </h3>
       <div class="mt-3 space-y-3">
         <input
           v-model="newPreset.label"
@@ -115,7 +125,7 @@ const {
           name="new-preset-label"
           placeholder="Instruction label"
           class="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
-        />
+        >
         <textarea
           v-model="newPreset.text"
           name="new-preset-text"

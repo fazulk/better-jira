@@ -1,5 +1,5 @@
-import { ref } from 'vue'
 import type { JiraCreateFieldValue } from '@/types/jira'
+import { ref } from 'vue'
 
 export function useCreateTicketFieldValues() {
   const fieldValues = ref<Record<string, JiraCreateFieldValue>>({})

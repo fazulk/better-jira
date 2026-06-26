@@ -1,6 +1,7 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import type { ComputedRef, Ref } from 'vue'
 import type { LabelColors } from '~/shared/settings'
+import { computed, ref } from 'vue'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
 
 export const LABEL_COLOR_PALETTE = [
   '#ef4444',

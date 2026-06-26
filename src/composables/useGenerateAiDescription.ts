@@ -1,9 +1,9 @@
-import { useMutation } from '@tanstack/vue-query'
-import { generateAiDescription } from '@/api/jira'
 import type {
   GenerateAiDescriptionRequest,
   GenerateAiDescriptionResponse,
 } from '~/shared/ai'
+import { useMutation } from '@tanstack/vue-query'
+import { generateAiDescription } from '@/api/jira'
 
 interface MutationInput {
   key: string

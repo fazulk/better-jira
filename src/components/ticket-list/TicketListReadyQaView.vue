@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
 import IssueRow from '../IssueRow.vue'
-import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 
 export default defineComponent({
   components: { IssueRow },
@@ -69,7 +69,9 @@ export default defineComponent({
 
       <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
         <div class="max-w-sm">
-          <p class="text-[13px] font-medium text-[#d7d8dc]">No issues are ready for QA</p>
+          <p class="text-[13px] font-medium text-[#d7d8dc]">
+            No issues are ready for QA
+          </p>
           <p class="mt-1 text-[12px] text-[#777a83]">
             Issues matching this saved view will appear here.
           </p>
@@ -80,26 +82,40 @@ export default defineComponent({
     <aside class="min-w-0 overflow-y-auto border-l border-white/[0.06] bg-white/[0.015]">
       <div class="border-b border-white/[0.06] px-4 py-3">
         <div class="flex items-center justify-between">
-          <h2 class="text-[13px] font-medium text-[#f0f1f4]">Insights</h2>
-          <span class="rounded border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-[#777a83]"
-            >Count</span
-          >
+          <h2 class="text-[13px] font-medium text-[#f0f1f4]">
+            Insights
+          </h2>
+          <span class="rounded border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-[#777a83]">Count</span>
         </div>
-        <p class="mt-1 text-[12px] text-[#777a83]">Live summary for this saved view.</p>
+        <p class="mt-1 text-[12px] text-[#777a83]">
+          Live summary for this saved view.
+        </p>
       </div>
 
       <div class="grid grid-cols-3 border-b border-white/[0.06] text-center">
         <div class="border-r border-white/[0.06] px-2 py-3">
-          <p class="text-[18px] font-semibold text-[#f0f1f4]">{{ readyQaInsightTickets.length }}</p>
-          <p class="mt-0.5 text-[11px] text-[#777a83]">Issues</p>
+          <p class="text-[18px] font-semibold text-[#f0f1f4]">
+            {{ readyQaInsightTickets.length }}
+          </p>
+          <p class="mt-0.5 text-[11px] text-[#777a83]">
+            Issues
+          </p>
         </div>
         <div class="border-r border-white/[0.06] px-2 py-3">
-          <p class="text-[18px] font-semibold text-[#f0f1f4]">{{ readyQaUnassignedCount }}</p>
-          <p class="mt-0.5 text-[11px] text-[#777a83]">Unassigned</p>
+          <p class="text-[18px] font-semibold text-[#f0f1f4]">
+            {{ readyQaUnassignedCount }}
+          </p>
+          <p class="mt-0.5 text-[11px] text-[#777a83]">
+            Unassigned
+          </p>
         </div>
         <div class="px-2 py-3">
-          <p class="text-[18px] font-semibold text-[#f0f1f4]">{{ readyQaRecentlyUpdatedCount }}</p>
-          <p class="mt-0.5 text-[11px] text-[#777a83]">Recent</p>
+          <p class="text-[18px] font-semibold text-[#f0f1f4]">
+            {{ readyQaRecentlyUpdatedCount }}
+          </p>
+          <p class="mt-0.5 text-[11px] text-[#777a83]">
+            Recent
+          </p>
         </div>
       </div>
 
@@ -124,7 +140,7 @@ export default defineComponent({
                   class="h-full rounded-full"
                   :class="getInsightBarClass(index)"
                   :style="{ width: `${slice.percent}%` }"
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -150,7 +166,7 @@ export default defineComponent({
                   class="h-full rounded-full"
                   :class="getInsightBarClass(index)"
                   :style="{ width: `${slice.percent}%` }"
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -172,7 +188,7 @@ export default defineComponent({
                   class="h-full rounded-full"
                   :class="getInsightBarClass(index)"
                   :style="{ width: `${slice.percent}%` }"
-                ></div>
+                />
               </div>
             </div>
           </div>

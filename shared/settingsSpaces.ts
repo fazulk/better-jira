@@ -1,10 +1,10 @@
+import type { AppSpaceSetting } from './settingsTypes'
 import { LOCAL_SPACE_KEY, LOCAL_SPACE_NAME } from './localTickets'
 import {
   normalizeSpaceKey,
   normalizeSpaceKeyList,
   normalizeSpaceName,
 } from './settingsNormalizers'
-import type { AppSpaceSetting } from './settingsTypes'
 
 function normalizeSpaceSetting(value: unknown): AppSpaceSetting | null {
   if (typeof value !== 'object' || value === null) {
@@ -43,7 +43,7 @@ function normalizeSpaceSettings(value: unknown): AppSpaceSetting[] {
 }
 
 function createLegacySpaceSettings(keys: string[], enabled: boolean): AppSpaceSetting[] {
-  return keys.map((key) => ({
+  return keys.map(key => ({
     key,
     name: key,
     enabled,

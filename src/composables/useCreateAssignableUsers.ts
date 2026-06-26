@@ -1,13 +1,12 @@
-import { computed, type Ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
-import { fetchCreateAssignableUsers } from '@/api/jira'
+import type { Ref } from 'vue'
 import type { JiraCreateIssueType } from '@/types/jira'
+import { useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
+import { fetchCreateAssignableUsers } from '@/api/jira'
 
-export const createAssignableUsersQueryKey = (
-  issueType: JiraCreateIssueType | null,
-  parentKey: string | null,
-  spaceKey: string | null,
-) => ['create-assignees', issueType, parentKey, spaceKey] as const
+export function createAssignableUsersQueryKey(issueType: JiraCreateIssueType | null, parentKey: string | null, spaceKey: string | null) {
+  return ['create-assignees', issueType, parentKey, spaceKey] as const
+}
 
 export function useCreateAssignableUsers(
   issueType: Ref<JiraCreateIssueType | null>,

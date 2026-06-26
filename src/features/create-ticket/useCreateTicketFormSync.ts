@@ -1,4 +1,5 @@
-import { watch, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
+import type { HardcodedCreateFieldDefinition, HardcodedCreateFieldKey } from './types'
 import type {
   JiraAssignableUser,
   JiraCreateFieldValue,
@@ -6,8 +7,8 @@ import type {
   JiraPriority,
   JiraTicket,
 } from '@/types/jira'
-import { LOCAL_ISSUE_TYPE, LOCAL_SPACE_KEY, isLocalPriorityName } from '~/shared/localTickets'
-import type { HardcodedCreateFieldDefinition, HardcodedCreateFieldKey } from './types'
+import { watch } from 'vue'
+import { isLocalPriorityName, LOCAL_ISSUE_TYPE, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { getDefaultIssueType } from './issueTypePolicy'
 import { focusElementById } from './useCreateTicketShortcuts'
 
@@ -47,14 +48,17 @@ interface CreateTicketFormSyncInput {
 
 export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
   function isAvailableCreateSpace(spaceKey: string | null): boolean {
-    if (!spaceKey) return false
-    return input.createSpaceOptions.value.some((space) => space.key === spaceKey)
+    if (!spaceKey)
+      return false
+    return input.createSpaceOptions.value.some(space => space.key === spaceKey)
   }
 
   function getDefaultCreateSpaceKey(): string | null {
     const parentSpaceKey = input.selectedParentTicket.value?.spaceKey ?? null
-    if (parentSpaceKey) return parentSpaceKey
-    if (isAvailableCreateSpace(input.lastCreatedSpaceKey.value)) return input.lastCreatedSpaceKey.value
+    if (parentSpaceKey)
+      return parentSpaceKey
+    if (isAvailableCreateSpace(input.lastCreatedSpaceKey.value))
+      return input.lastCreatedSpaceKey.value
     return input.createSpaceOptions.value[0]?.key ?? null
   }
 
@@ -65,13 +69,14 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
       return
     }
 
-    if (isAvailableCreateSpace(input.selectedSpaceKey.value)) return
+    if (isAvailableCreateSpace(input.selectedSpaceKey.value))
+      return
     input.selectedSpaceKey.value = getDefaultCreateSpaceKey()
   }
 
   function resetForm() {
     const initialParentTicket = input.initialParentKey.value
-      ? input.tickets.value.find((ticket) => ticket.key === input.initialParentKey.value) ?? null
+      ? input.tickets.value.find(ticket => ticket.key === input.initialParentKey.value) ?? null
       : null
 
     input.selectedSpaceKey.value = initialParentTicket?.spaceKey ?? getDefaultCreateSpaceKey()
@@ -117,8 +122,9 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
       return
     }
 
-    if (!input.parentKey.value) return
-    const isStillValid = input.supportedParentTickets.value.some((ticket) => ticket.key === input.parentKey.value)
+    if (!input.parentKey.value)
+      return
+    const isStillValid = input.supportedParentTickets.value.some(ticket => ticket.key === input.parentKey.value)
     if (!isStillValid) {
       input.parentKey.value = null
       input.stopEditingParent()
@@ -162,57 +168,68 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
   }
 
   watch(() => input.initialIssueType.value, (issueType) => {
-    if (!input.open.value) return
+    if (!input.open.value)
+      return
     input.selectedIssueType.value = getDefaultIssueType(input.selectedParentTicket.value?.issueType ?? null, issueType)
   })
 
   watch(() => input.initialParentKey.value, (nextParentKey) => {
-    if (!input.open.value) return
+    if (!input.open.value)
+      return
     input.parentKey.value = nextParentKey
   })
 
   watch([input.createSpaceOptions, input.selectedParentTicket, input.lastCreatedSpaceKey], () => {
-    if (!input.open.value) return
+    if (!input.open.value)
+      return
     syncSelectedSpaceKey()
   }, { immediate: true })
 
   watch(input.selectedIssueType, () => {
-    if (!input.open.value) return
+    if (!input.open.value)
+      return
     input.submitError.value = null
     syncParentForIssueType()
   })
 
   watch(input.issueTypeOptions, () => {
-    if (input.open.value) syncSelectedIssueType()
+    if (input.open.value)
+      syncSelectedIssueType()
   })
 
   watch(input.supportedParentTickets, () => {
-    if (input.open.value) syncParentForIssueType()
+    if (input.open.value)
+      syncParentForIssueType()
   })
 
   watch(input.supportedParentType, (nextParentType) => {
-    if (!nextParentType) input.stopEditingParent()
+    if (!nextParentType)
+      input.stopEditingParent()
   })
 
   watch(input.createAssignableOptions, () => {
-    if (input.isLocalSpace.value) return
-    syncSelectableFieldValue('assignee', input.createAssignableOptions.value.map((assignee) => assignee.accountId))
-    if (input.createAssignableOptions.value.length === 0) input.stopEditingAssignee()
+    if (input.isLocalSpace.value)
+      return
+    syncSelectableFieldValue('assignee', input.createAssignableOptions.value.map(assignee => assignee.accountId))
+    if (input.createAssignableOptions.value.length === 0)
+      input.stopEditingAssignee()
   })
 
   watch(input.createPriorityOptions, () => {
     if (!input.isLocalSpace.value) {
-      syncSelectableFieldValue('priority', input.createPriorityOptions.value.map((priority) => priority.id))
+      syncSelectableFieldValue('priority', input.createPriorityOptions.value.map(priority => priority.id))
     }
   })
 
   watch(input.isLocalSpace, (local) => {
-    if (!input.open.value) return
+    if (!input.open.value)
+      return
 
     if (local) {
       input.selectedIssueType.value = LOCAL_ISSUE_TYPE
       const priority = input.getTextValue('priority')
-      if (!isLocalPriorityName(priority)) input.updateFieldValue('priority', 'Medium')
+      if (!isLocalPriorityName(priority))
+        input.updateFieldValue('priority', 'Medium')
       input.updateFieldValue('assignee', '')
       syncParentForIssueType()
       input.stopEditingAssignee()
@@ -221,12 +238,13 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
 
     syncSelectedIssueType()
     syncParentForIssueType()
-    syncSelectableFieldValue('assignee', input.createAssignableOptions.value.map((assignee) => assignee.accountId))
-    syncSelectableFieldValue('priority', input.createPriorityOptions.value.map((priority) => priority.id))
+    syncSelectableFieldValue('assignee', input.createAssignableOptions.value.map(assignee => assignee.accountId))
+    syncSelectableFieldValue('priority', input.createPriorityOptions.value.map(priority => priority.id))
   })
 
   watch(input.fields, (definitions) => {
-    if (input.open.value) setDefaultFieldValues(definitions)
+    if (input.open.value)
+      setDefaultFieldValues(definitions)
   }, { immediate: true })
 
   return {

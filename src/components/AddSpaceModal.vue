@@ -25,7 +25,7 @@ const {
 } = useAvailableSpaces(hasJiraCredentialsConfigured)
 
 const searchQuery = ref('')
-const feedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+const feedback = ref<{ kind: 'success' | 'error', message: string } | null>(null)
 const addingSpaceKey = ref<string | null>(null)
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
@@ -57,7 +57,7 @@ function closeModal(): void {
   emit('close')
 }
 
-async function addSpace(space: { key: string; name: string }): Promise<void> {
+async function addSpace(space: { key: string, name: string }): Promise<void> {
   addingSpaceKey.value = space.key
   feedback.value = null
 
@@ -67,12 +67,14 @@ async function addSpace(space: { key: string; name: string }): Promise<void> {
       kind: 'success',
       message: `Added ${space.name}.`,
     }
-  } catch (error) {
+  }
+  catch (error) {
     feedback.value = {
       kind: 'error',
       message: error instanceof Error ? error.message : 'Failed to add space.',
     }
-  } finally {
+  }
+  finally {
     addingSpaceKey.value = null
   }
 }
@@ -101,8 +103,12 @@ function handleKeydown(event: KeyboardEvent): void {
         >
           <div class="flex items-start justify-between gap-4 border-b border-white/[0.06] px-4 py-3">
             <div>
-              <p class="text-sm font-medium text-slate-100">Add space</p>
-              <p class="mt-0.5 text-xs text-slate-500">Search Jira spaces and add them to your sidebar.</p>
+              <p class="text-sm font-medium text-slate-100">
+                Add space
+              </p>
+              <p class="mt-0.5 text-xs text-slate-500">
+                Search Jira spaces and add them to your sidebar.
+              </p>
             </div>
             <button
               type="button"

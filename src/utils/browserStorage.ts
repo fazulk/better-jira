@@ -30,7 +30,8 @@ export function readLocalStorageStringArray(key: string): string[] {
       const normalizedEntry = entry.trim()
       return normalizedEntry ? [normalizedEntry] : []
     })
-  } catch {
+  }
+  catch {
     return []
   }
 }

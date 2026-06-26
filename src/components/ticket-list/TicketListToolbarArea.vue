@@ -1,9 +1,9 @@
 <script lang="ts">
+import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
 import ViewEditorCard from '../ViewEditorCard.vue'
 import TicketListDisplayOptionsMenu from './TicketListDisplayOptionsMenu.vue'
 import TicketListFilterMenu from './TicketListFilterMenu.vue'
-import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 
 export default defineComponent({
   components: { ViewEditorCard, TicketListDisplayOptionsMenu, TicketListFilterMenu },
@@ -21,7 +21,9 @@ export default defineComponent({
   >
     <div class="min-w-0">
       <div class="flex min-w-0 items-baseline gap-2">
-        <h1 class="truncate text-[20px] font-semibold text-[#f0f1f4]">{{ viewTitle }}</h1>
+        <h1 class="truncate text-[20px] font-semibold text-[#f0f1f4]">
+          {{ viewTitle }}
+        </h1>
         <span v-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
           {{ initiativeRows.length }}
           {{ initiativeRows.length === 1 ? 'initiative' : 'initiatives' }}
@@ -152,8 +154,7 @@ export default defineComponent({
           <Icon name="lucide:layers" class="h-3.5 w-3.5" />
           <span
             class="absolute -right-1 -bottom-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#0d0e10] text-[9px] font-medium leading-none text-current"
-            >+</span
-          >
+          >+</span>
         </span>
       </button>
     </div>
@@ -176,7 +177,7 @@ export default defineComponent({
           v-if="hasCurrentViewFilters"
           class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#4dbb83] ring-2 ring-[#0d0e10]"
           aria-hidden="true"
-        ></span>
+        />
       </button>
 
       <button
@@ -196,7 +197,7 @@ export default defineComponent({
           v-if="hasModifiedDisplayOptions"
           class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#4dbb83] ring-2 ring-[#0d0e10]"
           aria-hidden="true"
-        ></span>
+        />
       </button>
     </div>
   </div>

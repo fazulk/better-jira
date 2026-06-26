@@ -1,8 +1,8 @@
+import type { JiraTicket } from '@/types/jira'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateTicketTitle } from '@/api/jira'
 import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { getCachedTickets, getCachedTicketsQueryKey, TICKETS_QUERY_KEY } from '@/composables/useJiraTickets'
-import type { JiraTicket } from '@/types/jira'
 
 function mergeTicket(tickets: JiraTicket[], updatedTicket: JiraTicket) {
   return tickets.map((ticket) => {
@@ -32,7 +32,7 @@ export function useUpdateTicketTitle() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ key, title }: { key: string; title: string }) => updateTicketTitle(key, title),
+    mutationFn: ({ key, title }: { key: string, title: string }) => updateTicketTitle(key, title),
     onMutate: async ({ key, title }) => {
       const nextSummary = title.trim()
       const ticketsQueryKey = getCachedTicketsQueryKey(queryClient)
@@ -42,7 +42,7 @@ export function useUpdateTicketTitle() {
 
       const previousTickets = getCachedTickets(queryClient)
       const previousTicket = queryClient.getQueryData<JiraTicket>(ticketQueryKey(key))
-      const optimisticBaseTicket = previousTicket ?? previousTickets?.find((ticket) => ticket.key === key)
+      const optimisticBaseTicket = previousTicket ?? previousTickets?.find(ticket => ticket.key === key)
 
       if (previousTickets && optimisticBaseTicket) {
         queryClient.setQueryData<JiraTicket[]>(
@@ -64,7 +64,8 @@ export function useUpdateTicketTitle() {
       return { previousTickets, previousTicket, key, ticketsQueryKey }
     },
     onError: (_err, _variables, context) => {
-      if (!context) return
+      if (!context)
+        return
       if (context.previousTickets) {
         queryClient.setQueryData(context.ticketsQueryKey, context.previousTickets)
       }

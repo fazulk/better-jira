@@ -13,7 +13,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'preview-image': [payload: { src: string; alt: string }]
+  'preview-image': [payload: { src: string, alt: string }]
 }>()
 
 function nodeKey(node: JiraAdfNode, index: number): string {
@@ -27,7 +27,7 @@ function getNodeOrder(node: JiraAdfNode): number {
 }
 
 function linkMark(node: JiraAdfNode): JiraAdfMark | undefined {
-  return node.marks?.find((mark) => mark.type === 'link')
+  return node.marks?.find(mark => mark.type === 'link')
 }
 
 function linkHref(node: JiraAdfNode): string | null {
@@ -55,22 +55,25 @@ function isImageAttachment(attachment: JiraAttachment): boolean {
 
 function findMediaAttachment(node: JiraAdfNode): JiraAttachment | null {
   const imageAttachments = (props.attachments ?? []).filter(isImageAttachment)
-  if (!imageAttachments.length) return null
+  if (!imageAttachments.length)
+    return null
 
   const mediaId = nodeAttrString(node, 'id')
   const mediaAlt = nodeAttrString(node, 'alt')
   const mediaName = nodeAttrString(node, 'name')
 
   const idMatch = mediaId
-    ? imageAttachments.find((attachment) => attachment.id === mediaId)
+    ? imageAttachments.find(attachment => attachment.id === mediaId)
     : undefined
-  if (idMatch) return idMatch
+  if (idMatch)
+    return idMatch
 
   const filenameMatch = [mediaAlt, mediaName]
     .filter((value): value is string => value !== null)
-    .map((value) => imageAttachments.find((attachment) => attachment.filename === value))
-    .find((attachment) => attachment !== undefined)
-  if (filenameMatch) return filenameMatch
+    .map(value => imageAttachments.find(attachment => attachment.filename === value))
+    .find(attachment => attachment !== undefined)
+  if (filenameMatch)
+    return filenameMatch
 
   return imageAttachments.length === 1 ? imageAttachments[0] : null
 }
@@ -88,14 +91,17 @@ function proxiedJiraAttachmentUrl(url: string): string {
 
 function mediaImageUrl(node: JiraAdfNode): string | null {
   const directUrl = nodeAttrString(node, 'url')
-  if (directUrl) return proxiedJiraAttachmentUrl(directUrl)
+  if (directUrl)
+    return proxiedJiraAttachmentUrl(directUrl)
 
   const attachment = findMediaAttachment(node)
-  if (attachment) return `/api/jira-attachments/${encodeURIComponent(attachment.id)}/content`
+  if (attachment)
+    return `/api/jira-attachments/${encodeURIComponent(attachment.id)}/content`
 
   const mediaFilename = nodeAttrString(node, 'alt') ?? nodeAttrString(node, 'name')
   const filenameUrl = mediaFilename ? ticketAttachmentContentUrl(mediaFilename) : null
-  if (filenameUrl) return filenameUrl
+  if (filenameUrl)
+    return filenameUrl
 
   const mediaId = nodeAttrString(node, 'id')
   return mediaId ? `/api/jira-attachments/${encodeURIComponent(mediaId)}/content` : null
@@ -107,7 +113,8 @@ function mediaAltText(node: JiraAdfNode): string {
 
 function previewMediaImage(node: JiraAdfNode): void {
   const src = mediaImageUrl(node)
-  if (!src) return
+  if (!src)
+    return
 
   emit('preview-image', {
     src,
@@ -116,22 +123,28 @@ function previewMediaImage(node: JiraAdfNode): void {
 }
 
 function textParts(text: string | undefined): string[] {
-  if (!text) return []
+  if (!text)
+    return []
   return text.split('\n')
 }
 
 function hasMark(node: JiraAdfNode, type: string): boolean {
-  return node.marks?.some((mark) => mark.type === type) ?? false
+  return node.marks?.some(mark => mark.type === type) ?? false
 }
 
 function textNodeClass(node: JiraAdfNode): string {
   const classes = ['break-words']
 
-  if (hasMark(node, 'strong')) classes.push('font-semibold', 'text-slate-200')
-  if (hasMark(node, 'em')) classes.push('italic')
-  if (hasMark(node, 'underline')) classes.push('underline', 'underline-offset-2')
-  if (hasMark(node, 'strike')) classes.push('line-through')
-  if (hasMark(node, 'code')) classes.push('rounded-md', 'border', 'border-white/[0.08]', 'bg-white/[0.04]', 'px-1.5', 'py-0.5', 'font-mono', 'text-[13px]', 'text-slate-200')
+  if (hasMark(node, 'strong'))
+    classes.push('font-semibold', 'text-slate-200')
+  if (hasMark(node, 'em'))
+    classes.push('italic')
+  if (hasMark(node, 'underline'))
+    classes.push('underline', 'underline-offset-2')
+  if (hasMark(node, 'strike'))
+    classes.push('line-through')
+  if (hasMark(node, 'code'))
+    classes.push('rounded-md', 'border', 'border-white/[0.08]', 'bg-white/[0.04]', 'px-1.5', 'py-0.5', 'font-mono', 'text-[13px]', 'text-slate-200')
 
   if (linkHref(node)) {
     classes.push('text-slate-200', 'underline', 'underline-offset-[3px]', 'decoration-[#4cb782]', 'decoration-2', 'transition', 'hover:text-white')
@@ -142,9 +155,12 @@ function textNodeClass(node: JiraAdfNode): string {
 
 function headingClass(node: JiraAdfNode): string {
   const level = node.attrs?.level
-  if (level === 1) return 'text-xl font-semibold leading-snug text-slate-100'
-  if (level === 2) return 'text-lg font-semibold leading-snug text-slate-100'
-  if (level === 3) return 'text-base font-semibold leading-snug text-slate-200'
+  if (level === 1)
+    return 'text-xl font-semibold leading-snug text-slate-100'
+  if (level === 2)
+    return 'text-lg font-semibold leading-snug text-slate-100'
+  if (level === 3)
+    return 'text-base font-semibold leading-snug text-slate-200'
   return 'text-sm font-medium leading-relaxed text-slate-300'
 }
 </script>

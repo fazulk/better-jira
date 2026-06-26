@@ -1,9 +1,10 @@
+import type { LocalAiProvider } from '../localProviders'
+import type { ProviderPrompt } from './openai'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { getLocalAiCommandPathEnv, resolveLocalAiCommand, type LocalAiProvider } from '../localProviders'
-import type { ProviderPrompt } from './openai'
+import { getLocalAiCommandPathEnv, resolveLocalAiCommand } from '../localProviders'
 
 const LOCAL_GENERATION_TIMEOUT_MS = 120_000
 
@@ -130,7 +131,8 @@ export async function generateWithCodex(prompt: ProviderPrompt): Promise<string>
 
     const output = await readFile(outputPath, 'utf8').catch(() => result.stdout)
     return output.trim()
-  } finally {
+  }
+  finally {
     await rm(workingDir, { recursive: true, force: true })
   }
 }

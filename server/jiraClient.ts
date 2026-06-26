@@ -22,7 +22,7 @@ export function getJiraConfig() {
     email,
     apiToken,
     projectKey: env.JIRA_PROJECT_KEY,
-    authHeader: 'Basic ' + btoa(`${email}:${apiToken}`),
+    authHeader: `Basic ${btoa(`${email}:${apiToken}`)}`,
   }
 }
 
@@ -41,7 +41,8 @@ export function serializeJiraLogPayload(value: unknown): string | undefined {
 
   try {
     return JSON.stringify(value)
-  } catch {
+  }
+  catch {
     return '[unserializable]'
   }
 }
@@ -107,7 +108,8 @@ export async function jiraFetch(path: string, options?: JiraFetchOptions): Promi
       },
       body: options?.body ? JSON.stringify(options.body) : undefined,
     })
-  } catch (error: unknown) {
+  }
+  catch (error: unknown) {
     const durationMs = Date.now() - startedAt
     const message = error instanceof Error ? error.message : 'Unknown Jira fetch error'
     console.error(formatJiraLogLines('xx', method, `${requestTarget} (${durationMs}ms)`, [
@@ -129,7 +131,8 @@ export async function jiraFetch(path: string, options?: JiraFetchOptions): Promi
     throw new Error(`JIRA API ${res.status}: ${body.slice(0, 200)}`)
   }
 
-  if (res.status === 204) return null
+  if (res.status === 204)
+    return null
 
   return res.json()
 }

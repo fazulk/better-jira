@@ -10,8 +10,8 @@ const emit = defineEmits<{
   'update:description': [value: string]
   'open-filters': []
   'open-settings': []
-  save: []
-  cancel: []
+  'save': []
+  'cancel': []
 }>()
 
 function updateName(event: Event): void {

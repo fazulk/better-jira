@@ -117,8 +117,12 @@ onUnmounted(() => {
       @contextmenu.prevent
     >
       <div class="mb-3 min-w-0">
-        <div class="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">Label color</div>
-        <div class="mt-1 truncate font-semibold text-slate-100">{{ currentLabel }}</div>
+        <div class="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
+          Label color
+        </div>
+        <div class="mt-1 truncate font-semibold text-slate-100">
+          {{ currentLabel }}
+        </div>
       </div>
 
       <div class="grid grid-cols-5 gap-2" aria-label="Preset label colors">
@@ -133,7 +137,7 @@ onUnmounted(() => {
           @pointerdown.prevent.stop="chooseColor(color)"
           @click="chooseColor(color)"
         >
-          <span class="h-3 w-3 rounded-full bg-current"></span>
+          <span class="h-3 w-3 rounded-full bg-current" />
         </button>
       </div>
 

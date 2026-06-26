@@ -29,7 +29,8 @@ function normalizeGithubPrUrlValue(value: string): string {
   let parsedUrl: URL
   try {
     parsedUrl = new URL(trimmedValue)
-  } catch {
+  }
+  catch {
     throw new Error('GitHub PR URL must be a valid URL.')
   }
 
@@ -64,7 +65,7 @@ export function normalizeTicketGithubPrUrl(value: unknown): string | null {
   }
 
   if (typeof value !== 'string') {
-    throw new Error('GitHub PR URL must be a string or null.')
+    throw new TypeError('GitHub PR URL must be a string or null.')
   }
 
   const normalizedValue = normalizeGithubPrUrlValue(value)
@@ -90,7 +91,8 @@ function normalizeStoredTicketGithubPrEntry(value: unknown): StoredTicketGithubP
     return {
       githubPrUrl: normalizedGithubPrUrl,
     }
-  } catch {
+  }
+  catch {
     return null
   }
 }

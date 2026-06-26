@@ -16,9 +16,9 @@ interface HardcodedCreateSelectFieldDefinition extends HardcodedCreateFieldBase 
   defaultValue?: string
 }
 
-export type HardcodedCreateFieldDefinition =
-  | HardcodedCreateTextFieldDefinition
-  | HardcodedCreateSelectFieldDefinition
+export type HardcodedCreateFieldDefinition
+  = | HardcodedCreateTextFieldDefinition
+    | HardcodedCreateSelectFieldDefinition
 
 export interface CreateFieldOption {
   value: string

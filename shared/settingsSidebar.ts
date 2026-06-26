@@ -1,3 +1,10 @@
+import type {
+  SidebarGroupBy,
+  SidebarSettings,
+  SidebarSortBy,
+  SidebarTicketScope,
+  UpdateSidebarSettingsInput,
+} from './settingsTypes'
 import {
   normalizeBoolean,
   normalizeStringList,
@@ -6,13 +13,6 @@ import {
   normalizeCustomViews,
   normalizeFavoriteViews,
 } from './settingsViews'
-import type {
-  SidebarGroupBy,
-  SidebarSettings,
-  SidebarSortBy,
-  SidebarTicketScope,
-  UpdateSidebarSettingsInput,
-} from './settingsTypes'
 
 function normalizeSidebarSortBy(value: unknown): SidebarSortBy {
   switch (value) {
@@ -103,17 +103,28 @@ export function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSet
   const recordValue: Record<string, unknown> = value
   const nextSidebar: UpdateSidebarSettingsInput = {}
 
-  if ('pinnedTicketKeys' in recordValue) nextSidebar.pinnedTicketKeys = normalizeStringList(recordValue.pinnedTicketKeys)
-  if ('favoriteViews' in recordValue) nextSidebar.favoriteViews = normalizeFavoriteViews(recordValue.favoriteViews)
-  if ('customViews' in recordValue) nextSidebar.customViews = normalizeCustomViews(recordValue.customViews)
-  if ('filterTypeKeys' in recordValue) nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
-  if ('filterStatuses' in recordValue) nextSidebar.filterStatuses = normalizeStringList(recordValue.filterStatuses)
-  if ('filterAssignees' in recordValue) nextSidebar.filterAssignees = normalizeStringList(recordValue.filterAssignees)
-  if ('showCompletedTickets' in recordValue) nextSidebar.showCompletedTickets = normalizeBoolean(recordValue.showCompletedTickets, false)
-  if ('ticketScope' in recordValue) nextSidebar.ticketScope = normalizeSidebarTicketScope(recordValue.ticketScope)
-  if ('sortBy' in recordValue) nextSidebar.sortBy = normalizeSidebarSortBy(recordValue.sortBy)
-  if ('groupBy' in recordValue) nextSidebar.groupBy = normalizeSidebarGroupBy(recordValue.groupBy)
-  if ('sortReversed' in recordValue) nextSidebar.sortReversed = normalizeBoolean(recordValue.sortReversed, false)
+  if ('pinnedTicketKeys' in recordValue)
+    nextSidebar.pinnedTicketKeys = normalizeStringList(recordValue.pinnedTicketKeys)
+  if ('favoriteViews' in recordValue)
+    nextSidebar.favoriteViews = normalizeFavoriteViews(recordValue.favoriteViews)
+  if ('customViews' in recordValue)
+    nextSidebar.customViews = normalizeCustomViews(recordValue.customViews)
+  if ('filterTypeKeys' in recordValue)
+    nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
+  if ('filterStatuses' in recordValue)
+    nextSidebar.filterStatuses = normalizeStringList(recordValue.filterStatuses)
+  if ('filterAssignees' in recordValue)
+    nextSidebar.filterAssignees = normalizeStringList(recordValue.filterAssignees)
+  if ('showCompletedTickets' in recordValue)
+    nextSidebar.showCompletedTickets = normalizeBoolean(recordValue.showCompletedTickets, false)
+  if ('ticketScope' in recordValue)
+    nextSidebar.ticketScope = normalizeSidebarTicketScope(recordValue.ticketScope)
+  if ('sortBy' in recordValue)
+    nextSidebar.sortBy = normalizeSidebarSortBy(recordValue.sortBy)
+  if ('groupBy' in recordValue)
+    nextSidebar.groupBy = normalizeSidebarGroupBy(recordValue.groupBy)
+  if ('sortReversed' in recordValue)
+    nextSidebar.sortReversed = normalizeBoolean(recordValue.sortReversed, false)
 
   return Object.keys(nextSidebar).length > 0 ? nextSidebar : undefined
 }

@@ -1,3 +1,4 @@
+import type { StoredTicketGithubPrLinks, TicketGithubPrLink } from '../shared/ticketLinks'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
@@ -5,8 +6,7 @@ import {
   normalizeStoredTicketGithubPrLinks,
   normalizeTicketGithubPrUrl,
   normalizeTicketKey,
-  type StoredTicketGithubPrLinks,
-  type TicketGithubPrLink,
+
 } from '../shared/ticketLinks'
 import { getAppDataDir } from './runtimePaths'
 
@@ -29,7 +29,8 @@ function getTicketLinksState(): StoredTicketGithubPrLinks {
   try {
     const rawLinks = readFileSync(ticketLinksFilePath, 'utf8')
     return normalizeStoredTicketGithubPrLinks(JSON.parse(rawLinks))
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Failed to read ticket links file:', error)
     return {}
   }
@@ -63,7 +64,8 @@ export function updateTicketGithubPrLink(ticketKey: string, githubPrUrl: unknown
     links[normalizedTicketKey] = {
       githubPrUrl: normalizedGithubPrUrl,
     }
-  } else {
+  }
+  else {
     delete links[normalizedTicketKey]
   }
 

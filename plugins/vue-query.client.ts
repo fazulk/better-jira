@@ -28,7 +28,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     })
 
     await restorePromise
-  } catch (error) {
+  }
+  catch (error) {
     console.warn('Failed to restore persisted Vue Query cache, clearing it.', error)
     queryPersister.removeClient()
   }

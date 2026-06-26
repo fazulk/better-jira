@@ -1,17 +1,17 @@
 import type { StatusGroup } from '@/types/jira'
 
-export type SettingsSectionId =
-  | 'workspace'
-  | 'ai'
-  | 'instructions'
-  | 'team-overview'
-  | 'team-members'
-  | 'team-statuses'
-  | 'team-workflows'
-  | 'team-triage'
-  | 'team-cycles'
-  | 'team-ai'
-  | 'danger'
+export type SettingsSectionId
+  = | 'workspace'
+    | 'ai'
+    | 'instructions'
+    | 'team-overview'
+    | 'team-members'
+    | 'team-statuses'
+    | 'team-workflows'
+    | 'team-triage'
+    | 'team-cycles'
+    | 'team-ai'
+    | 'danger'
 
 export interface SettingsSummaryRow {
   label: string

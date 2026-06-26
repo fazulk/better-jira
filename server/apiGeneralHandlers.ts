@@ -1,6 +1,17 @@
 import type { H3Event } from 'h3'
 import { getQuery, readBody } from 'h3'
 import { buildUpdatedSinceSearchQuery, normalizeAppSettingsUpdate } from '../shared/settings'
+import { getAiProviderAvailability } from './ai/catalog'
+import {
+  API_HEADERS,
+  badRequestResponse,
+  getStringQueryValue,
+  isCreateIssueType,
+  isRecord,
+  jiraContentResponse,
+  parseCreateFields,
+  parseRefreshUpdatedSince,
+} from './apiRouteUtils'
 import {
   createIssue,
   getAccessibleSpaces,
@@ -12,18 +23,7 @@ import {
   getJiraCurrentUser,
   searchTickets,
 } from './jira'
-import { getAiProviderAvailability } from './ai/catalog'
 import { getAppSettings, updateAppSettings } from './settings'
-import {
-  API_HEADERS,
-  badRequestResponse,
-  getStringQueryValue,
-  isCreateIssueType,
-  isRecord,
-  jiraContentResponse,
-  parseCreateFields,
-  parseRefreshUpdatedSince,
-} from './apiRouteUtils'
 
 export async function handleGeneralApiRoute(
   event: H3Event,

@@ -1,12 +1,13 @@
-import {
-  adfToPlainText,
-  plainTextToAdf,
-  type JiraAdfDocument,
-} from '../../shared/jiraAdf'
 import type {
   AiProvider,
   GenerateAiDescriptionResponse,
 } from '../../shared/ai'
+import type { JiraAdfDocument } from '../../shared/jiraAdf'
+import {
+  adfToPlainText,
+
+  plainTextToAdf,
+} from '../../shared/jiraAdf'
 import {
   assertProviderConfigured,
   assertSupportedModel,
@@ -14,8 +15,8 @@ import {
 } from './catalog'
 import { generateWithAnthropic } from './providers/anthropic'
 import { generateWithCerebras } from './providers/cerebras'
-import { generateWithOpenAi } from './providers/openai'
 import { generateWithClaude, generateWithCodex } from './providers/localCli'
+import { generateWithOpenAi } from './providers/openai'
 
 interface GenerateDescriptionInput {
   instruction: string
@@ -64,16 +65,21 @@ export async function generateTicketDescription(
   try {
     if (input.provider === 'openai') {
       descriptionText = await generateWithOpenAi(apiKey, prompt)
-    } else if (input.provider === 'anthropic') {
+    }
+    else if (input.provider === 'anthropic') {
       descriptionText = await generateWithAnthropic(apiKey, prompt)
-    } else if (input.provider === 'codex') {
+    }
+    else if (input.provider === 'codex') {
       descriptionText = await generateWithCodex(prompt)
-    } else if (input.provider === 'claude') {
+    }
+    else if (input.provider === 'claude') {
       descriptionText = await generateWithClaude(prompt)
-    } else {
+    }
+    else {
       descriptionText = await generateWithCerebras(apiKey, prompt)
     }
-  } catch (error: unknown) {
+  }
+  catch (error: unknown) {
     throw normalizeProviderError(error)
   }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import TicketListShell from './ticket-list/TicketListShell.vue'
 import { useTicketListController } from '@/features/ticket-list/useTicketListController'
+import TicketListShell from './ticket-list/TicketListShell.vue'
 
 const controller = useTicketListController()
 </script>

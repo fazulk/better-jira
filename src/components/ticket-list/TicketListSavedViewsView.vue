@@ -38,8 +38,7 @@ const emit = defineEmits<{
         <span class="flex min-w-0 items-center gap-3 pr-4">
           <span
             class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[12px] text-[#bfc1c8]"
-            >{{ row.icon }}</span
-          >
+          >{{ row.icon }}</span>
           <span class="min-w-0">
             <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{
               row.name
@@ -67,7 +66,9 @@ const emit = defineEmits<{
 
     <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
       <div class="max-w-sm">
-        <p class="text-[13px] font-medium text-[#d7d8dc]">No saved views found</p>
+        <p class="text-[13px] font-medium text-[#d7d8dc]">
+          No saved views found
+        </p>
         <p class="mt-1 text-[12px] text-[#777a83]">
           Create a custom issue or project view to see it here.
         </p>

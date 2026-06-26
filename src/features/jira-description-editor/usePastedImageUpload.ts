@@ -20,15 +20,19 @@ function createClientId(): string {
 }
 
 function fileExtensionForMimeType(mimeType: string): string {
-  if (mimeType === 'image/jpeg') return 'jpg'
-  if (mimeType === 'image/gif') return 'gif'
-  if (mimeType === 'image/webp') return 'webp'
+  if (mimeType === 'image/jpeg')
+    return 'jpg'
+  if (mimeType === 'image/gif')
+    return 'gif'
+  if (mimeType === 'image/webp')
+    return 'webp'
   return 'png'
 }
 
 function pastedImageFilename(file: File): string {
   const filename = file.name.trim()
-  if (filename) return filename
+  if (filename)
+    return filename
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   return `pasted-image-${timestamp}.${fileExtensionForMimeType(file.type)}`
@@ -88,7 +92,8 @@ async function uploadPastedImage(
       src: attachmentContentUrl(attachment.id),
     })
     URL.revokeObjectURL(objectUrl)
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : 'Image upload failed. Delete this image and paste it again.'
     replaceMediaAttrs(editor, clientId, {
       id: `pending:${clientId}`,
@@ -105,13 +110,16 @@ async function uploadPastedImage(
 
 function imageFilesFromClipboard(event: ClipboardEvent): File[] {
   const items = event.clipboardData?.items
-  if (!items?.length) return []
+  if (!items?.length)
+    return []
 
   const files: File[] = []
   for (const item of items) {
-    if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
+    if (item.kind !== 'file' || !item.type.startsWith('image/'))
+      continue
     const file = item.getAsFile()
-    if (file) files.push(file)
+    if (file)
+      files.push(file)
   }
 
   return files
@@ -121,7 +129,8 @@ export function usePastedImageUpload(options: PastedImageUploadOptions) {
   function insertPastedImage(file: File): void {
     const editor = options.editor()
     const uploadImage = options.uploadImage()
-    if (!editor || !uploadImage) return
+    if (!editor || !uploadImage)
+      return
 
     const clientId = createClientId()
     const filename = pastedImageFilename(file)
@@ -146,7 +155,8 @@ export function usePastedImageUpload(options: PastedImageUploadOptions) {
     }
 
     const imageFiles = imageFilesFromClipboard(event)
-    if (!imageFiles.length) return false
+    if (!imageFiles.length)
+      return false
 
     event.preventDefault()
     for (const file of imageFiles) {

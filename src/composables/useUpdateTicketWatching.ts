@@ -1,11 +1,12 @@
+import type { JiraTicket } from '@/types/jira'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateTicketWatching } from '@/api/jira'
 import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { getCachedTickets, getCachedTicketsQueryKey, TICKETS_QUERY_KEY } from '@/composables/useJiraTickets'
-import type { JiraTicket } from '@/types/jira'
 
 function getOptimisticWatchCount(ticket: JiraTicket, watching: boolean): number | undefined {
-  if (typeof ticket.watchCount !== 'number') return undefined
+  if (typeof ticket.watchCount !== 'number')
+    return undefined
 
   if (watching && ticket.isWatching !== true) {
     return ticket.watchCount + 1
@@ -45,7 +46,7 @@ export function useUpdateTicketWatching() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ key, watching }: { key: string; watching: boolean }) => updateTicketWatching(key, watching),
+    mutationFn: ({ key, watching }: { key: string, watching: boolean }) => updateTicketWatching(key, watching),
     onMutate: async ({ key, watching }) => {
       const ticketsQueryKey = getCachedTicketsQueryKey(queryClient)
 
@@ -54,7 +55,7 @@ export function useUpdateTicketWatching() {
 
       const previousTickets = getCachedTickets(queryClient)
       const previousTicket = queryClient.getQueryData<JiraTicket>(ticketQueryKey(key))
-      const optimisticBaseTicket = previousTicket ?? previousTickets?.find((ticket) => ticket.key === key)
+      const optimisticBaseTicket = previousTicket ?? previousTickets?.find(ticket => ticket.key === key)
 
       if (previousTickets && optimisticBaseTicket) {
         queryClient.setQueryData<JiraTicket[]>(
@@ -70,7 +71,8 @@ export function useUpdateTicketWatching() {
       return { previousTickets, previousTicket, key, ticketsQueryKey }
     },
     onError: (_err, _variables, context) => {
-      if (!context) return
+      if (!context)
+        return
       if (context.previousTickets) {
         queryClient.setQueryData(context.ticketsQueryKey, context.previousTickets)
       }

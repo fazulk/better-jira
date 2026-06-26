@@ -1,3 +1,9 @@
+import type {
+  AiConnectionSettings,
+  JiraConnectionSettings,
+  UpdateAiConnectionInput,
+  UpdateJiraConnectionInput,
+} from './settingsTypes'
 import {
   AI_PROVIDERS,
   DEFAULT_AI_PROVIDER,
@@ -9,12 +15,6 @@ import {
   normalizeAiValue,
   normalizeJiraValue,
 } from './settingsNormalizers'
-import type {
-  AiConnectionSettings,
-  JiraConnectionSettings,
-  UpdateAiConnectionInput,
-  UpdateJiraConnectionInput,
-} from './settingsTypes'
 
 export function normalizeJiraConnectionSettings(value: unknown): JiraConnectionSettings {
   if (typeof value !== 'object' || value === null) {

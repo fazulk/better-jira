@@ -66,7 +66,7 @@ export function getStringQueryValue(value: string | string[] | undefined): strin
   }
 
   if (Array.isArray(value)) {
-    return value.find((entry) => entry.length > 0)
+    return value.find(entry => entry.length > 0)
   }
 
   return undefined
@@ -83,7 +83,8 @@ export function badRequestResponse(message: string): Response {
 export function decodePathSegment(segment: string): string | null {
   try {
     return decodeURIComponent(segment)
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -97,9 +98,12 @@ export function jiraContentResponse(jiraResponse: Response): Response {
   const contentLength = jiraResponse.headers.get('Content-Length')
   const contentDisposition = jiraResponse.headers.get('Content-Disposition')
 
-  if (contentType) headers.set('Content-Type', contentType)
-  if (contentLength) headers.set('Content-Length', contentLength)
-  if (contentDisposition) headers.set('Content-Disposition', contentDisposition)
+  if (contentType)
+    headers.set('Content-Type', contentType)
+  if (contentLength)
+    headers.set('Content-Length', contentLength)
+  if (contentDisposition)
+    headers.set('Content-Disposition', contentDisposition)
 
   return new Response(jiraResponse.body, {
     status: jiraResponse.status,

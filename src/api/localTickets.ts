@@ -16,13 +16,15 @@ export interface CreateLocalTicketInput {
 
 export async function fetchLocalTickets(): Promise<JiraTicket[]> {
   const res = await fetch(`${BASE}/local/tickets`)
-  if (!res.ok) throw new Error(`Failed to fetch local tickets: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch local tickets: ${res.statusText}`)
   return res.json()
 }
 
 export async function fetchLocalTicket(key: string): Promise<JiraTicket> {
   const res = await fetch(`${BASE}/local/tickets/${encodeURIComponent(key)}`)
-  if (!res.ok) throw new Error(`Failed to fetch local ticket: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch local ticket: ${res.statusText}`)
   return res.json()
 }
 

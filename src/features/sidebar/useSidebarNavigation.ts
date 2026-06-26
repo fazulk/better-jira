@@ -1,8 +1,9 @@
+import type { JiraTicket } from '@/types/jira'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { getStatusGroup, type JiraTicket } from '@/types/jira'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { getStatusGroup } from '@/types/jira'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 export interface FavoriteViewNavItem {
@@ -127,7 +128,7 @@ export function useSidebarNavigation(
     .filter((ticket): ticket is JiraTicket => ticket !== undefined)
     .slice(0, 6))
 
-  const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map(space => {
+  const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map((space) => {
     const tickets = issueTickets.value.filter(ticket => ticket.spaceKey === space.key)
     const activeCount = tickets.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done').length
     const triageCount = tickets.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new').length

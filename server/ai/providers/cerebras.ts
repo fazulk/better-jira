@@ -1,6 +1,6 @@
-import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import type { ProviderPrompt } from './openai'
+import OpenAI from 'openai'
 
 const CEREBRAS_BASE_URL = 'https://api.cerebras.ai/v1'
 
@@ -23,7 +23,7 @@ export async function generateWithCerebras(apiKey: string, prompt: ProviderPromp
   })
 
   return response.choices
-    .map((choice) => choice.message.content ?? '')
+    .map(choice => choice.message.content ?? '')
     .join('\n')
     .trim()
 }

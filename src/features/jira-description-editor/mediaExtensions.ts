@@ -1,5 +1,5 @@
-import { Node } from '@tiptap/core'
 import type { JiraAttachment } from '@/types/jira'
+import { Node } from '@tiptap/core'
 
 interface JiraMediaContext {
   attachments: () => JiraAttachment[]
@@ -30,21 +30,24 @@ function findMediaAttachment(
   context: JiraMediaContext,
 ): JiraAttachment | null {
   const imageAttachments = context.attachments().filter(isImageAttachment)
-  if (!imageAttachments.length) return null
+  if (!imageAttachments.length)
+    return null
 
   const mediaId = attrString(attrs, 'id')
   const mediaAlt = attrString(attrs, 'alt')
   const mediaName = attrString(attrs, 'name')
   const idMatch = mediaId
-    ? imageAttachments.find((attachment) => attachment.id === mediaId)
+    ? imageAttachments.find(attachment => attachment.id === mediaId)
     : undefined
-  if (idMatch) return idMatch
+  if (idMatch)
+    return idMatch
 
   const filenameMatch = [mediaAlt, mediaName]
     .filter((value): value is string => value !== null)
-    .map((value) => imageAttachments.find((attachment) => attachment.filename === value))
-    .find((attachment) => attachment !== undefined)
-  if (filenameMatch) return filenameMatch
+    .map(value => imageAttachments.find(attachment => attachment.filename === value))
+    .find(attachment => attachment !== undefined)
+  if (filenameMatch)
+    return filenameMatch
 
   return imageAttachments.length === 1 ? imageAttachments[0] : null
 }
@@ -70,14 +73,17 @@ export function mediaImageSrc(
   context: JiraMediaContext,
 ): string | null {
   const directSrc = attrString(attrs, 'src') ?? attrString(attrs, 'url')
-  if (directSrc) return proxiedJiraAttachmentUrl(directSrc)
+  if (directSrc)
+    return proxiedJiraAttachmentUrl(directSrc)
 
   const attachment = findMediaAttachment(attrs, context)
-  if (attachment) return attachmentContentUrl(attachment.id)
+  if (attachment)
+    return attachmentContentUrl(attachment.id)
 
   const mediaFilename = attrString(attrs, 'alt') ?? attrString(attrs, 'name')
   const filenameUrl = mediaFilename ? ticketAttachmentContentUrl(mediaFilename, context) : null
-  if (filenameUrl) return filenameUrl
+  if (filenameUrl)
+    return filenameUrl
 
   const mediaId = attrString(attrs, 'id')
   return mediaId ? attachmentContentUrl(mediaId) : null
@@ -101,7 +107,8 @@ function mediaImageAttrs(
   context: JiraMediaContext,
 ): Record<string, string | number> | null {
   const src = mediaImageSrc(attrs, context)
-  if (!src) return null
+  if (!src)
+    return null
 
   const imageAttrs: Record<string, string | number> = {
     src,
@@ -110,9 +117,11 @@ function mediaImageAttrs(
     contenteditable: 'false',
   }
   const width = attrNumber(attrs, 'width')
-  if (width !== null) imageAttrs.width = width
+  if (width !== null)
+    imageAttrs.width = width
   const height = attrNumber(attrs, 'height')
-  if (height !== null) imageAttrs.height = height
+  if (height !== null)
+    imageAttrs.height = height
 
   return imageAttrs
 }
@@ -163,7 +172,7 @@ export function createJiraMediaExtensions(context: JiraMediaContext) {
         {
           'data-jira-media': 'true',
           'data-upload-state': uploadState ?? undefined,
-          class: 'jira-description-media',
+          'class': 'jira-description-media',
         },
         imageAttrs
           ? ['img', imageAttrs]
@@ -192,7 +201,7 @@ export function createJiraMediaExtensions(context: JiraMediaContext) {
     },
 
     renderHTML() {
-      return ['div', { 'data-jira-media-single': 'true', class: 'jira-description-media-single' }, 0]
+      return ['div', { 'data-jira-media-single': 'true', 'class': 'jira-description-media-single' }, 0]
     },
   })
 
@@ -207,7 +216,7 @@ export function createJiraMediaExtensions(context: JiraMediaContext) {
     },
 
     renderHTML() {
-      return ['div', { 'data-jira-media-group': 'true', class: 'jira-description-media-group' }, 0]
+      return ['div', { 'data-jira-media-group': 'true', 'class': 'jira-description-media-group' }, 0]
     },
   })
 

@@ -1,6 +1,3 @@
-import { isRecord, plainTextToAdf } from '../shared/jiraAdf'
-import { jiraFetch } from './jiraClient'
-import { extractDescription } from './jiraDescription'
 import type {
   JiraActivityComment,
   JiraActivityHistory,
@@ -11,6 +8,9 @@ import type {
   JiraApiIssue,
   JiraMessage,
 } from './jiraTypes'
+import { isRecord, plainTextToAdf } from '../shared/jiraAdf'
+import { jiraFetch } from './jiraClient'
+import { extractDescription } from './jiraDescription'
 
 function isJiraApiIssue(value: unknown): value is JiraApiIssue {
   return isRecord(value)
@@ -28,27 +28,33 @@ function mapComment(comment: JiraApiComment): JiraMessage {
 
 function getHistoryValue(value: string | null | undefined): string | null {
   const nextValue = value?.trim()
-  return nextValue ? nextValue : null
+  return nextValue || null
 }
 
 function formatHistoryAction(author: string, field: string, from: string | null, to: string | null): string {
   const normalizedField = field.trim().toLowerCase()
 
   if (normalizedField === 'status') {
-    if (from && to) return `moved from ${from} to ${to}`
-    if (to) return `moved to ${to}`
+    if (from && to)
+      return `moved from ${from} to ${to}`
+    if (to)
+      return `moved to ${to}`
     return 'changed status'
   }
 
   if (normalizedField === 'assignee') {
-    if (to && to === author && !from) return 'self-assigned the issue'
-    if (to) return `assigned the issue to ${to}`
-    if (from) return `removed ${from} as assignee`
+    if (to && to === author && !from)
+      return 'self-assigned the issue'
+    if (to)
+      return `assigned the issue to ${to}`
+    if (from)
+      return `removed ${from} as assignee`
     return 'changed assignee'
   }
 
   if (normalizedField === 'priority') {
-    if (to) return `set priority to ${to}`
+    if (to)
+      return `set priority to ${to}`
     return 'changed priority'
   }
 
@@ -57,22 +63,30 @@ function formatHistoryAction(author: string, field: string, from: string | null,
   }
 
   if (normalizedField === 'issuetype') {
-    if (from && to) return `changed type from ${from} to ${to}`
-    if (to) return `changed type to ${to}`
+    if (from && to)
+      return `changed type from ${from} to ${to}`
+    if (to)
+      return `changed type to ${to}`
     return 'changed type'
   }
 
   if (normalizedField === 'parent') {
-    if (from && to) return `moved parent from ${from} to ${to}`
-    if (to) return `added parent ${to}`
-    if (from) return `removed parent ${from}`
+    if (from && to)
+      return `moved parent from ${from} to ${to}`
+    if (to)
+      return `added parent ${to}`
+    if (from)
+      return `removed parent ${from}`
     return 'changed parent'
   }
 
   const readableField = field.trim() || 'field'
-  if (from && to) return `changed ${readableField} from ${from} to ${to}`
-  if (to) return `set ${readableField} to ${to}`
-  if (from) return `cleared ${readableField}`
+  if (from && to)
+    return `changed ${readableField} from ${from} to ${to}`
+  if (to)
+    return `set ${readableField} to ${to}`
+  if (from)
+    return `cleared ${readableField}`
   return `changed ${readableField}`
 }
 
@@ -81,9 +95,12 @@ function formatHistoryBody(author: string, field: string, from: string | null, t
 }
 
 function joinHistoryActions(actions: string[]): string {
-  if (actions.length === 0) return 'changed the issue'
-  if (actions.length === 1) return actions[0] ?? 'changed the issue'
-  if (actions.length === 2) return `${actions[0]} and ${actions[1]}`
+  if (actions.length === 0)
+    return 'changed the issue'
+  if (actions.length === 1)
+    return actions[0] ?? 'changed the issue'
+  if (actions.length === 2)
+    return `${actions[0]} and ${actions[1]}`
 
   const leadingActions = actions.slice(0, -1)
   const finalAction = actions[actions.length - 1] ?? 'changed the issue'
@@ -121,7 +138,7 @@ function mapChangelogHistory(history: JiraApiChangelogHistory): JiraActivityHist
     : []
 
   if (items.length > 1) {
-    const actions = items.map((item) => (
+    const actions = items.map(item => (
       formatHistoryAction(
         author,
         item.field?.trim() || 'field',
@@ -200,27 +217,32 @@ function extractParentCommentIdFromValue(
   path: string[] = [],
   visited = new Set<unknown>(),
 ): string | null {
-  if (value === null || value === undefined) return null
-  if (typeof value !== 'object') return null
-  if (visited.has(value)) return null
+  if (value === null || value === undefined)
+    return null
+  if (typeof value !== 'object')
+    return null
+  if (visited.has(value))
+    return null
 
   visited.add(value)
 
   if (Array.isArray(value)) {
     for (const item of value) {
       const nestedId = extractParentCommentIdFromValue(item, path, visited)
-      if (nestedId) return nestedId
+      if (nestedId)
+        return nestedId
     }
     return null
   }
 
-  if (!isRecord(value)) return null
+  if (!isRecord(value))
+    return null
 
   for (const [key, nestedValue] of Object.entries(value)) {
     const normalizedKey = key.toLowerCase()
     const nextPath = [...path, normalizedKey]
-    const pathHintsParent = nextPath.some((segment) => segment.includes('parent'))
-    const pathHintsComment = nextPath.some((segment) => (
+    const pathHintsParent = nextPath.some(segment => segment.includes('parent'))
+    const pathHintsComment = nextPath.some(segment => (
       segment.includes('comment')
       || segment.includes('thread')
       || segment === 'id'
@@ -228,16 +250,19 @@ function extractParentCommentIdFromValue(
 
     if (pathHintsParent && pathHintsComment) {
       const directId = normalizeJiraCommentId(nestedValue)
-      if (directId) return directId
+      if (directId)
+        return directId
 
       if (isRecord(nestedValue)) {
         const nestedId = normalizeJiraCommentId(nestedValue.id)
-        if (nestedId) return nestedId
+        if (nestedId)
+          return nestedId
       }
     }
 
     const nestedId = extractParentCommentIdFromValue(nestedValue, nextPath, visited)
-    if (nestedId) return nestedId
+    if (nestedId)
+      return nestedId
   }
 
   return null
@@ -268,7 +293,8 @@ export async function getTicketMessages(key: string): Promise<JiraMessage[]> {
     },
   })
 
-  if (!isRecord(data) || !Array.isArray(data.comments)) return []
+  if (!isRecord(data) || !Array.isArray(data.comments))
+    return []
 
   return data.comments.map(mapComment)
 }
@@ -321,7 +347,8 @@ export async function getTicketActivity(key: string): Promise<JiraActivityItem[]
 
   try {
     histories = await getTicketChangelog(key)
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load Jira changelog'
     console.warn(`Unable to load Jira changelog for ${key}: ${message}`)
   }

@@ -59,10 +59,8 @@ const emit = defineEmits<{
         <span v-if="isFieldVisible('lead')" class="truncate pr-4 text-[12px] text-[#aeb0b7]">{{
           initiative.lead
         }}</span>
-        <span v-if="isFieldVisible('projects')" class="text-[12px] text-[#8f9198]"
-          >{{ initiative.projectCount }}
-          {{ initiative.projectCount === 1 ? 'project' : 'projects' }}</span
-        >
+        <span v-if="isFieldVisible('projects')" class="text-[12px] text-[#8f9198]">{{ initiative.projectCount }}
+          {{ initiative.projectCount === 1 ? 'project' : 'projects' }}</span>
 
         <span v-if="isFieldVisible('issues')" class="pr-5">
           <span class="flex items-center justify-between gap-2 text-[11px] text-[#8f9198]">
@@ -74,7 +72,7 @@ const emit = defineEmits<{
               class="block h-full rounded-full"
               :class="getProgressBarClass(initiative.health)"
               :style="{ width: `${initiative.progress}%` }"
-            ></span>
+            />
           </span>
         </span>
 
@@ -86,7 +84,9 @@ const emit = defineEmits<{
 
     <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
       <div class="max-w-sm">
-        <p class="text-[13px] font-medium text-[#d7d8dc]">No initiatives found</p>
+        <p class="text-[13px] font-medium text-[#d7d8dc]">
+          No initiatives found
+        </p>
         <p class="mt-1 text-[12px] text-[#777a83]">
           Initiatives will appear when projects can be grouped into roadmap work.
         </p>

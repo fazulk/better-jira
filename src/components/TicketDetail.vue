@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import type { JiraTicket } from '@/types/jira'
 import { useQueryClient } from '@tanstack/vue-query'
-import { useJiraTicket, ticketQueryKey } from '@/composables/useJiraTicket'
-import { useLocalTicket, localTicketQueryKey } from '@/composables/useLocalTicket'
-import { getCachedTickets } from '@/composables/useJiraTickets'
-import { usePinnedTickets } from '@/composables/usePinnedTickets'
-import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { fetchTicket } from '@/api/jira'
 import { fetchLocalTicket } from '@/api/localTickets'
 import TicketDetailActivity from '@/components/ticket-detail/TicketDetailActivity.vue'
@@ -13,7 +9,11 @@ import TicketDetailChildren from '@/components/ticket-detail/TicketDetailChildre
 import TicketDetailDescription from '@/components/ticket-detail/TicketDetailDescription.vue'
 import TicketDetailHeader from '@/components/ticket-detail/TicketDetailHeader.vue'
 import TicketDetailSidebar from '@/components/ticket-detail/TicketDetailSidebar.vue'
-import type { JiraTicket } from '@/types/jira'
+import { ticketQueryKey, useJiraTicket } from '@/composables/useJiraTicket'
+import { getCachedTickets } from '@/composables/useJiraTickets'
+import { localTicketQueryKey, useLocalTicket } from '@/composables/useLocalTicket'
+import { usePinnedTickets } from '@/composables/usePinnedTickets'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import {
   isLocalTicketKey,
 } from '~/shared/localTickets'
@@ -25,8 +25,8 @@ const props = withDefaults(defineProps<{
   mode: 'inline',
 })
 const emit = defineEmits<{
-  close: []
-  select: [key: string]
+  'close': []
+  'select': [key: string]
   'navigate-view': [viewId: string]
   'create-child': [parentKey: string]
 }>()
@@ -45,10 +45,11 @@ const queryClient = useQueryClient()
 
 const cachedTicket = computed<JiraTicket | null>(() => {
   const key = ticketKey.value
-  if (!key) return null
+  if (!key)
+    return null
 
   const tickets = getCachedTickets(queryClient)
-  return tickets?.find((ticket) => ticket.key === key) ?? null
+  return tickets?.find(ticket => ticket.key === key) ?? null
 })
 
 const ticket = computed(() => {
@@ -70,10 +71,12 @@ const issueType = computed(() => ticket.value?.issueType?.toLowerCase() || 'task
 
 const childTickets = computed<JiraTicket[]>(() => {
   const key = ticketKey.value
-  if (!key) return []
+  if (!key)
+    return []
   const allTickets = getCachedTickets(queryClient)
-  if (!allTickets) return []
-  return allTickets.filter((t) => t.parent?.key === key)
+  if (!allTickets)
+    return []
+  return allTickets.filter(t => t.parent?.key === key)
 })
 
 const isProjectDetail = computed(() => (
@@ -85,16 +88,17 @@ const detailBreadcrumbSpace = computed(() => (
 ))
 const detailBreadcrumbViewId = computed(() => {
   const spaceKey = ticket.value?.spaceKey
-  if (!spaceKey) return isProjectDetail.value ? 'projects' : 'my-issues'
+  if (!spaceKey)
+    return isProjectDetail.value ? 'projects' : 'my-issues'
   return isProjectDetail.value ? `team:${spaceKey}:projects` : `team:${spaceKey}:all`
 })
 const detailChildActionLabel = computed(() => (isProjectDetail.value ? 'Add issue' : 'Add sub-issue'))
 const detailChildSectionLabel = computed(() => (isProjectDetail.value ? 'Issues' : 'Sub-issues'))
 const detailEmptyChildLabel = computed(() => (isProjectDetail.value ? 'No issues linked' : 'No sub-issues'))
 
-const imagePreview = ref<{ src: string; alt: string } | null>(null)
+const imagePreview = ref<{ src: string, alt: string } | null>(null)
 
-function openImagePreview(payload: { src: string; alt: string }): void {
+function openImagePreview(payload: { src: string, alt: string }): void {
   imagePreview.value = payload
 }
 
@@ -159,19 +163,24 @@ function handleDetailShortcut(event: KeyboardEvent): void {
   if (key === 'a') {
     event.preventDefault()
     void ticketSidebarRef.value?.startEditingAssignee()
-  } else if (key === 'p') {
+  }
+  else if (key === 'p') {
     event.preventDefault()
     void ticketSidebarRef.value?.startEditingPriority()
-  } else if (key === 'm') {
+  }
+  else if (key === 'm') {
     event.preventDefault()
     void ticketSidebarRef.value?.startEditingStatus()
-  } else if (key === 'c') {
+  }
+  else if (key === 'c') {
     event.preventDefault()
     ticketActivityRef.value?.focusMessageComposer()
-  } else if (key === 'd') {
+  }
+  else if (key === 'd') {
     event.preventDefault()
     ticketDescriptionRef.value?.focusDescriptionEditor()
-  } else if (key === 't') {
+  }
+  else if (key === 't') {
     event.preventDefault()
     ticketHeaderRef.value?.focusTitleInput()
   }
@@ -180,7 +189,6 @@ function handleDetailShortcut(event: KeyboardEvent): void {
 onMounted(() => {
   document.addEventListener('keydown', handleDetailShortcut)
 })
-
 </script>
 
 <template>
@@ -291,7 +299,7 @@ onMounted(() => {
 
     <div v-else class="flex items-center justify-center py-20">
       <div class="flex flex-col items-center gap-3">
-        <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-700 border-t-accent-indigo"></div>
+        <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-700 border-t-accent-indigo" />
         <span class="text-xs text-slate-600">Loading ticket</span>
       </div>
     </div>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import type { JiraAdfDocument, JiraAdfNode, JiraAttachment, JiraTicket } from '@/types/jira'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import JiraAdfRenderer from '@/components/JiraAdfRenderer.vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
-import { useUpdateTicketDescription } from '@/composables/useUpdateTicketDescription'
 import { useUpdateLocalTicketDescription } from '@/composables/useUpdateLocalTicketDescription'
+import { useUpdateTicketDescription } from '@/composables/useUpdateTicketDescription'
 import { useUploadTicketAttachment } from '@/composables/useUploadTicketAttachment'
-import type { JiraAdfDocument, JiraAdfNode, JiraAttachment, JiraTicket } from '@/types/jira'
 import { coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
 import { isLocalTicketKey } from '~/shared/localTickets'
 
@@ -15,14 +15,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'preview-image': [payload: { src: string; alt: string }]
+  'preview-image': [payload: { src: string, alt: string }]
 }>()
 
 type DescriptionSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const DESCRIPTION_SAVE_DEBOUNCE_MS = 3000
 const DESCRIPTION_SAVED_MESSAGE_MS = 3000
-const descriptionEditorRef = ref<{ focusEditor: () => void; blurEditor: () => void } | null>(null)
+const descriptionEditorRef = ref<{ focusEditor: () => void, blurEditor: () => void } | null>(null)
 const descriptionEditorShellRef = ref<HTMLDivElement | null>(null)
 const descriptionEditorActive = ref(false)
 const descriptionDraft = ref<JiraAdfDocument | null>(null)
@@ -50,7 +50,8 @@ function hasUnsupportedEditorContent(nextTicket: JiraTicket | null): boolean {
 }
 
 function getEditableDescriptionAdf(nextTicket: JiraTicket | null): JiraAdfDocument | null {
-  if (!nextTicket) return null
+  if (!nextTicket)
+    return null
   const descriptionAdf = hasUnsupportedEditorContent(nextTicket) ? undefined : nextTicket.descriptionAdf
   return coerceDescriptionToAdf(nextTicket.description, descriptionAdf)
 }
@@ -60,22 +61,25 @@ function adfSignature(doc: JiraAdfDocument | null): string {
 }
 
 function nodeHasUploadState(node: JiraAdfNode, state: 'pending' | 'error'): boolean {
-  if (node.type === 'media' && node.attrs?.uploadState === state) return true
-  return node.content?.some((child) => nodeHasUploadState(child, state)) ?? false
+  if (node.type === 'media' && node.attrs?.uploadState === state)
+    return true
+  return node.content?.some(child => nodeHasUploadState(child, state)) ?? false
 }
 
 function descriptionHasUploadState(doc: JiraAdfDocument | null, state: 'pending' | 'error'): boolean {
-  return doc?.content.some((node) => nodeHasUploadState(node, state)) ?? false
+  return doc?.content.some(node => nodeHasUploadState(node, state)) ?? false
 }
 
 function clearDescriptionSaveTimer(): void {
-  if (!descriptionSaveTimer.value) return
+  if (!descriptionSaveTimer.value)
+    return
   clearTimeout(descriptionSaveTimer.value)
   descriptionSaveTimer.value = null
 }
 
 function clearDescriptionSavedMessageTimer(): void {
-  if (!descriptionSavedMessageTimer.value) return
+  if (!descriptionSavedMessageTimer.value)
+    return
   clearTimeout(descriptionSavedMessageTimer.value)
   descriptionSavedMessageTimer.value = null
 }
@@ -140,7 +144,8 @@ function handleDescriptionFocusIn(): void {
 function handleDescriptionFocusOut(): void {
   setTimeout(() => {
     const shell = descriptionEditorShellRef.value
-    if (shell && document.activeElement && shell.contains(document.activeElement)) return
+    if (shell && document.activeElement && shell.contains(document.activeElement))
+      return
     descriptionEditorActive.value = false
     void flushDescriptionAutosave()
   }, 0)
@@ -164,7 +169,8 @@ async function persistDescriptionDraft(key: string, descriptionAdf: JiraAdfDocum
 
 async function flushDescriptionAutosave(): Promise<void> {
   const key = descriptionDraftTicketKey.value
-  if (!key || descriptionSaveInFlight.value) return
+  if (!key || descriptionSaveInFlight.value)
+    return
 
   const descriptionAdf = descriptionDraft.value
   if (descriptionHasPendingImageUpload.value || descriptionHasFailedImageUpload.value) {
@@ -190,22 +196,27 @@ async function flushDescriptionAutosave(): Promise<void> {
 
   try {
     await persistDescriptionDraft(key, descriptionAdf)
-    if (descriptionDraftTicketKey.value !== key) return
+    if (descriptionDraftTicketKey.value !== key)
+      return
 
     descriptionPersistedSignature.value = signature
     if (adfSignature(descriptionDraft.value) === signature) {
       descriptionSaveStatus.value = 'saved'
       descriptionSaveError.value = null
       hideDescriptionSavedMessageSoon()
-    } else {
+    }
+    else {
       descriptionSaveStatus.value = 'dirty'
       scheduleDescriptionAutosave()
     }
-  } catch (err) {
-    if (descriptionDraftTicketKey.value !== key) return
+  }
+  catch (err) {
+    if (descriptionDraftTicketKey.value !== key)
+      return
     descriptionSaveStatus.value = 'error'
     descriptionSaveError.value = err instanceof Error ? err.message : 'Failed to update description.'
-  } finally {
+  }
+  finally {
     descriptionSaveInFlight.value = false
   }
 }
@@ -215,14 +226,17 @@ watch(() => props.ticket, (nextTicket) => {
   if (ticketChanged) {
     void flushDescriptionAutosave()
     syncDescriptionDraftFromTicket(nextTicket)
-  } else if (!descriptionEditorActive.value && !isDescriptionDraftDirty()) {
+  }
+  else if (!descriptionEditorActive.value && !isDescriptionDraftDirty()) {
     syncDescriptionDraftFromTicket(nextTicket)
   }
 }, { immediate: true })
 
 watch(descriptionDraft, (nextDraft) => {
-  if (isSyncingDescriptionDraft.value) return
-  if (!descriptionDraftTicketKey.value) return
+  if (isSyncingDescriptionDraft.value)
+    return
+  if (!descriptionDraftTicketKey.value)
+    return
 
   if (descriptionHasPendingImageUpload.value || descriptionHasFailedImageUpload.value) {
     clearDescriptionSaveTimer()
@@ -249,12 +263,18 @@ watch(descriptionDraft, (nextDraft) => {
 })
 
 const descriptionSaveMessage = computed(() => {
-  if (descriptionHasPendingImageUpload.value) return 'Uploading image...'
-  if (descriptionHasFailedImageUpload.value) return 'Image upload failed. Delete it before saving.'
-  if (descriptionSaveStatus.value === 'dirty') return 'Unsaved changes'
-  if (descriptionSaveStatus.value === 'saving') return 'Saving...'
-  if (descriptionSaveStatus.value === 'saved') return 'Saved'
-  if (descriptionSaveStatus.value === 'error') return descriptionSaveError.value ?? 'Failed to update description.'
+  if (descriptionHasPendingImageUpload.value)
+    return 'Uploading image...'
+  if (descriptionHasFailedImageUpload.value)
+    return 'Image upload failed. Delete it before saving.'
+  if (descriptionSaveStatus.value === 'dirty')
+    return 'Unsaved changes'
+  if (descriptionSaveStatus.value === 'saving')
+    return 'Saving...'
+  if (descriptionSaveStatus.value === 'saved')
+    return 'Saved'
+  if (descriptionSaveStatus.value === 'error')
+    return descriptionSaveError.value ?? 'Failed to update description.'
   return ''
 })
 
@@ -285,8 +305,8 @@ defineExpose({
       >
         <span
           v-if="descriptionSaveMessage"
-          class="pointer-events-none absolute right-3 z-10 rounded-md border border-white/[0.06] bg-surface-1/90 px-2 py-1 text-[11px] shadow-lg backdrop-blur"
-          :class="[descriptionSaveMessageClass, 'top-[3.75rem]']"
+          class="pointer-events-none absolute right-3 z-10 rounded-md border border-white/[0.06] bg-surface-1/90 px-2 py-1 text-[11px] shadow-lg backdrop-blur top-[3.75rem]"
+          :class="[descriptionSaveMessageClass]"
         >
           {{ descriptionSaveMessage }}
         </span>

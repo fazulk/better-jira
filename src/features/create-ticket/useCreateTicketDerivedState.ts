@@ -1,8 +1,9 @@
-import { computed, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
+import type { JiraCreateIssueType, JiraTicket } from '@/types/jira'
+import { computed } from 'vue'
 import {
   getLinearIssueSubtype,
-  type JiraCreateIssueType,
-  type JiraTicket,
+
 } from '@/types/jira'
 import { isLocalTicketKey, LOCAL_ISSUE_TYPE, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { canIssueTypeUseParent } from './issueTypePolicy'
@@ -36,11 +37,12 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
   ))
 
   const selectedParentTicket = computed<JiraTicket | null>(() => {
-    if (!effectiveParentKey.value) return null
-    return input.tickets.value.find((ticket) => ticket.key === effectiveParentKey.value) ?? null
+    if (!effectiveParentKey.value)
+      return null
+    return input.tickets.value.find(ticket => ticket.key === effectiveParentKey.value) ?? null
   })
 
-  const createSpaceOptions = computed(() => input.enabledSpaces.value.map((space) => ({
+  const createSpaceOptions = computed(() => input.enabledSpaces.value.map(space => ({
     key: space.key,
     name: space.name || space.key,
   })))
@@ -54,8 +56,10 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
     activeIssueType.value?.toLowerCase().includes('epic') ? 'Project' : 'Issue'
   ))
   const createSubtypeLabel = computed(() => {
-    if (isLocalSpace.value) return getLinearIssueSubtype(LOCAL_ISSUE_TYPE)
-    if (!input.selectedIssueType.value || createObjectTypeLabel.value === 'Project') return null
+    if (isLocalSpace.value)
+      return getLinearIssueSubtype(LOCAL_ISSUE_TYPE)
+    if (!input.selectedIssueType.value || createObjectTypeLabel.value === 'Project')
+      return null
     return getLinearIssueSubtype(input.selectedIssueType.value)
   })
 
@@ -77,13 +81,14 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
   ))
 
   const supportedParentTickets = computed(() => {
-    if (!input.selectedIssueType.value || input.selectedIssueType.value.toLowerCase().includes('epic')) return []
+    if (!input.selectedIssueType.value || input.selectedIssueType.value.toLowerCase().includes('epic'))
+      return []
 
     const base = [...input.tickets.value]
-      .filter((ticket) => canIssueTypeUseParent(input.selectedIssueType.value, ticket.issueType))
+      .filter(ticket => canIssueTypeUseParent(input.selectedIssueType.value, ticket.issueType))
 
     const scoped = isLocalSpace.value
-      ? base.filter((ticket) => isLocalTicketKey(ticket.key))
+      ? base.filter(ticket => isLocalTicketKey(ticket.key))
       : base
 
     return scoped.sort((left, right) => `${left.key} ${left.summary}`.localeCompare(`${right.key} ${right.summary}`, undefined, { sensitivity: 'base' }))
@@ -91,8 +96,9 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
 
   function getSelectedSpaceName(): string {
     const currentSpaceKey = effectiveSpaceKey.value
-    if (!currentSpaceKey) return 'No space selected'
-    return createSpaceOptions.value.find((space) => space.key === currentSpaceKey)?.name ?? currentSpaceKey
+    if (!currentSpaceKey)
+      return 'No space selected'
+    return createSpaceOptions.value.find(space => space.key === currentSpaceKey)?.name ?? currentSpaceKey
   }
 
   return {

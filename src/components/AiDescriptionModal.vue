@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { JiraAdfDocument } from '@/types/jira'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
 import { useAiInstructionPresets } from '@/composables/useAiInstructionPresets'
 import { useAiSettings } from '@/composables/useAiSettings'
 import { useGenerateAiDescription } from '@/composables/useGenerateAiDescription'
-import type { JiraAdfDocument } from '@/types/jira'
 import { getProviderLabel } from '~/shared/ai'
 import { coerceDescriptionToAdf } from '~/shared/jiraAdf'
 
@@ -53,12 +53,14 @@ onBeforeUnmount(() => {
 })
 
 function closeModal() {
-  if (props.isSaving) return
+  if (props.isSaving)
+    return
   emit('close')
 }
 
 function handleModalKeydown(event: KeyboardEvent) {
-  if (!props.open || event.key !== 'Escape') return
+  if (!props.open || event.key !== 'Escape')
+    return
   event.preventDefault()
   closeModal()
 }
@@ -90,7 +92,8 @@ async function generateDescription(): Promise<void> {
     })
 
     proposedDescription.value = response.descriptionAdf
-  } catch (error: unknown) {
+  }
+  catch (error: unknown) {
     generationError.value = error instanceof Error ? error.message : 'Failed to generate description.'
   }
 }
@@ -128,8 +131,12 @@ async function generateDescription(): Promise<void> {
           <div class="grid min-h-[360px] min-w-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div class="flex min-w-0 flex-1 flex-col overflow-hidden border-b border-white/[0.06] px-4 py-3 lg:border-b-0 lg:border-r">
               <div class="mb-3 min-w-0">
-                <h2 class="truncate text-[15px] font-medium text-slate-100">{{ ticketTitle || ticketKey }}</h2>
-                <p class="mt-0.5 text-[12px] text-slate-600">Proposed description</p>
+                <h2 class="truncate text-[15px] font-medium text-slate-100">
+                  {{ ticketTitle || ticketKey }}
+                </h2>
+                <p class="mt-0.5 text-[12px] text-slate-600">
+                  Proposed description
+                </p>
               </div>
               <div class="min-h-0 flex-1 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.015]">
                 <JiraDescriptionEditor
@@ -153,7 +160,9 @@ async function generateDescription(): Promise<void> {
               </div>
 
               <div v-if="visibleInstructionPresets.length" class="mb-4">
-                <h3 class="mb-2 text-[12px] font-medium text-slate-400">Presets</h3>
+                <h3 class="mb-2 text-[12px] font-medium text-slate-400">
+                  Presets
+                </h3>
                 <div class="flex flex-wrap gap-1.5">
                   <button
                     v-for="prompt in visibleInstructionPresets"
@@ -191,7 +200,9 @@ async function generateDescription(): Promise<void> {
           </div>
 
           <div class="flex min-h-12 items-center justify-between gap-3 border-t border-white/[0.06] px-4">
-            <div class="text-[11px] text-slate-600">Edit the proposed description before applying it.</div>
+            <div class="text-[11px] text-slate-600">
+              Edit the proposed description before applying it.
+            </div>
             <div class="flex items-center gap-2">
               <button
                 type="button"

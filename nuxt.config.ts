@@ -1,5 +1,5 @@
-import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-27',

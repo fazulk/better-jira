@@ -76,9 +76,7 @@ const emit = defineEmits<{
                 />
                 <span class="truncate">{{ project.name }}</span>
               </span>
-              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]"
-                >{{ project.key }} · {{ project.spaceName }}</span
-              >
+              <span class="mt-0.5 block truncate text-[11px] text-[#777a83]">{{ project.key }} · {{ project.spaceName }}</span>
             </span>
 
             <span v-if="isFieldVisible('health')">
@@ -110,7 +108,7 @@ const emit = defineEmits<{
                   class="block h-full rounded-full"
                   :class="getProgressBarClass(project.health)"
                   :style="{ width: `${project.progress}%` }"
-                ></span>
+                />
               </span>
             </span>
 
@@ -124,7 +122,9 @@ const emit = defineEmits<{
 
     <div v-else class="flex h-full min-h-80 items-center justify-center px-6 text-center">
       <div class="max-w-sm">
-        <p class="text-[13px] font-medium text-[#d7d8dc]">No projects found</p>
+        <p class="text-[13px] font-medium text-[#d7d8dc]">
+          No projects found
+        </p>
         <p class="mt-1 text-[12px] text-[#777a83]">
           Projects will appear here when enabled teams have project-level work.
         </p>

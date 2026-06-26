@@ -1,15 +1,15 @@
+import type { JiraAdfDocument, JiraTicket } from '@/types/jira'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { updateTicketDescription } from '@/api/jira'
 import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { getCachedTickets, getCachedTicketsQueryKey, TICKETS_QUERY_KEY } from '@/composables/useJiraTickets'
-import type { JiraAdfDocument, JiraTicket } from '@/types/jira'
 import { adfToPlainText } from '~/shared/jiraAdf'
 
 export function useUpdateTicketDescription() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ key, descriptionAdf }: { key: string; descriptionAdf: JiraAdfDocument | null }) =>
+    mutationFn: ({ key, descriptionAdf }: { key: string, descriptionAdf: JiraAdfDocument | null }) =>
       updateTicketDescription(key, descriptionAdf),
     onMutate: async ({ key, descriptionAdf }) => {
       const ticketsQueryKey = getCachedTicketsQueryKey(queryClient)
@@ -32,7 +32,8 @@ export function useUpdateTicketDescription() {
       return { previousTickets, previousTicket, key, ticketsQueryKey }
     },
     onError: (_err, _variables, context) => {
-      if (!context) return
+      if (!context)
+        return
       if (context.previousTickets) {
         queryClient.setQueryData(context.ticketsQueryKey, context.previousTickets)
       }

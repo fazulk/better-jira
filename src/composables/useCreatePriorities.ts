@@ -1,7 +1,8 @@
-import { computed, type Ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
-import { fetchAllPriorities } from '@/api/jira'
+import type { Ref } from 'vue'
 import type { JiraCreateIssueType } from '@/types/jira'
+import { useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
+import { fetchAllPriorities } from '@/api/jira'
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 

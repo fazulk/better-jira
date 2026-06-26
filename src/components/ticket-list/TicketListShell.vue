@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
 import AddSpaceModal from '../AddSpaceModal.vue'
 import CreateTicketModal from '../CreateTicketModal.vue'
@@ -6,15 +7,14 @@ import Sidebar from '../Sidebar.vue'
 import TicketDetail from '../TicketDetail.vue'
 import TicketListCommandMenu from './TicketListCommandMenu.vue'
 import TicketListInboxView from './TicketListInboxView.vue'
-import TicketListReadyQaView from './TicketListReadyQaView.vue'
-import TicketListSearchView from './TicketListSearchView.vue'
-import TicketListToolbarArea from './TicketListToolbarArea.vue'
 import TicketListInitiativesView from './TicketListInitiativesView.vue'
 import TicketListIssueSections from './TicketListIssueSections.vue'
 import TicketListProjectView from './TicketListProjectView.vue'
+import TicketListReadyQaView from './TicketListReadyQaView.vue'
 import TicketListSavedViewsView from './TicketListSavedViewsView.vue'
+import TicketListSearchView from './TicketListSearchView.vue'
 import TicketListSelectionBar from './TicketListSelectionBar.vue'
-import type { TicketListController } from '@/features/ticket-list/useTicketListController'
+import TicketListToolbarArea from './TicketListToolbarArea.vue'
 
 export default defineComponent({
   components: {
@@ -184,9 +184,11 @@ export default defineComponent({
       >
         <div
           class="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white/[0.12] border-t-[#d7d8dc]"
-        ></div>
+        />
         <div class="min-w-0 text-left">
-          <h2 class="text-[13px] font-medium text-[#f0f1f4]">Connecting to Jira</h2>
+          <h2 class="text-[13px] font-medium text-[#f0f1f4]">
+            Connecting to Jira
+          </h2>
           <p class="mt-0.5 truncate text-[12px] text-[#8f9198]">
             Pulling latest issues and workspace settings.
           </p>

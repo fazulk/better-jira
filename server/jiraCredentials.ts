@@ -12,7 +12,7 @@ export class MissingJiraCredentialsError extends Error {
   readonly missingKeys: MissingJiraCredentialKey[]
 
   constructor(missingKeys: MissingJiraCredentialKey[]) {
-    const labels = missingKeys.map((key) => (
+    const labels = missingKeys.map(key => (
       key === 'baseUrl'
         ? 'Jira base URL'
         : key === 'email'

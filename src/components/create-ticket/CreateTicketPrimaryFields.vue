@@ -40,7 +40,7 @@ defineProps<{
         placeholder="Issue title"
         :disabled="isCreatePending"
         @input="updateFieldValue(field.key, getInputValue($event))"
-      />
+      >
 
       <textarea
         v-else-if="field.type === 'textarea'"
@@ -63,7 +63,7 @@ defineProps<{
         class="w-full rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-white/[0.16]"
         :disabled="isCreatePending"
         @input="updateFieldValue(field.key, getInputValue($event))"
-      />
+      >
 
       <select
         v-else

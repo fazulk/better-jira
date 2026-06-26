@@ -27,6 +27,6 @@ function getInputValue(event: Event): string {
       class="rounded-md border border-white/[0.08] bg-surface-0 px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-white/[0.16]"
       :disabled="isCreatePending"
       @input="emit('update:dueDate', getInputValue($event))"
-    />
+    >
   </div>
 </template>

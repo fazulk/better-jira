@@ -1,5 +1,6 @@
-import { computed, nextTick, ref, type ComputedRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { JiraAssignableUser } from '@/types/jira'
+import { computed, nextTick, ref } from 'vue'
 import { readLocalStorageStringArray } from '@/utils/browserStorage'
 import { avatarColors } from './constants'
 
@@ -33,40 +34,44 @@ export function useAssigneePicker(input: AssigneePickerInput) {
 
   const recentComboOptions = computed(() => {
     const ids = recentAssigneeIds.value
-    if (!ids.length) return []
+    if (!ids.length)
+      return []
 
     const query = assigneeSearch.value.toLowerCase().trim()
     const recent = ids
-      .map((id) => assignableOptions.value.find((option) => option.accountId === id))
+      .map(id => assignableOptions.value.find(option => option.accountId === id))
       .filter((option): option is NonNullable<typeof option> => option !== undefined)
 
-    if (!query) return recent
-    return recent.filter((option) => option.displayName.toLowerCase().includes(query))
+    if (!query)
+      return recent
+    return recent.filter(option => option.displayName.toLowerCase().includes(query))
   })
 
   const nonRecentComboOptions = computed(() => {
     const recentIds = new Set(recentAssigneeIds.value)
     const query = assigneeSearch.value.toLowerCase().trim()
     const filtered = query
-      ? assignableOptions.value.filter((option) => option.displayName.toLowerCase().includes(query))
+      ? assignableOptions.value.filter(option => option.displayName.toLowerCase().includes(query))
       : assignableOptions.value
 
-    return filtered.filter((option) => !recentIds.has(option.accountId))
+    return filtered.filter(option => !recentIds.has(option.accountId))
   })
 
   const flatComboOptions = computed(() => [...recentComboOptions.value, ...nonRecentComboOptions.value])
 
   function addRecentAssignee(accountId: string) {
-    if (accountId === '__unassigned__') return
-    const updated = [accountId, ...recentAssigneeIds.value.filter((id) => id !== accountId)].slice(0, MAX_RECENT)
+    if (accountId === '__unassigned__')
+      return
+    const updated = [accountId, ...recentAssigneeIds.value.filter(id => id !== accountId)].slice(0, MAX_RECENT)
     recentAssigneeIds.value = updated
     localStorage.setItem(RECENT_ASSIGNEES_KEY, JSON.stringify(updated))
   }
 
   function getAssigneeInitials(name: string): string {
-    if (!name || name === 'Unassigned') return '?'
+    if (!name || name === 'Unassigned')
+      return '?'
 
-    const parts = name.split(/\s+/).filter((part) => part.length > 0)
+    const parts = name.split(/\s+/).filter(part => part.length > 0)
     const firstPart = parts[0]
     const secondPart = parts[1]
     if (firstPart && secondPart) {
@@ -100,7 +105,8 @@ export function useAssigneePicker(input: AssigneePickerInput) {
   }
 
   function startEditingAssignee() {
-    if (input.isCreatePending.value || input.isLocalSpace.value) return
+    if (input.isCreatePending.value || input.isLocalSpace.value)
+      return
 
     isEditingAssignee.value = true
     assigneeSearch.value = ''
@@ -148,7 +154,8 @@ export function useAssigneePicker(input: AssigneePickerInput) {
     if (event.key === 'Enter') {
       event.preventDefault()
       const option = options[assigneeHighlightIndex.value]
-      if (option) selectAssigneeOption(option.accountId)
+      if (option)
+        selectAssigneeOption(option.accountId)
       return
     }
 

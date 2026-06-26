@@ -1,4 +1,3 @@
-import type { CustomViewDisplay, CustomViewFilter } from '~/shared/settings'
 import type {
   FilterFieldId,
   IssueGroupConfigMap,
@@ -9,6 +8,7 @@ import type {
   ProjectRowFieldId,
   ViewFilterClause,
 } from './types'
+import type { CustomViewDisplay } from '~/shared/settings'
 
 export function getDefaultViewDisplay(): CustomViewDisplay {
   return {
@@ -215,7 +215,7 @@ export function stringArraysMatch(left: readonly string[], right: readonly strin
 }
 
 export function stringSetsMatch(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value) => right.includes(value))
+  return left.length === right.length && left.every(value => right.includes(value))
 }
 
 export function filterClausesMatch(
@@ -223,10 +223,10 @@ export function filterClausesMatch(
   right: readonly ViewFilterClause[],
 ): boolean {
   return (
-    left.length === right.length &&
-    left.every((filter) =>
+    left.length === right.length
+    && left.every(filter =>
       right.some(
-        (candidate) => candidate.fieldId === filter.fieldId && candidate.value === filter.value,
+        candidate => candidate.fieldId === filter.fieldId && candidate.value === filter.value,
       ),
     )
   )
@@ -250,7 +250,7 @@ export function filterGroupsMatch<Item>(
   }
 
   for (const filtersForField of filtersByField.values()) {
-    if (!filtersForField.some((filter) => matchesFilter(item, filter))) {
+    if (!filtersForField.some(filter => matchesFilter(item, filter))) {
       return false
     }
   }
@@ -282,28 +282,28 @@ export function issueGroupConfigMapsMatch(
 
 export function viewDisplayMatches(left: CustomViewDisplay, right: CustomViewDisplay): boolean {
   return (
-    left.grouping === right.grouping &&
-    left.subGrouping === right.subGrouping &&
-    left.ordering === right.ordering &&
-    left.groupingDirection === right.groupingDirection &&
-    left.orderingDirection === right.orderingDirection &&
-    left.completedRange === right.completedRange &&
-    left.showSubIssueContext === right.showSubIssueContext &&
-    left.showSubIssuesRange === right.showSubIssuesRange &&
-    left.showTriageIssuesRange === right.showTriageIssuesRange &&
-    left.orderCompletedByRecency === right.orderCompletedByRecency &&
-    left.showEmptyGroups === right.showEmptyGroups &&
-    issueGroupConfigMapsMatch(
+    left.grouping === right.grouping
+    && left.subGrouping === right.subGrouping
+    && left.ordering === right.ordering
+    && left.groupingDirection === right.groupingDirection
+    && left.orderingDirection === right.orderingDirection
+    && left.completedRange === right.completedRange
+    && left.showSubIssueContext === right.showSubIssueContext
+    && left.showSubIssuesRange === right.showSubIssuesRange
+    && left.showTriageIssuesRange === right.showTriageIssuesRange
+    && left.orderCompletedByRecency === right.orderCompletedByRecency
+    && left.showEmptyGroups === right.showEmptyGroups
+    && issueGroupConfigMapsMatch(
       normalizeIssueGroupConfigMap(left.issueGroupOrders),
       normalizeIssueGroupConfigMap(right.issueGroupOrders),
-    ) &&
-    issueGroupConfigMapsMatch(
+    )
+    && issueGroupConfigMapsMatch(
       normalizeIssueGroupConfigMap(left.hiddenIssueGroupIds),
       normalizeIssueGroupConfigMap(right.hiddenIssueGroupIds),
-    ) &&
-    stringArraysMatch(left.collapsedIssueSectionIds, right.collapsedIssueSectionIds) &&
-    stringSetsMatch(left.visibleIssueRowFields, right.visibleIssueRowFields) &&
-    stringSetsMatch(left.visibleProjectRowFields, right.visibleProjectRowFields)
+    )
+    && stringArraysMatch(left.collapsedIssueSectionIds, right.collapsedIssueSectionIds)
+    && stringSetsMatch(left.visibleIssueRowFields, right.visibleIssueRowFields)
+    && stringSetsMatch(left.visibleProjectRowFields, right.visibleProjectRowFields)
   )
 }
 

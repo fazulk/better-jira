@@ -1,12 +1,13 @@
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import type { SettingsSectionId } from './settingsTypes'
 import type { AiInstructionPresetDraft } from '@/composables/useAiInstructionPresets'
+import type { AiProviderAvailability } from '~/shared/ai'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useAiInstructionPresets } from '@/composables/useAiInstructionPresets'
 import { useAiSettings } from '@/composables/useAiSettings'
 import { useJiraTickets } from '@/composables/useJiraTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
-import { getProviderLabel, isAiProvider, type AiProviderAvailability } from '~/shared/ai'
+import { getProviderLabel, isAiProvider } from '~/shared/ai'
 import { useSettingsDerivedRows } from './useSettingsDerivedRows'
-import type { SettingsSectionId } from './settingsTypes'
 
 interface SettingsNavigationItem {
   id: SettingsSectionId
@@ -77,8 +78,8 @@ export function useSettingsPageState() {
   const cerebrasApiKey = ref('')
   const jiraApiToken = ref('')
   const settingsSearchQuery = ref('')
-  const aiFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
-  const jiraFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const aiFeedback = ref<{ kind: 'success' | 'error', message: string } | null>(null)
+  const jiraFeedback = ref<{ kind: 'success' | 'error', message: string } | null>(null)
   const editingPresetId = ref<string | null>(null)
   const editingPreset = ref<AiInstructionPresetDraft>({ label: '', text: '' })
   let aiFeedbackTimeout: ReturnType<typeof setTimeout> | null = null
@@ -86,7 +87,8 @@ export function useSettingsPageState() {
 
   const filteredSettingsNavigationGroups = computed<SettingsNavigationGroup[]>(() => {
     const query = settingsSearchQuery.value.trim().toLowerCase()
-    if (!query) return settingsNavigationGroups
+    if (!query)
+      return settingsNavigationGroups
 
     return settingsNavigationGroups
       .map(group => ({
@@ -108,8 +110,9 @@ export function useSettingsPageState() {
   )
 
   function startEditing(presetId: string): void {
-    const preset = allInstructionPresets.value.find((item) => item.id === presetId)
-    if (!preset) return
+    const preset = allInstructionPresets.value.find(item => item.id === presetId)
+    if (!preset)
+      return
     editingPresetId.value = preset.id
     editingPreset.value = { label: preset.label, text: preset.text }
   }
@@ -120,13 +123,15 @@ export function useSettingsPageState() {
   }
 
   function saveEditedPreset(): void {
-    if (!editingPresetId.value || !canSaveEditedPreset.value) return
+    if (!editingPresetId.value || !canSaveEditedPreset.value)
+      return
     updateLocalPreset(editingPresetId.value, editingPreset.value)
     cancelEditing()
   }
 
   function saveNewPreset(): void {
-    if (!canAddPreset.value) return
+    if (!canAddPreset.value)
+      return
     addLocalPreset(newPreset.value)
     newPreset.value = { label: '', text: '' }
   }
@@ -136,12 +141,14 @@ export function useSettingsPageState() {
   }
 
   async function handleProviderChange(event: Event): Promise<void> {
-    if (!isHtmlSelectElement(event.target)) return
+    if (!isHtmlSelectElement(event.target))
+      return
     const provider = event.target.value
     if (isAiProvider(provider) && providers.value.includes(provider)) {
       try {
         await setProvider(provider)
-      } catch (error) {
+      }
+      catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to save AI provider.'
         setAiFeedback('error', message)
       }
@@ -155,10 +162,12 @@ export function useSettingsPageState() {
   }
 
   async function handleModelChange(event: Event): Promise<void> {
-    if (!isHtmlSelectElement(event.target)) return
+    if (!isHtmlSelectElement(event.target))
+      return
     try {
       await setModel(event.target.value)
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save AI model.'
       setAiFeedback('error', message)
     }
@@ -242,7 +251,8 @@ export function useSettingsPageState() {
       await updateAiCredentials({ cerebrasApiKey: cerebrasApiKey.value.trim() })
       cerebrasApiKey.value = ''
       setAiFeedback('success', 'Saved local Cerebras API key.')
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save Cerebras API key.'
       setAiFeedback('error', message)
     }
@@ -257,7 +267,8 @@ export function useSettingsPageState() {
       await updateJiraCredentials({ apiToken: jiraApiToken.value.trim() })
       jiraApiToken.value = ''
       setJiraFeedback('success', 'Saved Jira API token.')
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save Jira API token.'
       setJiraFeedback('error', message)
     }
@@ -274,7 +285,8 @@ export function useSettingsPageState() {
         email: jiraEmailDraft.value.trim(),
       })
       setJiraFeedback('success', 'Saved Jira connection details.')
-    } catch (error) {
+    }
+    catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save Jira connection details.'
       setJiraFeedback('error', message)
     }

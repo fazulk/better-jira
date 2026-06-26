@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { JiraTicket } from '@/types/jira'
 import { computed } from 'vue'
-import { getStatusGroup, type JiraTicket } from '@/types/jira'
+import { getStatusGroup } from '@/types/jira'
 
 const props = defineProps<{
   ticket: JiraTicket
@@ -53,7 +54,8 @@ const priorityClass = computed(() => {
 
 const initials = computed(() => {
   const name = props.ticket.assignee
-  if (!name || name === 'Unassigned') return ''
+  if (!name || name === 'Unassigned')
+    return ''
   const parts = name.split(/\s+/).filter(Boolean)
   if (parts.length > 1) {
     return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase()
@@ -69,7 +71,8 @@ const visibleLabels = computed(() => {
   const seen = new Set<string>()
   for (const label of props.ticket.labels ?? []) {
     const trimmed = label.trim()
-    if (!trimmed || seen.has(trimmed)) continue
+    if (!trimmed || seen.has(trimmed))
+      continue
     seen.add(trimmed)
     labels.push(trimmed)
   }
@@ -83,31 +86,38 @@ const rowPrimarySummary = computed(() => props.ticket.summary)
 
 const rowGridTemplate = computed(() => {
   const columns = ['18px']
-  if (props.showStatus !== false) columns.push('18px')
-  if (props.showId !== false) columns.push('82px')
+  if (props.showStatus !== false)
+    columns.push('18px')
+  if (props.showId !== false)
+    columns.push('82px')
   columns.push('minmax(0,1fr)')
-  if (props.showLabels !== false && visibleLabels.value.length > 0) columns.push('auto')
-  if (props.showPriority !== false) columns.push('auto')
+  if (props.showLabels !== false && visibleLabels.value.length > 0)
+    columns.push('auto')
+  if (props.showPriority !== false)
+    columns.push('auto')
   if (
     props.showAssignee !== false
     || props.showCreated !== false
     || props.showUpdated === true
     || props.showDue === true
-  ) columns.push('auto')
+  ) {
+    columns.push('auto')
+  }
   return columns.join(' ')
 })
 
 function formatDate(value: string | undefined): string {
-  if (!value) return ''
+  if (!value)
+    return ''
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
+  if (Number.isNaN(date.getTime()))
+    return ''
 
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
   }).format(date)
 }
-
 </script>
 
 <template>
@@ -134,7 +144,7 @@ function formatDate(value: string | undefined): string {
     </span>
 
     <span v-if="showStatus !== false" class="flex h-4 w-4 items-center justify-center rounded-full border" :class="statusClass">
-      <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
+      <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
     </span>
 
     <span v-if="showId !== false" class="truncate font-medium text-[#8f9198]">{{ rowIssueKey }}</span>

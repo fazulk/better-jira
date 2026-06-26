@@ -36,7 +36,7 @@ function getAllowedChildIssueTypesForParent(parentIssueType: string): string[] {
 
 export function isAllowedChildIssueTypeForParent(parentIssueType: string, childIssueType: string): boolean {
   const allowedChildIssueTypes = getAllowedChildIssueTypesForParent(parentIssueType)
-  return allowedChildIssueTypes.some((candidate) => matchesIssueType(childIssueType, candidate))
+  return allowedChildIssueTypes.some(candidate => matchesIssueType(childIssueType, candidate))
 }
 
 export function isAvailableChildIssueTypeForParent(
@@ -44,7 +44,7 @@ export function isAvailableChildIssueTypeForParent(
   childIssueType: JiraCreateIssueTypeOption,
   issueTypeOptions: JiraCreateIssueTypeOption[],
 ): boolean {
-  const parentIssueTypeOption = issueTypeOptions.find((candidate) => matchesIssueType(candidate.name, parentIssueType))
+  const parentIssueTypeOption = issueTypeOptions.find(candidate => matchesIssueType(candidate.name, parentIssueType))
   if (!parentIssueTypeOption) {
     return isAllowedChildIssueTypeForParent(parentIssueType, childIssueType.name)
   }

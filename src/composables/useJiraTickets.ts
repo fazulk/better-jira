@@ -1,12 +1,14 @@
+import type { QueryClient, QueryKey } from '@tanstack/vue-query'
+import type { TicketsPayload } from '@/api/jira'
+import type { JiraTicket } from '@/types/jira'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/vue-query'
-import { fetchTickets, refreshCache, type TicketsPayload } from '@/api/jira'
+import { fetchTickets, refreshCache } from '@/api/jira'
 import { fetchLocalTickets } from '@/api/localTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { useToast } from '@/composables/useToast'
-import type { JiraTicket } from '@/types/jira'
-import { buildEnabledSpaceSearchQuery } from '~/shared/settings'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
+import { buildEnabledSpaceSearchQuery } from '~/shared/settings'
 
 export const TICKETS_QUERY_KEY = ['tickets'] as const
 const TICKETS_QUERY_SCHEMA_VERSION = 'labels-v1'
@@ -127,13 +129,15 @@ export function useJiraTickets() {
   })
 
   watch(ticketsQuery.data, (data) => {
-    if (!data) return
+    if (!data)
+      return
     lastUpdated.value = new Date()
     error.value = null
   }, { immediate: true })
 
   watch(ticketsQuery.error, (err) => {
-    if (!err) return
+    if (!err)
+      return
     const message = err instanceof Error ? err.message : 'Failed to load tickets'
     error.value = message
     showError(message)
@@ -145,7 +149,8 @@ export function useJiraTickets() {
     const groups: Record<string, JiraTicket[]> = {}
     for (const t of tickets.value) {
       const key = t.status
-      if (!groups[key]) groups[key] = []
+      if (!groups[key])
+        groups[key] = []
       groups[key].push(t)
     }
     return groups
@@ -169,7 +174,8 @@ export function useJiraTickets() {
   function startRefreshTimeout() {
     clearRefreshTimeout()
     refreshTimeout = setTimeout(async () => {
-      if (!refreshingFromSSE.value) return
+      if (!refreshingFromSSE.value)
+        return
 
       console.warn('Refresh timed out, falling back to direct fetch')
       try {
@@ -186,9 +192,11 @@ export function useJiraTickets() {
             return mergeJiraAndLocalTickets(jiraTickets, localTickets)
           },
         })
-      } catch {
+      }
+      catch {
         error.value = 'Refresh timed out'
-      } finally {
+      }
+      finally {
         stopRefreshing()
       }
     }, 15_000)
@@ -213,7 +221,8 @@ export function useJiraTickets() {
   const refreshing = computed(() => refreshMutation.isPending.value || refreshingFromSSE.value)
 
   async function refresh() {
-    if (refreshing.value) return
+    if (refreshing.value)
+      return
     if (!hasJiraCredentialsConfigured.value) {
       await queryClient.invalidateQueries({
         queryKey: activeTicketsQueryKey.value,
@@ -224,7 +233,8 @@ export function useJiraTickets() {
     try {
       const updatedSince = getLatestRemoteUpdatedAt(queryClient.getQueryData<JiraTicket[]>(activeTicketsQueryKey.value) ?? [])
       await refreshMutation.mutateAsync(updatedSince ? { updatedSince } : {})
-    } catch {
+    }
+    catch {
       // handled by onError in mutation
     }
   }
@@ -269,15 +279,14 @@ export function useJiraTickets() {
         }
 
         return ticket
-      }),
-    )
+      }))
 
     queryClient.setQueryData(['ticket', updatedTicket.key], updatedTicket)
   }
 
   function mergeCreatedTicket(createdTicket: JiraTicket) {
     queryClient.setQueryData<JiraTicket[]>(activeTicketsQueryKey.value, (current = []) => {
-      const existingIndex = current.findIndex((ticket) => ticket.key === createdTicket.key)
+      const existingIndex = current.findIndex(ticket => ticket.key === createdTicket.key)
       if (existingIndex === -1) {
         return [...current, createdTicket]
       }
@@ -315,7 +324,8 @@ export function useJiraTickets() {
       try {
         const payload = JSON.parse((e as MessageEvent).data)
         applyTicketsPayload(payload)
-      } catch {
+      }
+      catch {
         applySseError('Failed to parse ticket update')
       }
     })
@@ -329,7 +339,8 @@ export function useJiraTickets() {
       try {
         const updatedTicket = JSON.parse((e as MessageEvent).data) as JiraTicket
         mergeUpdatedTicket(updatedTicket)
-      } catch {
+      }
+      catch {
         applySseError('Failed to parse ticket update')
       }
     })
@@ -338,7 +349,8 @@ export function useJiraTickets() {
       try {
         const createdTicket = JSON.parse((e as MessageEvent).data) as JiraTicket
         mergeCreatedTicket(createdTicket)
-      } catch {
+      }
+      catch {
         applySseError('Failed to parse ticket create')
       }
     })
@@ -348,7 +360,8 @@ export function useJiraTickets() {
         try {
           const payload = JSON.parse((e as MessageEvent).data)
           applySseError(payload.message)
-        } catch {
+        }
+        catch {
           applySseError('Refresh failed')
         }
       }

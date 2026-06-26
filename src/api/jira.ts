@@ -1,11 +1,11 @@
 import type {
   CreateJiraTicketInput,
-  JiraAdfDocument,
   JiraActivityItem,
+  JiraAdfDocument,
   JiraAssignableUser,
   JiraAttachment,
-  JiraCreateIssueTypeOption,
   JiraCreateIssueType,
+  JiraCreateIssueTypeOption,
   JiraMessage,
   JiraPriority,
   JiraTicket,
@@ -15,8 +15,8 @@ import type {
   GenerateAiDescriptionRequest,
   GenerateAiDescriptionResponse,
 } from '~/shared/ai'
-import { isLocalTicketKey } from '~/shared/localTickets'
 import type { TicketGithubPrLink } from '~/shared/ticketLinks'
+import { isLocalTicketKey } from '~/shared/localTickets'
 
 const BASE = '/api'
 
@@ -46,7 +46,8 @@ async function readErrorMessage(res: Response, fallbackMessage: string): Promise
     if (typeof parsed.error === 'string' && parsed.error.trim().length > 0) {
       return `${fallbackMessage} - ${parsed.error}`
     }
-  } catch {
+  }
+  catch {
     // Fall back to the raw response body when JSON parsing fails.
   }
 
@@ -72,7 +73,8 @@ export async function fetchTickets(input: FetchTicketsInput = {}): Promise<JiraT
 
 export async function fetchTicket(key: string): Promise<JiraTicket> {
   const res = await fetch(`${BASE}/tickets/${key}`)
-  if (!res.ok) throw new Error(`Failed to fetch ticket: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch ticket: ${res.statusText}`)
   return res.json()
 }
 
@@ -158,13 +160,15 @@ export async function fetchJiraCurrentUser(): Promise<JiraMeResponse> {
 
 export async function fetchTicketMessages(key: string): Promise<JiraMessage[]> {
   const res = await fetch(`${BASE}/tickets/${key}/messages`)
-  if (!res.ok) throw new Error(`Failed to fetch messages: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch messages: ${res.statusText}`)
   return res.json()
 }
 
 export async function fetchTicketActivity(key: string): Promise<JiraActivityItem[]> {
   const res = await fetch(`${BASE}/tickets/${key}/activity`)
-  if (!res.ok) throw new Error(`Failed to fetch activity: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch activity: ${res.statusText}`)
   return res.json()
 }
 
@@ -263,7 +267,8 @@ export async function generateAiDescription(
 
 export async function fetchAssignableUsers(key: string): Promise<JiraAssignableUser[]> {
   const res = await fetch(`${BASE}/tickets/${key}/assignees`)
-  if (!res.ok) throw new Error(`Failed to fetch assignees: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch assignees: ${res.statusText}`)
   return res.json()
 }
 
@@ -307,7 +312,8 @@ export async function updateTicketPriority(key: string, priorityId: string): Pro
 
 export async function fetchTransitions(key: string): Promise<JiraTransition[]> {
   const res = await fetch(`${BASE}/tickets/${key}/transitions`)
-  if (!res.ok) throw new Error(`Failed to fetch transitions: ${res.statusText}`)
+  if (!res.ok)
+    throw new Error(`Failed to fetch transitions: ${res.statusText}`)
   return res.json()
 }
 

@@ -1,10 +1,9 @@
+import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from './jiraAdfTypes'
 import { plainTextToAdf } from './jiraAdfBuild'
 import { normalizeAdf } from './jiraAdfNormalize'
 import {
   isJiraAdfDocument,
-  type JiraAdfDocument,
-  type JiraAdfMark,
-  type JiraAdfNode,
+
 } from './jiraAdfTypes'
 
 const SUPPORTED_NODE_TYPES = new Set([
@@ -41,20 +40,25 @@ export function parseStringifiedAdf(value: string): JiraAdfDocument | null {
   try {
     const parsedValue: unknown = JSON.parse(trimmedValue)
     return isJiraAdfDocument(parsedValue) ? parsedValue : null
-  } catch {
+  }
+  catch {
     return null
   }
 }
 
 function isSupportedMark(mark: JiraAdfMark): boolean {
-  if (typeof mark.type !== 'string' || !SUPPORTED_MARK_TYPES.has(mark.type)) return false
-  if (mark.type !== 'link') return true
+  if (typeof mark.type !== 'string' || !SUPPORTED_MARK_TYPES.has(mark.type))
+    return false
+  if (mark.type !== 'link')
+    return true
   return typeof mark.attrs?.href === 'string' && mark.attrs.href.length > 0
 }
 
 function isSupportedNode(node: JiraAdfNode): boolean {
-  if (typeof node.type !== 'string' || !SUPPORTED_NODE_TYPES.has(node.type)) return false
-  if (node.marks && !node.marks.every(isSupportedMark)) return false
+  if (typeof node.type !== 'string' || !SUPPORTED_NODE_TYPES.has(node.type))
+    return false
+  if (node.marks && !node.marks.every(isSupportedMark))
+    return false
 
   if (node.type === 'media') {
     if (node.attrs?.type === 'external') {
@@ -71,13 +75,16 @@ function isSupportedNode(node: JiraAdfNode): boolean {
     return !!node.content?.length && node.content.every(isSupportedNode)
   }
 
-  if (!node.content?.length) return true
+  if (!node.content?.length)
+    return true
   return node.content.every(isSupportedNode)
 }
 
 export function isSupportedEditorAdf(doc: JiraAdfDocument | null | undefined): boolean {
-  if (!doc) return true
-  if (!isJiraAdfDocument(doc)) return false
+  if (!doc)
+    return true
+  if (!isJiraAdfDocument(doc))
+    return false
   return doc.content.every(isSupportedNode)
 }
 

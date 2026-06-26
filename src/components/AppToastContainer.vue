@@ -20,12 +20,12 @@ async function copyToastMessage(message: string): Promise<void> {
           <div
             class="w-1 shrink-0"
             :class="toast.kind === 'success' ? 'bg-white/[0.24]' : 'bg-rose-400/80'"
-          ></div>
+          />
           <div class="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5">
             <div
               class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
               :class="toast.kind === 'success' ? 'bg-slate-400' : 'bg-rose-300/90'"
-            ></div>
+            />
             <p class="min-w-0 flex-1 text-[13px] leading-5 text-slate-300">
               {{ toast.message }}
             </p>

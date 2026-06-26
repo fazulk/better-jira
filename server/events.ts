@@ -1,4 +1,4 @@
-type SSEClient = {
+interface SSEClient {
   controller: ReadableStreamDefaultController
   id: number
 }
@@ -30,7 +30,8 @@ export function broadcast(event: string, data: unknown): void {
   for (const client of clients) {
     try {
       client.controller.enqueue(new TextEncoder().encode(message))
-    } catch {
+    }
+    catch {
       dead.push(client)
     }
   }

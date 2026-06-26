@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { FavoriteViewNavItem } from '@/features/sidebar/useSidebarNavigation'
 import type { JiraTicket } from '@/types/jira'
-import { type FavoriteViewNavItem, useSidebarNavigation } from '@/features/sidebar/useSidebarNavigation'
+import { useSidebarNavigation } from '@/features/sidebar/useSidebarNavigation'
 
 const props = defineProps<{
   tickets: JiraTicket[]
@@ -12,14 +13,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [key: string]
-  prefetch: [key: string]
+  'select': [key: string]
+  'prefetch': [key: string]
   'toggle-collapse': []
-  refresh: []
-  home: []
-  settings: []
-  command: []
-  view: [viewId: string]
+  'refresh': []
+  'home': []
+  'settings': []
+  'command': []
+  'view': [viewId: string]
   'favorite-view': [viewId: string]
   'add-space': []
   'leave-space': [spaceKey: string]
@@ -60,7 +61,7 @@ const {
         :class="collapsed ? 'justify-center' : ''"
         @click="emit('home')"
       >
-        <img src="/favicon.svg" alt="" class="h-5 w-5 shrink-0 rounded" aria-hidden="true" />
+        <img src="/favicon.svg" alt="" class="h-5 w-5 shrink-0 rounded" aria-hidden="true">
         <span v-if="!collapsed" class="truncate font-medium">BetterJira!</span>
       </button>
 
@@ -316,7 +317,9 @@ const {
         @contextmenu.prevent
       >
         <div class="border-b border-white/[0.06] px-2 py-1.5">
-          <p class="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">{{ teamMenuState.teamName }}</p>
+          <p class="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
+            {{ teamMenuState.teamName }}
+          </p>
         </div>
         <button
           type="button"

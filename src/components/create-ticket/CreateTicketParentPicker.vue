@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { JiraTicket } from '@/types/jira'
+import { computed } from 'vue'
 import { useParentPicker } from '@/features/create-ticket/useParentPicker'
 
 const props = defineProps<{
@@ -88,7 +88,7 @@ defineExpose({
             class="w-full rounded-md border border-white/[0.08] bg-surface-0 py-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
             :placeholder="`Search ${getSupportedParentTypeLabel()}s...`"
             @keydown="handleParentKeydown"
-          />
+          >
         </div>
         <div class="max-h-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/30">
           <button
@@ -127,7 +127,9 @@ defineExpose({
         @click="startEditingParent"
       >
         <div class="min-w-0">
-          <div class="truncate text-sm text-slate-200">{{ getSelectedParentLabel() }}</div>
+          <div class="truncate text-sm text-slate-200">
+            {{ getSelectedParentLabel() }}
+          </div>
           <div class="text-xs text-slate-500">
             {{ effectiveParentKey ? `Change ${getSupportedParentTypeLabel()}` : `Choose ${getSupportedParentArticleLabel()} or leave empty` }}
           </div>

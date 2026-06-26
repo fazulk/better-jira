@@ -28,8 +28,7 @@ const emit = defineEmits<{
           >
             <span
               class="flex h-5 min-w-5 items-center justify-center rounded border border-white/[0.08] bg-white/[0.045] px-1.5 text-[11px] font-semibold text-slate-200"
-              >{{ count }}</span
-            >
+            >{{ count }}</span>
             <span class="whitespace-nowrap">{{
               count === 1 ? 'issue selected' : 'issues selected'
             }}</span>

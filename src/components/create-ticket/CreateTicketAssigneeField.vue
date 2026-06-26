@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { JiraAssignableUser } from '@/types/jira'
+import { computed } from 'vue'
 import { useAssigneePicker } from '@/features/create-ticket/useAssigneePicker'
 
 const props = defineProps<{
@@ -47,8 +47,9 @@ const {
 })
 
 const selectedAssigneeName = computed(() => {
-  if (!props.assigneeValue) return 'Unassigned'
-  const selectedAssignee = props.createAssignableOptions.find((assignee) => assignee.accountId === props.assigneeValue)
+  if (!props.assigneeValue)
+    return 'Unassigned'
+  const selectedAssignee = props.createAssignableOptions.find(assignee => assignee.accountId === props.assigneeValue)
   return selectedAssignee?.displayName ?? 'Unassigned'
 })
 
@@ -104,7 +105,7 @@ defineExpose({
               class="w-48 rounded-md border border-white/[0.08] bg-surface-0 py-1.5 pl-8 pr-3 text-xs text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-white/[0.16]"
               placeholder="Search assignees..."
               @keydown="handleAssigneeKeydown"
-            />
+            >
           </div>
           <button
             type="button"
@@ -118,7 +119,9 @@ defineExpose({
         </div>
         <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/40">
           <template v-if="recentComboOptions.length">
-            <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">Recent</div>
+            <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">
+              Recent
+            </div>
             <button
               v-for="(option, i) in recentComboOptions"
               :key="option.accountId"
@@ -131,7 +134,7 @@ defineExpose({
             >
               {{ option.displayName }}
             </button>
-            <div class="mx-2 my-1 border-t border-white/[0.06]"></div>
+            <div class="mx-2 my-1 border-t border-white/[0.06]" />
           </template>
           <template v-if="nonRecentComboOptions.length">
             <button

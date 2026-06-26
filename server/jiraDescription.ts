@@ -1,10 +1,11 @@
+import type { JiraAdfDocument } from '../shared/jiraAdf'
 import {
   adfToPlainText,
   isJiraAdfDocument,
   isRecord,
+
   normalizeAdf,
   parseStringifiedAdf,
-  type JiraAdfDocument,
 } from '../shared/jiraAdf'
 
 export function extractDescription(desc: unknown, descriptionAdf?: JiraAdfDocument): string {
@@ -12,7 +13,8 @@ export function extractDescription(desc: unknown, descriptionAdf?: JiraAdfDocume
     return adfToPlainText(descriptionAdf)
   }
 
-  if (!desc) return ''
+  if (!desc)
+    return ''
   if (typeof desc === 'string') {
     const parsedDescriptionAdf = parseStringifiedAdf(desc)
     if (parsedDescriptionAdf) {
@@ -41,7 +43,8 @@ export function extractDescriptionAdf(desc: unknown): JiraAdfDocument | undefine
 }
 
 function getRawAdfText(node: unknown): string {
-  if (!isRecord(node)) return ''
+  if (!isRecord(node))
+    return ''
 
   const type = typeof node.type === 'string' ? node.type : ''
   const text = typeof node.text === 'string' ? node.text : ''
@@ -71,12 +74,12 @@ function getRawAdfText(node: unknown): string {
   }
 
   if (type === 'paragraph' || type === 'heading' || type === 'blockquote') {
-    return content.map(getRawAdfText).join('') + '\n'
+    return `${content.map(getRawAdfText).join('')}\n`
   }
 
   if (type === 'bulletList') {
     return content
-      .map((listItem) => `• ${getRawAdfText(listItem).trim()}\n`)
+      .map(listItem => `• ${getRawAdfText(listItem).trim()}\n`)
       .join('')
   }
 

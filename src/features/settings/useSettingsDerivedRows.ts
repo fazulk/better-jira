@@ -1,8 +1,4 @@
 import type { ComputedRef, Ref } from 'vue'
-import { computed } from 'vue'
-import type { AiInstructionPreset } from '@/composables/useAiInstructionPresets'
-import { getStatusGroup, type JiraTicket, type StatusGroup } from '@/types/jira'
-import { getProviderLabel, type AiSettings } from '~/shared/ai'
 import type {
   SettingsDetailRow,
   SettingsSectionId,
@@ -10,6 +6,12 @@ import type {
   TeamMemberSettingsRow,
   TeamStatusSettingsRow,
 } from './settingsTypes'
+import type { AiInstructionPreset } from '@/composables/useAiInstructionPresets'
+import type { JiraTicket, StatusGroup } from '@/types/jira'
+import type { AiSettings } from '~/shared/ai'
+import { computed } from 'vue'
+import { getStatusGroup } from '@/types/jira'
+import { getProviderLabel } from '~/shared/ai'
 
 interface SpaceSettingsItem {
   key: string
@@ -53,9 +55,10 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
   }
 
   const teamStatusRows = computed<TeamStatusSettingsRow[]>(() => {
-    const rows = new Map<string, { status: string; group: StatusGroup; issueCount: number; spaceKeys: Set<string> }>()
+    const rows = new Map<string, { status: string, group: StatusGroup, issueCount: number, spaceKeys: Set<string> }>()
     for (const ticket of input.tickets.value) {
-      if (!enabledSpaceKeySet.value.has(ticket.spaceKey)) continue
+      if (!enabledSpaceKeySet.value.has(ticket.spaceKey))
+        continue
       const status = ticket.status.trim() || 'No status'
       const group = getStatusGroup(ticket.statusCategory)
       const key = `${group}:${status.toLowerCase()}`
@@ -72,7 +75,7 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
       .map(row => ({ status: row.status, group: row.group, issueCount: row.issueCount, spaces: [...row.spaceKeys].sort().join(', ') }))
   })
 
-  const teamMemberRows = computed<TeamMemberSettingsRow[]>(() => enabledSpaceItems.value.map(space => {
+  const teamMemberRows = computed<TeamMemberSettingsRow[]>(() => enabledSpaceItems.value.map((space) => {
     const teamTickets = input.tickets.value.filter(ticket => ticket.spaceKey === space.key)
     const memberIssueCounts = new Map<string, number>()
     for (const ticket of teamTickets) {
@@ -124,24 +127,36 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
     { label: 'Destructive actions', value: 'Not exposed', detail: 'No reset or delete workspace action is available from this first-pass settings shell.' },
   ])
   const constrainedSettingsSectionTitle = computed(() => {
-    if (input.activeSettingsSection.value === 'team-workflows') return 'Workflows'
-    if (input.activeSettingsSection.value === 'team-triage') return 'Triage'
-    if (input.activeSettingsSection.value === 'team-cycles') return 'Cycles'
-    if (input.activeSettingsSection.value === 'team-ai') return 'AI & Agents'
+    if (input.activeSettingsSection.value === 'team-workflows')
+      return 'Workflows'
+    if (input.activeSettingsSection.value === 'team-triage')
+      return 'Triage'
+    if (input.activeSettingsSection.value === 'team-cycles')
+      return 'Cycles'
+    if (input.activeSettingsSection.value === 'team-ai')
+      return 'AI & Agents'
     return 'Danger zone'
   })
   const constrainedSettingsSectionDescription = computed(() => {
-    if (input.activeSettingsSection.value === 'team-workflows') return 'Workflow behavior inferred from enabled Jira spaces.'
-    if (input.activeSettingsSection.value === 'team-triage') return 'How intake-like issue views are derived from Jira data.'
-    if (input.activeSettingsSection.value === 'team-cycles') return 'Sprint-backed metadata without full Linear cycle planning.'
-    if (input.activeSettingsSection.value === 'team-ai') return 'Assistant capabilities available in this first pass.'
+    if (input.activeSettingsSection.value === 'team-workflows')
+      return 'Workflow behavior inferred from enabled Jira spaces.'
+    if (input.activeSettingsSection.value === 'team-triage')
+      return 'How intake-like issue views are derived from Jira data.'
+    if (input.activeSettingsSection.value === 'team-cycles')
+      return 'Sprint-backed metadata without full Linear cycle planning.'
+    if (input.activeSettingsSection.value === 'team-ai')
+      return 'Assistant capabilities available in this first pass.'
     return 'Local storage and destructive action boundaries.'
   })
   const constrainedSettingsRows = computed<SettingsDetailRow[]>(() => {
-    if (input.activeSettingsSection.value === 'team-workflows') return teamWorkflowRows.value
-    if (input.activeSettingsSection.value === 'team-triage') return teamTriageRows.value
-    if (input.activeSettingsSection.value === 'team-cycles') return teamCycleRows.value
-    if (input.activeSettingsSection.value === 'team-ai') return teamAiRows.value
+    if (input.activeSettingsSection.value === 'team-workflows')
+      return teamWorkflowRows.value
+    if (input.activeSettingsSection.value === 'team-triage')
+      return teamTriageRows.value
+    if (input.activeSettingsSection.value === 'team-cycles')
+      return teamCycleRows.value
+    if (input.activeSettingsSection.value === 'team-ai')
+      return teamAiRows.value
     return dangerRows.value
   })
 

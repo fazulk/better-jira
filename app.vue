@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { JiraTicket } from '@/types/jira'
 import { useQueryClient } from '@tanstack/vue-query'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { refreshCache } from '@/api/jira'
+import { useAvailableSpaces } from '@/composables/useAvailableSpaces'
 import {
   applyTicketsPayloadToQueryCache,
   getLatestRemoteUpdatedAt,
   ticketsQueryKey,
 } from '@/composables/useJiraTickets'
-import { useAvailableSpaces } from '@/composables/useAvailableSpaces'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
-import type { JiraTicket } from '@/types/jira'
 import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 const FOCUS_REFRESH_DEBOUNCE_MS = 3_000
@@ -72,9 +72,11 @@ async function refreshTicketsOnWindowFocus() {
       payload,
       enabledSpaceKeys.value.includes(LOCAL_SPACE_KEY),
     )
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Focus refresh failed', error)
-  } finally {
+  }
+  finally {
     refreshingTicketsOnFocus.value = false
   }
 }

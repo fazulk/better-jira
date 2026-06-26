@@ -1,5 +1,6 @@
-import { computed, nextTick, ref, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { JiraTicket } from '@/types/jira'
+import { computed, nextTick, ref } from 'vue'
 
 interface ParentPickerInput {
   effectiveParentKey: ComputedRef<string | null>
@@ -21,23 +22,27 @@ export function useParentPicker(input: ParentPickerInput) {
 
   const filteredParentOptions = computed(() => {
     const query = parentSearch.value.trim().toLowerCase()
-    if (!query) return input.supportedParentTickets.value
+    if (!query)
+      return input.supportedParentTickets.value
 
-    return input.supportedParentTickets.value.filter((ticket) => (
+    return input.supportedParentTickets.value.filter(ticket => (
       ticket.key.toLowerCase().includes(query)
       || ticket.summary.toLowerCase().includes(query)
     ))
   })
 
   function getSelectedParentTicket(): JiraTicket | null {
-    if (!input.effectiveParentKey.value) return null
-    return input.supportedParentTickets.value.find((ticket) => ticket.key === input.effectiveParentKey.value) ?? null
+    if (!input.effectiveParentKey.value)
+      return null
+    return input.supportedParentTickets.value.find(ticket => ticket.key === input.effectiveParentKey.value) ?? null
   }
 
   function getSelectedParentLabel(): string {
     const ticket = getSelectedParentTicket()
-    if (!ticket) return input.selectedParentIsProject.value ? 'No project' : `No parent ${input.supportedParentType.value ?? ''}`.trim()
-    if (ticket.issueType.toLowerCase().includes('epic')) return ticket.summary
+    if (!ticket)
+      return input.selectedParentIsProject.value ? 'No project' : `No parent ${input.supportedParentType.value ?? ''}`.trim()
+    if (ticket.issueType.toLowerCase().includes('epic'))
+      return ticket.summary
     return `${ticket.key} · ${ticket.summary}`
   }
 
@@ -65,7 +70,8 @@ export function useParentPicker(input: ParentPickerInput) {
   }
 
   function startEditingParent() {
-    if (input.isCreatePending.value || input.parentLocked.value || !input.supportedParentType.value) return
+    if (input.isCreatePending.value || input.parentLocked.value || !input.supportedParentType.value)
+      return
 
     isEditingParent.value = true
     parentSearch.value = ''
@@ -117,7 +123,8 @@ export function useParentPicker(input: ParentPickerInput) {
       }
 
       const option = options[parentHighlightIndex.value - 1]
-      if (option) selectParentOption(option.key)
+      if (option)
+        selectParentOption(option.key)
       return
     }
 

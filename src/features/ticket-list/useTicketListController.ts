@@ -1,27 +1,6 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
-import { useQueryClient } from '@tanstack/vue-query'
-import { useLocalStorage } from '@vueuse/core'
-import { fetchLocalTicket } from '@/api/localTickets'
-import { fetchTicket } from '@/api/jira'
-import { localTicketQueryKey } from '@/composables/useLocalTicket'
-import { ticketQueryKey } from '@/composables/useJiraTicket'
-import { useJiraTickets } from '@/composables/useJiraTickets'
-import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
-import { useSpaceSettings } from '@/composables/useSpaceSettings'
-import { useFavoriteViews } from '@/composables/useFavoriteViews'
-import { useCustomViews } from '@/composables/useCustomViews'
-import { getLinearIssueSubtype, getStatusGroup, type JiraTicket } from '@/types/jira'
-import { isLocalTicketKey } from '~/shared/localTickets'
-import type {
-  CustomView,
-  CustomViewDisplay,
-  CustomViewFilter,
-  FavoriteViewFilter,
-} from '~/shared/settings'
 import type {
   ActiveFilterChip,
   CommandMenuItem,
-  CustomViewKind,
   DateFilterFieldId,
   DateFilterOperator,
   DateFilterOption,
@@ -32,18 +11,14 @@ import type {
   FilterMenuEntry,
   FilterOption,
   InboxItem,
-  InclusionFilterId,
   InitiativeRow,
   InitiativeRowFieldId,
-  InitiativeRowFieldOption,
-  InsightSlice,
   IssueGroupConfigMap,
-  IssueGroupOrderingRow,
   IssueGroupingFieldId,
+  IssueGroupOrderingRow,
   IssueOrderingFieldId,
   IssueRowDisplayProps,
   IssueRowFieldId,
-  IssueRowFieldOption,
   IssueSection,
   IssueVisibilityRange,
   MyIssuesViewId,
@@ -54,38 +29,35 @@ import type {
   ProjectPropertyFilterFieldId,
   ProjectRow,
   ProjectRowFieldId,
-  ProjectRowFieldOption,
   ProjectSection,
   SavedViewRow,
   SavedViewRowFieldId,
-  SavedViewRowFieldOption,
   SearchResultTab,
   SearchTab,
   ViewFilterClause,
-  ViewTab,
   ViewsDirectoryTabId,
+  ViewTab,
 } from './types'
-import {
-  copyIssueGroupConfigMap,
-  copyViewDisplay,
-  filterClausesMatch,
-  filterGroupsMatch,
-  getDefaultViewDisplay,
-  getLegacyImplicitViewDisplay,
-  getLegacySubIssuesRange,
-  issueGroupConfigMapsMatch,
-  normalizeDirection,
-  normalizeIssueGroupConfigMap,
-  normalizeIssueGroupingFieldId,
-  normalizeIssueOrderingFieldId,
-  normalizeIssueRowFields,
-  normalizeIssueVisibilityRange,
-  normalizeProjectRowFields,
-  parseIssueGroupingFieldId,
-  stringArraysMatch,
-  stringSetsMatch,
-  viewDisplayMatches,
-} from './viewDisplay'
+import type { JiraTicket } from '@/types/jira'
+import type {
+  CustomView,
+  CustomViewDisplay,
+  FavoriteViewFilter,
+} from '~/shared/settings'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useLocalStorage } from '@vueuse/core'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+import { fetchTicket } from '@/api/jira'
+import { fetchLocalTicket } from '@/api/localTickets'
+import { useCustomViews } from '@/composables/useCustomViews'
+import { useFavoriteViews } from '@/composables/useFavoriteViews'
+import { useJiraCurrentUser } from '@/composables/useJiraCurrentUser'
+import { ticketQueryKey } from '@/composables/useJiraTicket'
+import { useJiraTickets } from '@/composables/useJiraTickets'
+import { localTicketQueryKey } from '@/composables/useLocalTicket'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { getStatusGroup } from '@/types/jira'
+import { isLocalTicketKey } from '~/shared/localTickets'
 import {
   clausesToCustomViewFilters,
   createViewFilterClause,
@@ -141,6 +113,27 @@ import {
   projectRowFieldOptions,
   savedViewRowFieldOptions,
 } from './options'
+import {
+  copyIssueGroupConfigMap,
+  copyViewDisplay,
+  filterClausesMatch,
+  filterGroupsMatch,
+  getDefaultViewDisplay,
+  getLegacyImplicitViewDisplay,
+  getLegacySubIssuesRange,
+  issueGroupConfigMapsMatch,
+  normalizeDirection,
+  normalizeIssueGroupConfigMap,
+  normalizeIssueGroupingFieldId,
+  normalizeIssueOrderingFieldId,
+  normalizeIssueRowFields,
+  normalizeIssueVisibilityRange,
+  normalizeProjectRowFields,
+  parseIssueGroupingFieldId,
+  stringArraysMatch,
+  stringSetsMatch,
+  viewDisplayMatches,
+} from './viewDisplay'
 
 export function useTicketListController() {
   const { tickets, fetching, refreshing, refresh } = useJiraTickets()
@@ -153,8 +146,8 @@ export function useTicketListController() {
     deleteSpace,
   } = useSpaceSettings()
   const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
-  const { customViews, getCustomView, customViewsForContext, upsertCustomView, removeCustomView } =
-    useCustomViews()
+  const { customViews, getCustomView, customViewsForContext, upsertCustomView, removeCustomView }
+    = useCustomViews()
   const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
   const sidebarCollapsed = useLocalStorage('jira2.sidebar.collapsed', false)
   const defaultSidebarWidth = 232
@@ -348,10 +341,10 @@ export function useTicketListController() {
     visibleProjectRowFields.value = normalizeProjectRowFields(display.visibleProjectRowFields)
   }
   function hasSavedViewFilterOverride(viewId: string): boolean {
-    return Object.prototype.hasOwnProperty.call(savedViewFilters.value, viewId)
+    return Object.hasOwn(savedViewFilters.value, viewId)
   }
   function hasSavedViewDisplayOverride(viewId: string): boolean {
-    if (!Object.prototype.hasOwnProperty.call(savedViewDisplays.value, viewId)) {
+    if (!Object.hasOwn(savedViewDisplays.value, viewId)) {
       return false
     }
     const display = savedViewDisplays.value[viewId]
@@ -403,7 +396,7 @@ export function useTicketListController() {
   function copyCustomView(view: CustomView): CustomView {
     return {
       ...view,
-      filters: view.filters.map((filter) => ({ ...filter })),
+      filters: view.filters.map(filter => ({ ...filter })),
       display: copyViewDisplay(view.display),
     }
   }
@@ -423,9 +416,9 @@ export function useTicketListController() {
       void navigateTo('/')
     },
   })
-  const enabledSpaceKeys = computed(() => new Set(enabledSpaces.value.map((space) => space.key)))
+  const enabledSpaceKeys = computed(() => new Set(enabledSpaces.value.map(space => space.key)))
   const enabledTickets = computed(() =>
-    tickets.value.filter((ticket) => enabledSpaceKeys.value.has(ticket.spaceKey)),
+    tickets.value.filter(ticket => enabledSpaceKeys.value.has(ticket.spaceKey)),
   )
   const projectTicketKeySet = computed(() => {
     const keys = new Set<string>()
@@ -437,13 +430,13 @@ export function useTicketListController() {
     return keys
   })
   const issueTickets = computed(() =>
-    enabledTickets.value.filter((ticket) => !projectTicketKeySet.value.has(ticket.key)),
+    enabledTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)),
   )
   const backlogTickets = computed(() => issueTickets.value.filter(isBacklogIssueTicket))
   const currentUserName = computed(() => jiraMeQuery.data.value?.displayName.trim() ?? '')
   const selectedTicket = computed(() =>
     selectedKey.value
-      ? (tickets.value.find((ticket) => ticket.key === selectedKey.value) ?? null)
+      ? (tickets.value.find(ticket => ticket.key === selectedKey.value) ?? null)
       : null,
   )
   const issueRowDisplayProps = computed<IssueRowDisplayProps>(() => ({
@@ -465,10 +458,10 @@ export function useTicketListController() {
   )
   const showInitialWorkspaceOverlay = computed(
     () =>
-      !hasFinishedInitialWorkspaceLoad.value &&
-      !isLoadingSpaceSettings.value &&
-      hasJiraCredentialsConfigured.value &&
-      fetching.value,
+      !hasFinishedInitialWorkspaceLoad.value
+      && !isLoadingSpaceSettings.value
+      && hasJiraCredentialsConfigured.value
+      && fetching.value,
   )
   const activeCustomView = computed(() => {
     if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
@@ -523,8 +516,9 @@ export function useTicketListController() {
   })
   const currentTeamName = computed(() => {
     const key = currentTeamKey.value
-    if (!key) return null
-    return enabledSpaces.value.find((space) => space.key === key)?.name ?? key
+    if (!key)
+      return null
+    return enabledSpaces.value.find(space => space.key === key)?.name ?? key
   })
   const currentTeamSection = computed(() => {
     const [scope, , section] = activeBaseViewId.value.split(':')
@@ -543,15 +537,16 @@ export function useTicketListController() {
   const isSavedViewDisplayView = computed(() => isViewsDirectory.value)
   const isIssueDisplayView = computed(
     () =>
-      !isProjectDisplayView.value &&
-      !isInitiativeDisplayView.value &&
-      !isSavedViewDisplayView.value &&
-      currentView.value !== 'inbox',
+      !isProjectDisplayView.value
+      && !isInitiativeDisplayView.value
+      && !isSavedViewDisplayView.value
+      && currentView.value !== 'inbox',
   )
   const currentTeamTickets = computed(() => {
     const key = currentTeamKey.value
-    if (!key) return []
-    return issueTickets.value.filter((ticket) => ticket.spaceKey === key)
+    if (!key)
+      return []
+    return issueTickets.value.filter(ticket => ticket.spaceKey === key)
   })
   const isReadyQaView = computed(
     () => currentView.value === 'ready-qa' || currentTeamSection.value === 'ready-qa',
@@ -565,16 +560,26 @@ export function useTicketListController() {
     }
   })
   const viewTitle = computed(() => {
-    if (selectedTicket.value) return selectedTicket.value.key
-    if (activeCustomView.value) return activeCustomView.value.name
-    if (currentView.value === 'inbox') return 'Inbox'
-    if (isMyIssuesView(activeBaseViewId.value)) return 'My issues'
-    if (currentView.value === 'initiatives') return 'Initiatives'
-    if (activeBaseViewId.value === 'projects') return 'Projects'
-    if (isViewsDirectory.value) return 'Views'
-    if (currentView.value === 'search') return 'Search'
-    if (currentView.value === 'ready-qa') return 'Ready for QA'
-    if (currentTeamName.value) return currentTeamName.value
+    if (selectedTicket.value)
+      return selectedTicket.value.key
+    if (activeCustomView.value)
+      return activeCustomView.value.name
+    if (currentView.value === 'inbox')
+      return 'Inbox'
+    if (isMyIssuesView(activeBaseViewId.value))
+      return 'My issues'
+    if (currentView.value === 'initiatives')
+      return 'Initiatives'
+    if (activeBaseViewId.value === 'projects')
+      return 'Projects'
+    if (isViewsDirectory.value)
+      return 'Views'
+    if (currentView.value === 'search')
+      return 'Search'
+    if (currentView.value === 'ready-qa')
+      return 'Ready for QA'
+    if (currentTeamName.value)
+      return currentTeamName.value
     return 'Issues'
   })
   const customViewTabs = computed<ViewTab[]>(() => {
@@ -584,8 +589,8 @@ export function useTicketListController() {
     }
     const draft = viewEditorDraft.value
     const tabs: ViewTab[] = customViewsForContext(contextKey)
-      .filter((view) => view.id !== draft?.id)
-      .map((view) => ({ id: view.id, label: view.name, custom: true }))
+      .filter(view => view.id !== draft?.id)
+      .map(view => ({ id: view.id, label: view.name, custom: true }))
     if (draft && draft.contextKey === contextKey) {
       tabs.push({
         id: draft.id,
@@ -605,10 +610,10 @@ export function useTicketListController() {
       ]
     }
     if (
-      currentTeamKey.value &&
-      (currentTeamSection.value === 'all' ||
-        currentTeamSection.value === 'active' ||
-        currentTeamSection.value === 'backlog')
+      currentTeamKey.value
+      && (currentTeamSection.value === 'all'
+        || currentTeamSection.value === 'active'
+        || currentTeamSection.value === 'backlog')
     ) {
       return [
         { id: `team:${currentTeamKey.value}:all`, label: 'All issues' },
@@ -668,9 +673,9 @@ export function useTicketListController() {
     }
     const defaults = getDefaultDisplayForView(currentView.value)
     return (
-      completedRange.value !== defaults.completedRange ||
-      showSubIssuesRange.value !== defaults.showSubIssuesRange ||
-      showTriageIssuesRange.value !== defaults.showTriageIssuesRange
+      completedRange.value !== defaults.completedRange
+      || showSubIssuesRange.value !== defaults.showSubIssuesRange
+      || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
     )
   })
   const hasProjectInclusionFilters = computed(
@@ -678,9 +683,9 @@ export function useTicketListController() {
   )
   const hasCurrentViewFilters = computed(
     () =>
-      currentViewFilters.value.length > 0 ||
-      hasIssueInclusionFilters.value ||
-      hasProjectInclusionFilters.value,
+      currentViewFilters.value.length > 0
+      || hasIssueInclusionFilters.value
+      || hasProjectInclusionFilters.value,
   )
   const activeFilterChips = computed<ActiveFilterChip[]>(() => {
     const chips: ActiveFilterChip[] = currentViewFilters.value.map(
@@ -740,21 +745,21 @@ export function useTicketListController() {
   const hasModifiedFilterOptions = computed(() => {
     const defaults = getDefaultDisplayForView(currentView.value)
     return (
-      !filterClausesMatch(currentViewFilters.value, getDefaultFiltersForView(currentView.value)) ||
-      (isProjectDisplayView.value && projectClosedRange.value !== 'hidden') ||
-      (isIssueDisplayView.value &&
-        (completedRange.value !== defaults.completedRange ||
-          showSubIssuesRange.value !== defaults.showSubIssuesRange ||
-          showTriageIssuesRange.value !== defaults.showTriageIssuesRange))
+      !filterClausesMatch(currentViewFilters.value, getDefaultFiltersForView(currentView.value))
+      || (isProjectDisplayView.value && projectClosedRange.value !== 'hidden')
+      || (isIssueDisplayView.value
+        && (completedRange.value !== defaults.completedRange
+          || showSubIssuesRange.value !== defaults.showSubIssuesRange
+          || showTriageIssuesRange.value !== defaults.showTriageIssuesRange))
     )
   })
   const hasModifiedDisplayOptions = computed(() => {
     const defaults = getDefaultDisplayForView(currentView.value)
     if (isProjectDisplayView.value) {
       return (
-        projectGrouping.value !== 'none' ||
-        projectOrdering.value !== 'manual' ||
-        !stringSetsMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
+        projectGrouping.value !== 'none'
+        || projectOrdering.value !== 'manual'
+        || !stringSetsMatch(visibleProjectRowFields.value, defaults.visibleProjectRowFields)
       )
     }
     if (isInitiativeDisplayView.value) {
@@ -773,50 +778,64 @@ export function useTicketListController() {
       return false
     }
     return (
-      listGrouping.value !== defaults.grouping ||
-      listSubGrouping.value !== defaults.subGrouping ||
-      listOrdering.value !== defaults.ordering ||
-      listGroupingDirection.value !== defaults.groupingDirection ||
-      listOrderingDirection.value !== defaults.orderingDirection ||
-      orderCompletedByRecency.value !== defaults.orderCompletedByRecency ||
-      showEmptyGroups.value !== defaults.showEmptyGroups ||
-      !stringSetsMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields) ||
-      !issueGroupConfigMapsMatch(issueGroupOrders.value, {}) ||
-      !issueGroupConfigMapsMatch(hiddenIssueGroupIds.value, {})
+      listGrouping.value !== defaults.grouping
+      || listSubGrouping.value !== defaults.subGrouping
+      || listOrdering.value !== defaults.ordering
+      || listGroupingDirection.value !== defaults.groupingDirection
+      || listOrderingDirection.value !== defaults.orderingDirection
+      || orderCompletedByRecency.value !== defaults.orderCompletedByRecency
+      || showEmptyGroups.value !== defaults.showEmptyGroups
+      || !stringSetsMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
+      || !issueGroupConfigMapsMatch(issueGroupOrders.value, {})
+      || !issueGroupConfigMapsMatch(hiddenIssueGroupIds.value, {})
     )
   })
   const visibleFilterMenuEntries = computed<FilterMenuEntry[]>(() => {
     const query = normalizedFilterFieldSearch.value
-    if (!query) return filterMenuEntries
-    return filterMenuEntries.filter((entry) => entry.label.toLowerCase().includes(query))
+    if (!query)
+      return filterMenuEntries
+    return filterMenuEntries.filter(entry => entry.label.toLowerCase().includes(query))
   })
   const activeFilterEntry = computed<FilterMenuEntry>(() => {
-    const entry = filterMenuEntries.find((candidate) => candidate.id === activeFilterEntryId.value)
+    const entry = filterMenuEntries.find(candidate => candidate.id === activeFilterEntryId.value)
     return entry ?? { id: 'status', label: 'Status', icon: '◌', hasSubmenu: true }
   })
   const activeValueFilterFieldId = computed<FilterFieldId>(() => {
-    if (activeFilterEntryId.value === 'dates') return activeDateFilterId.value
+    if (activeFilterEntryId.value === 'dates')
+      return activeDateFilterId.value
     if (activeFilterEntryId.value === 'projectProperties')
       return activeProjectPropertyFilterId.value
-    if (activeFilterEntryId.value === 'status') return 'status'
-    if (activeFilterEntryId.value === 'assignee') return 'assignee'
-    if (activeFilterEntryId.value === 'reporter') return 'reporter'
-    if (activeFilterEntryId.value === 'priority') return 'priority'
-    if (activeFilterEntryId.value === 'labels') return 'labels'
-    if (activeFilterEntryId.value === 'suggestedLabel') return 'suggestedLabel'
-    if (activeFilterEntryId.value === 'project') return 'project'
-    if (activeFilterEntryId.value === 'initiative') return 'initiative'
-    if (activeFilterEntryId.value === 'subscribers') return 'subscribers'
-    if (activeFilterEntryId.value === 'shared') return 'shared'
-    if (activeFilterEntryId.value === 'sharedWith') return 'sharedWith'
+    if (activeFilterEntryId.value === 'status')
+      return 'status'
+    if (activeFilterEntryId.value === 'assignee')
+      return 'assignee'
+    if (activeFilterEntryId.value === 'reporter')
+      return 'reporter'
+    if (activeFilterEntryId.value === 'priority')
+      return 'priority'
+    if (activeFilterEntryId.value === 'labels')
+      return 'labels'
+    if (activeFilterEntryId.value === 'suggestedLabel')
+      return 'suggestedLabel'
+    if (activeFilterEntryId.value === 'project')
+      return 'project'
+    if (activeFilterEntryId.value === 'initiative')
+      return 'initiative'
+    if (activeFilterEntryId.value === 'subscribers')
+      return 'subscribers'
+    if (activeFilterEntryId.value === 'shared')
+      return 'shared'
+    if (activeFilterEntryId.value === 'sharedWith')
+      return 'sharedWith'
     return 'externalSource'
   })
   const filterableTickets = computed(() => filterTicketsForCurrentView(scopedTickets.value))
   const activeFilterOptions = computed<FilterOption[]>(() => {
     const options = getFilterOptions(activeValueFilterFieldId.value)
     const query = normalizedFilterSearch.value
-    if (!query) return options
-    return options.filter((option) => option.label.toLowerCase().includes(query))
+    if (!query)
+      return options
+    return options.filter(option => option.label.toLowerCase().includes(query))
   })
   const activeDateFilterOptions = computed<DateFilterOption[]>(() =>
     getDateFilterOptions(activeDateFilterId.value),
@@ -863,17 +882,19 @@ export function useTicketListController() {
   )
   watch(visibleFilterMenuEntries, (entries) => {
     const firstEntry = entries[0]
-    if (!firstEntry || entries.some((entry) => entry.id === activeFilterEntryId.value)) return
+    if (!firstEntry || entries.some(entry => entry.id === activeFilterEntryId.value))
+      return
     activeFilterEntryId.value = firstEntry.id
   })
   const baseSearchedTickets = computed(() => {
     const query = currentView.value === 'search' ? normalizedIssueSearch.value : ''
-    const baseTickets =
-      currentView.value === 'search'
+    const baseTickets
+      = currentView.value === 'search'
         ? filterTicketsForCurrentView(issueTickets.value)
         : filterTicketsForCurrentView(scopedTickets.value)
-    if (!query) return baseTickets
-    return baseTickets.filter((ticket) => ticketMatchesQuery(ticket, query))
+    if (!query)
+      return baseTickets
+    return baseTickets.filter(ticket => ticketMatchesQuery(ticket, query))
   })
   const searchedTickets = computed(() => {
     const filteredTickets = applyViewFiltersToTickets(baseSearchedTickets.value)
@@ -882,8 +903,9 @@ export function useTicketListController() {
   const searchedProjectRows = computed(() => {
     const query = normalizedIssueSearch.value
     const baseProjects = applyViewFiltersToProjects(projectRows.value)
-    if (!query) return baseProjects
-    return baseProjects.filter((project) =>
+    if (!query)
+      return baseProjects
+    return baseProjects.filter(project =>
       [
         project.key,
         project.name,
@@ -893,15 +915,16 @@ export function useTicketListController() {
         project.priority,
         project.lead,
         project.status,
-      ].some((value) => value.toLowerCase().includes(query)),
+      ].some(value => value.toLowerCase().includes(query)),
     )
   })
   const searchedInitiativeRows = computed(() => {
     const query = normalizedIssueSearch.value
     const baseInitiatives = applyViewFiltersToInitiatives(initiativeRows.value)
-    if (!query) return baseInitiatives
-    return baseInitiatives.filter((initiative) =>
-      [initiative.name, initiative.description, initiative.health, initiative.lead].some((value) =>
+    if (!query)
+      return baseInitiatives
+    return baseInitiatives.filter(initiative =>
+      [initiative.name, initiative.description, initiative.health, initiative.lead].some(value =>
         value.toLowerCase().includes(query),
       ),
     )
@@ -911,9 +934,9 @@ export function useTicketListController() {
       id: 'all',
       label: 'All',
       count:
-        searchedTickets.value.length +
-        searchedProjectRows.value.length +
-        searchedInitiativeRows.value.length,
+        searchedTickets.value.length
+        + searchedProjectRows.value.length
+        + searchedInitiativeRows.value.length,
     },
     { id: 'issues', label: 'Issues', count: searchedTickets.value.length },
     {
@@ -953,15 +976,15 @@ export function useTicketListController() {
     }
     return groupTickets(
       searchedTickets.value,
-      (ticket) => getIssueGroupingLabels(ticket, listGrouping.value),
-      (label) => getIssueGroupingRank(label, listGrouping.value),
+      ticket => getIssueGroupingLabels(ticket, listGrouping.value),
+      label => getIssueGroupingRank(label, listGrouping.value),
     )
   })
   const issueSections = computed<IssueSection[]>(() =>
-    baseIssueSections.value.filter((section) => !isIssueGroupHidden(section.id)),
+    baseIssueSections.value.filter(section => !isIssueGroupHidden(section.id)),
   )
   const issueGroupOrderingRows = computed<IssueGroupOrderingRow[]>(() =>
-    baseIssueSections.value.map((section) => ({
+    baseIssueSections.value.map(section => ({
       id: section.id,
       label: section.label,
       count: section.tickets.length,
@@ -974,36 +997,35 @@ export function useTicketListController() {
   const hiddenCompletedCount = computed(() =>
     completedRange.value === 'all'
       ? 0
-      : scopedTickets.value.filter((ticket) => !isCompletedIssueVisible(ticket)).length,
+      : scopedTickets.value.filter(ticket => !isCompletedIssueVisible(ticket)).length,
   )
   const readyQaInsightTickets = computed(() => (isReadyQaView.value ? searchedTickets.value : []))
   const readyQaRecentlyUpdatedCount = computed(
     () =>
-      readyQaInsightTickets.value.filter((ticket) =>
+      readyQaInsightTickets.value.filter(ticket =>
         isRecentlyUpdated(ticket.updatedAt ?? ticket.createdAt),
       ).length,
   )
   const readyQaUnassignedCount = computed(
     () =>
       readyQaInsightTickets.value.filter(
-        (ticket) => !ticket.assignee || ticket.assignee === 'Unassigned',
+        ticket => !ticket.assignee || ticket.assignee === 'Unassigned',
       ).length,
   )
   const readyQaPrioritySlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, (ticket) => ticket.priority || 'No priority'),
+    buildInsightSlices(readyQaInsightTickets.value, ticket => ticket.priority || 'No priority'),
   )
   const readyQaAssigneeSlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, (ticket) =>
-      ticket.assignee && ticket.assignee !== 'Unassigned' ? ticket.assignee : 'Unassigned',
-    ),
+    buildInsightSlices(readyQaInsightTickets.value, ticket =>
+      ticket.assignee && ticket.assignee !== 'Unassigned' ? ticket.assignee : 'Unassigned'),
   )
   const readyQaStatusSlices = computed(() =>
-    buildInsightSlices(readyQaInsightTickets.value, (ticket) => ticket.status || 'No status'),
+    buildInsightSlices(readyQaInsightTickets.value, ticket => ticket.status || 'No status'),
   )
   const checkedIssueKeySet = computed(() => new Set(checkedIssueKeys.value))
   const checkedIssues = computed(() =>
     checkedIssueKeys.value
-      .map((key) => tickets.value.find((ticket) => ticket.key === key))
+      .map(key => tickets.value.find(ticket => ticket.key === key))
       .filter((ticket): ticket is JiraTicket => Boolean(ticket)),
   )
   const checkedIssueCount = computed(() => checkedIssueKeys.value.length)
@@ -1011,9 +1033,9 @@ export function useTicketListController() {
   const inboxReadKeySet = computed(() => new Set(inboxReadKeys.value))
   const inboxItems = computed<InboxItem[]>(() =>
     sortTicketsByActivity(applyViewFiltersToTickets(backlogTickets.value))
-      .filter((ticket) => !inboxArchivedKeySet.value.has(ticket.key))
+      .filter(ticket => !inboxArchivedKeySet.value.has(ticket.key))
       .slice(0, 100)
-      .map((ticket) => ({
+      .map(ticket => ({
         ticket,
         actorInitials: getInitials(ticket.assignee || ticket.spaceName || ticket.spaceKey),
         actorName:
@@ -1022,34 +1044,37 @@ export function useTicketListController() {
         excerpt: ticket.summary,
         relativeTime: getRelativeTimeLabel(ticket.updatedAt ?? ticket.createdAt),
         unread:
-          isRecentlyUpdated(ticket.updatedAt ?? ticket.createdAt) &&
-          !inboxReadKeySet.value.has(ticket.key),
+          isRecentlyUpdated(ticket.updatedAt ?? ticket.createdAt)
+          && !inboxReadKeySet.value.has(ticket.key),
       })),
   )
-  const inboxUnreadCount = computed(() => inboxItems.value.filter((item) => item.unread).length)
+  const inboxUnreadCount = computed(() => inboxItems.value.filter(item => item.unread).length)
   const inboxArchivedCount = computed(() => inboxArchivedKeys.value.length)
   const activeInboxItem = computed(() => {
     const key = activeInboxKey.value
     return key
-      ? (inboxItems.value.find((item) => item.ticket.key === key) ?? null)
+      ? (inboxItems.value.find(item => item.ticket.key === key) ?? null)
       : (inboxItems.value[0] ?? null)
   })
   const activeInboxParent = computed(() => activeInboxItem.value?.ticket.parent ?? null)
   const activeInboxProjectParent = computed(() => {
     const parent = activeInboxParent.value
-    if (!parent || !parent.issueType.toLowerCase().includes('epic')) return null
+    if (!parent || !parent.issueType.toLowerCase().includes('epic'))
+      return null
     return parent
   })
   const activeInboxIssueParent = computed(() => {
     const parent = activeInboxParent.value
-    if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
+    if (!parent || parent.issueType.toLowerCase().includes('epic'))
+      return null
     return parent
   })
   const projectRows = computed<ProjectRow[]>(() => {
     const projects = new Map<string, ProjectAccumulator>()
     for (const ticket of enabledTickets.value) {
       const projectKey = getProjectKey(ticket)
-      if (!projectKey) continue
+      if (!projectKey)
+        continue
       const existing = projects.get(projectKey)
       const sourceTicket = getProjectSourceTicket(ticket, projectKey)
       const nextProject = existing ?? {
@@ -1086,7 +1111,7 @@ export function useTicketListController() {
       .map((project) => {
         const issueCount = project.issues.length
         const completedCount = project.issues.filter(
-          (ticket) => getStatusGroup(ticket.statusCategory) === 'done',
+          ticket => getStatusGroup(ticket.statusCategory) === 'done',
         ).length
         const progress = issueCount > 0 ? Math.round((completedCount / issueCount) * 100) : 0
         return {
@@ -1108,10 +1133,10 @@ export function useTicketListController() {
       })
       .sort(
         (left, right) =>
-          getProjectHealthRank(left.health) - getProjectHealthRank(right.health) ||
-          getPriorityRank(left.priority) - getPriorityRank(right.priority) ||
-          getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt) ||
-          left.key.localeCompare(right.key, undefined, {
+          getProjectHealthRank(left.health) - getProjectHealthRank(right.health)
+          || getPriorityRank(left.priority) - getPriorityRank(right.priority)
+          || getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           }),
@@ -1122,7 +1147,7 @@ export function useTicketListController() {
     if (currentTeamSection.value !== 'projects' || !key) {
       return projectRows.value
     }
-    return projectRows.value.filter((project) => project.spaceKey === key)
+    return projectRows.value.filter(project => project.spaceKey === key)
   })
   const displayedProjectRows = computed(() =>
     sortProjectsByOrdering(
@@ -1160,25 +1185,25 @@ export function useTicketListController() {
         name: 'At risk delivery',
         description: 'Project groups that are blocked or have very low completion',
         health: 'At risk',
-        projects: projectRows.value.filter((project) => project.health === 'At risk'),
+        projects: projectRows.value.filter(project => project.health === 'At risk'),
       },
       {
         id: 'on-track',
         name: 'Active delivery',
         description: 'Project groups progressing without an at-risk signal',
         health: 'On track',
-        projects: projectRows.value.filter((project) => project.health === 'On track'),
+        projects: projectRows.value.filter(project => project.health === 'On track'),
       },
       {
         id: 'completed',
         name: 'Completed delivery',
         description: 'Project groups marked complete or fully delivered',
         health: 'Completed',
-        projects: projectRows.value.filter((project) => project.health === 'Completed'),
+        projects: projectRows.value.filter(project => project.health === 'Completed'),
       },
     ]
     return groups
-      .filter((group) => group.projects.length > 0)
+      .filter(group => group.projects.length > 0)
       .map((group) => {
         const issueCount = group.projects.reduce((count, project) => count + project.issueCount, 0)
         const completedCount = group.projects.reduce(
@@ -1197,7 +1222,7 @@ export function useTicketListController() {
           progress,
           lead: getMostCommonLead(group.projects),
           updatedAt: group.projects
-            .map((project) => project.updatedAt)
+            .map(project => project.updatedAt)
             .sort((left, right) => getTimeValue(right) - getTimeValue(left))[0],
         }
       })
@@ -1205,8 +1230,8 @@ export function useTicketListController() {
   const initiativeRows = computed(() => applyViewFiltersToInitiatives(baseInitiativeRows.value))
   const savedViewRows = computed<SavedViewRow[]>(() =>
     customViews.value
-      .filter((view) => customViewBelongsInCurrentViewsDirectory(view))
-      .map((view) => customViewToSavedViewRow(view)),
+      .filter(view => customViewBelongsInCurrentViewsDirectory(view))
+      .map(view => customViewToSavedViewRow(view)),
   )
   const baseDisplayedSavedViewRows = computed(() => savedViewRows.value)
   const displayedSavedViewRows = computed(() =>
@@ -1214,7 +1239,7 @@ export function useTicketListController() {
   )
   const currentViewIsFavoritable = computed(() => currentView.value !== 'search')
   const favoriteViewNavItems = computed<FavoriteViewNavItem[]>(() =>
-    favoriteViews.value.map((view) => ({
+    favoriteViews.value.map(view => ({
       id: view.id,
       label: deriveViewLabel(view.id),
     })),
@@ -1257,7 +1282,7 @@ export function useTicketListController() {
     const filters = customViewFiltersToClauses(view.filters)
     const kind = getCustomViewKind(view.contextKey)
     if (kind === 'projects') {
-      const projects = getProjectRowsForCustomView(view.contextKey).filter((project) =>
+      const projects = getProjectRowsForCustomView(view.contextKey).filter(project =>
         filterGroupsMatch(project, filters, projectMatchesFilter),
       )
       const updatedAt = [...projects].sort(
@@ -1265,7 +1290,7 @@ export function useTicketListController() {
       )[0]?.updatedAt
       return { count: projects.length, updatedAt }
     }
-    const tickets = getIssueTicketsForCustomView(view.contextKey).filter((ticket) =>
+    const tickets = getIssueTicketsForCustomView(view.contextKey).filter(ticket =>
       filterGroupsMatch(ticket, filters, ticketMatchesFilter),
     )
     return {
@@ -1279,14 +1304,14 @@ export function useTicketListController() {
     }
     const teamKey = getCustomViewTeamKey(contextKey)
     if (teamKey) {
-      return issueTickets.value.filter((ticket) => ticket.spaceKey === teamKey)
+      return issueTickets.value.filter(ticket => ticket.spaceKey === teamKey)
     }
     return issueTickets.value
   }
   function getProjectRowsForCustomView(contextKey: string): ProjectRow[] {
     const teamKey = getCustomViewTeamKey(contextKey)
     if (teamKey) {
-      return projectRows.value.filter((project) => project.spaceKey === teamKey)
+      return projectRows.value.filter(project => project.spaceKey === teamKey)
     }
     return projectRows.value
   }
@@ -1297,25 +1322,34 @@ export function useTicketListController() {
   }
   function deriveViewLabel(viewId: string): string {
     const customView = getCustomView(viewId)
-    if (customView) return customView.name
-    if (viewId === 'inbox') return 'Inbox'
-    if (viewId === 'my-issues') return 'My issues · Assigned'
-    if (viewId === 'my-created') return 'My issues · Created'
-    if (viewId === 'initiatives') return 'Initiatives'
-    if (viewId === 'projects') return 'Projects'
-    if (viewId === 'views') return 'Views · Issues'
-    if (viewId === 'project-views') return 'Views · Projects'
-    if (viewId === 'ready-qa') return 'Ready for QA'
+    if (customView)
+      return customView.name
+    if (viewId === 'inbox')
+      return 'Inbox'
+    if (viewId === 'my-issues')
+      return 'My issues · Assigned'
+    if (viewId === 'my-created')
+      return 'My issues · Created'
+    if (viewId === 'initiatives')
+      return 'Initiatives'
+    if (viewId === 'projects')
+      return 'Projects'
+    if (viewId === 'views')
+      return 'Views · Issues'
+    if (viewId === 'project-views')
+      return 'Views · Projects'
+    if (viewId === 'ready-qa')
+      return 'Ready for QA'
     const [scope, key, section] = viewId.split(':')
     if (scope === 'team' && key) {
-      const teamName = enabledSpaces.value.find((space) => space.key === key)?.name || key
+      const teamName = enabledSpaces.value.find(space => space.key === key)?.name || key
       return `${teamName} · ${getTeamSectionLabel(section)}`
     }
-    const savedView = savedViewRows.value.find((row) => row.viewId === viewId)
+    const savedView = savedViewRows.value.find(row => row.viewId === viewId)
     return savedView?.name ?? viewId
   }
   function getCurrentFavoriteViewFilters(): FavoriteViewFilter[] {
-    return currentViewFilters.value.map((filter) => ({
+    return currentViewFilters.value.map(filter => ({
       id: filter.id,
       fieldId: filter.fieldId,
       fieldLabel: filter.fieldLabel,
@@ -1324,7 +1358,7 @@ export function useTicketListController() {
     }))
   }
   function toViewFilterClauses(filters: FavoriteViewFilter[]): ViewFilterClause[] {
-    return filters.filter(hasKnownFilterFieldId).map((filter) => ({
+    return filters.filter(hasKnownFilterFieldId).map(filter => ({
       id: filter.id,
       fieldId: filter.fieldId,
       fieldLabel: filter.fieldLabel,
@@ -1334,19 +1368,21 @@ export function useTicketListController() {
   }
   function restoreFavoriteViewFilters(viewId: string) {
     const favoriteView = getFavoriteView(viewId)
-    if (!favoriteView) return
+    if (!favoriteView)
+      return
     savedViewFilters.value = {
       ...savedViewFilters.value,
       [viewId]: toViewFilterClauses(favoriteView.filters),
     }
   }
   function toggleCurrentViewFavorite() {
-    if (!currentViewIsFavoritable.value) return
+    if (!currentViewIsFavoritable.value)
+      return
     toggleFavoriteView(currentView.value, getCurrentFavoriteViewFilters())
   }
   const commandSearchQuery = computed(() => commandQuery.value.trim().toLowerCase())
   const navigationCommands = computed<CommandMenuItem[]>(() => {
-    const teamCommands = enabledSpaces.value.flatMap<CommandMenuItem>((space) => [
+    const teamCommands = enabledSpaces.value.flatMap<CommandMenuItem>(space => [
       {
         id: `team:${space.key}:active`,
         label: `${space.name || space.key} issues`,
@@ -1469,7 +1505,7 @@ export function useTicketListController() {
   const issueCommandItems = computed<CommandMenuItem[]>(() => {
     const query = commandSearchQuery.value
     const baseTickets = query
-      ? issueTickets.value.filter((ticket) =>
+      ? issueTickets.value.filter(ticket =>
           [
             ticket.key,
             ticket.summary,
@@ -1478,12 +1514,12 @@ export function useTicketListController() {
             ticket.assignee,
             ticket.spaceKey,
             ticket.spaceName,
-          ].some((value) => value?.toLowerCase().includes(query)),
+          ].some(value => value?.toLowerCase().includes(query)),
         )
       : scopedTickets.value
     return sortTickets(baseTickets)
       .slice(0, 20)
-      .map((ticket) => ({
+      .map(ticket => ({
         id: `issue:${ticket.key}`,
         label: ticket.summary,
         description: `${ticket.key} · ${ticket.status} · ${ticket.assignee || 'Unassigned'}`,
@@ -1495,8 +1531,8 @@ export function useTicketListController() {
   const commandItems = computed<CommandMenuItem[]>(() => {
     const query = commandSearchQuery.value
     const navigationItems = query
-      ? navigationCommands.value.filter((item) =>
-          [item.label, item.description, item.section].some((value) =>
+      ? navigationCommands.value.filter(item =>
+          [item.label, item.description, item.section].some(value =>
             value?.toLowerCase().includes(query),
           ),
         )
@@ -1522,7 +1558,8 @@ export function useTicketListController() {
     }
   })
   watch(commandMenuOpen, (isOpen) => {
-    if (!isOpen) return
+    if (!isOpen)
+      return
     commandActiveIndex.value = 0
     nextTick(() => {
       commandInputRef.value?.focus()
@@ -1546,14 +1583,14 @@ export function useTicketListController() {
         return
       }
       if (
-        !focusedIssueKey.value ||
-        !flatTickets.some((ticket) => getDisplayedIssueRowKey(ticket) === focusedIssueKey.value)
+        !focusedIssueKey.value
+        || !flatTickets.some(ticket => getDisplayedIssueRowKey(ticket) === focusedIssueKey.value)
       ) {
         focusedIssueKey.value = flatTickets[0] ? getDisplayedIssueRowKey(flatTickets[0]) : null
       }
       if (
-        selectionAnchorKey.value &&
-        !flatTickets.some((ticket) => getDisplayedIssueRowKey(ticket) === selectionAnchorKey.value)
+        selectionAnchorKey.value
+        && !flatTickets.some(ticket => getDisplayedIssueRowKey(ticket) === selectionAnchorKey.value)
       ) {
         selectionAnchorKey.value = null
       }
@@ -1568,8 +1605,8 @@ export function useTicketListController() {
         return
       }
       if (
-        !activeInboxKey.value ||
-        !items.some((item) => item.ticket.key === activeInboxKey.value)
+        !activeInboxKey.value
+        || !items.some(item => item.ticket.key === activeInboxKey.value)
       ) {
         activeInboxKey.value = items[0]?.ticket.key ?? null
       }
@@ -1604,8 +1641,10 @@ export function useTicketListController() {
     const leftManualIndex = manualOrder.indexOf(left[0])
     const rightManualIndex = manualOrder.indexOf(right[0])
     if (leftManualIndex !== -1 || rightManualIndex !== -1) {
-      if (leftManualIndex === -1) return 1
-      if (rightManualIndex === -1) return -1
+      if (leftManualIndex === -1)
+        return 1
+      if (rightManualIndex === -1)
+        return -1
       return leftManualIndex - rightManualIndex
     }
     return listGroupingDirection.value === 'desc'
@@ -1613,11 +1652,16 @@ export function useTicketListController() {
       : getRank(left[0]) - getRank(right[0]) || left[0].localeCompare(right[0])
   }
   function getIssueGroupingLabels(ticket: JiraTicket, fieldId: IssueGroupingFieldId): string[] {
-    if (fieldId === 'status') return [ticket.status || 'No status']
-    if (fieldId === 'assignee') return [ticket.assignee || 'Unassigned']
-    if (fieldId === 'agent') return ['No agent']
-    if (fieldId === 'project') return [ticket.parent?.summary ?? 'No project']
-    if (fieldId === 'priority') return [ticket.priority || 'No priority']
+    if (fieldId === 'status')
+      return [ticket.status || 'No status']
+    if (fieldId === 'assignee')
+      return [ticket.assignee || 'Unassigned']
+    if (fieldId === 'agent')
+      return ['No agent']
+    if (fieldId === 'project')
+      return [ticket.parent?.summary ?? 'No project']
+    if (fieldId === 'priority')
+      return [ticket.priority || 'No priority']
     if (fieldId === 'label') {
       const labels = getTicketLabels(ticket)
       return labels.length > 0 ? labels : ['No labels']
@@ -1630,15 +1674,18 @@ export function useTicketListController() {
     for (const label of ticket.labels ?? []) {
       const trimmed = label.trim()
       const normalized = normalizeFilterValue(trimmed)
-      if (!trimmed || seen.has(normalized)) continue
+      if (!trimmed || seen.has(normalized))
+        continue
       seen.add(normalized)
       labels.push(trimmed)
     }
     return labels
   }
   function getIssueGroupingRank(label: string, fieldId: IssueGroupingFieldId): number {
-    if (fieldId === 'priority') return getPriorityRank(label)
-    if (fieldId === 'status') return 0
+    if (fieldId === 'priority')
+      return getPriorityRank(label)
+    if (fieldId === 'status')
+      return 0
     return 0
   }
   function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
@@ -1646,11 +1693,11 @@ export function useTicketListController() {
     return [...nextTickets].sort((left, right) => {
       if (listOrdering.value === 'updated') {
         return (
-          direction *
-            (getTimeValue(right.updatedAt ?? right.createdAt) -
-              getTimeValue(left.updatedAt ?? left.createdAt)) ||
-          getPriorityRank(left.priority) - getPriorityRank(right.priority) ||
-          left.key.localeCompare(right.key, undefined, {
+          direction
+          * (getTimeValue(right.updatedAt ?? right.createdAt)
+            - getTimeValue(left.updatedAt ?? left.createdAt))
+          || getPriorityRank(left.priority) - getPriorityRank(right.priority)
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
@@ -1658,9 +1705,9 @@ export function useTicketListController() {
       }
       if (listOrdering.value === 'created') {
         return (
-          direction * (getTimeValue(right.createdAt) - getTimeValue(left.createdAt)) ||
-          getPriorityRank(left.priority) - getPriorityRank(right.priority) ||
-          left.key.localeCompare(right.key, undefined, {
+          direction * (getTimeValue(right.createdAt) - getTimeValue(left.createdAt))
+          || getPriorityRank(left.priority) - getPriorityRank(right.priority)
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
@@ -1668,8 +1715,8 @@ export function useTicketListController() {
       }
       if (listOrdering.value === 'due') {
         return (
-          direction * (getTimeValue(left.dueDate) - getTimeValue(right.dueDate)) ||
-          left.key.localeCompare(right.key, undefined, {
+          direction * (getTimeValue(left.dueDate) - getTimeValue(right.dueDate))
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
@@ -1677,8 +1724,8 @@ export function useTicketListController() {
       }
       if (listOrdering.value === 'title') {
         return (
-          direction * left.summary.localeCompare(right.summary) ||
-          left.key.localeCompare(right.key, undefined, {
+          direction * left.summary.localeCompare(right.summary)
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
@@ -1686,19 +1733,19 @@ export function useTicketListController() {
       }
       if (listOrdering.value === 'assignee') {
         return (
-          direction *
-            (left.assignee || 'Unassigned').localeCompare(right.assignee || 'Unassigned') ||
-          left.key.localeCompare(right.key, undefined, {
+          direction
+          * (left.assignee || 'Unassigned').localeCompare(right.assignee || 'Unassigned')
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
         )
       }
       if (
-        listOrdering.value === 'agent' ||
-        listOrdering.value === 'estimate' ||
-        listOrdering.value === 'linkCount' ||
-        listOrdering.value === 'timeInStatus'
+        listOrdering.value === 'agent'
+        || listOrdering.value === 'estimate'
+        || listOrdering.value === 'linkCount'
+        || listOrdering.value === 'timeInStatus'
       ) {
         return left.key.localeCompare(right.key, undefined, {
           numeric: true,
@@ -1707,9 +1754,9 @@ export function useTicketListController() {
       }
       if (listOrdering.value === 'priority') {
         return (
-          direction * (getPriorityRank(left.priority) - getPriorityRank(right.priority)) ||
-          getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory) ||
-          left.key.localeCompare(right.key, undefined, {
+          direction * (getPriorityRank(left.priority) - getPriorityRank(right.priority))
+          || getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory)
+          || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
           })
@@ -1719,9 +1766,9 @@ export function useTicketListController() {
         return 0
       }
       return (
-        direction * (getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory)) ||
-        getPriorityRank(left.priority) - getPriorityRank(right.priority) ||
-        left.key.localeCompare(right.key, undefined, {
+        direction * (getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory))
+        || getPriorityRank(left.priority) - getPriorityRank(right.priority)
+        || left.key.localeCompare(right.key, undefined, {
           numeric: true,
           sensitivity: 'base',
         })
@@ -1730,19 +1777,23 @@ export function useTicketListController() {
   }
   function filterTicketsForCurrentView(nextTickets: JiraTicket[]): JiraTicket[] {
     return nextTickets.filter(
-      (ticket) =>
-        isTicketInCurrentTeamSection(ticket) &&
-        isCompletedIssueVisible(ticket) &&
-        isSubIssueVisible(ticket) &&
-        isBacklogIssueVisible(ticket),
+      ticket =>
+        isTicketInCurrentTeamSection(ticket)
+        && isCompletedIssueVisible(ticket)
+        && isSubIssueVisible(ticket)
+        && isBacklogIssueVisible(ticket),
     )
   }
   function isTicketInCurrentTeamSection(ticket: JiraTicket): boolean {
     const section = currentTeamSection.value
-    if (section === null) return true
-    if (section === 'active' || !section) return true
-    if (section === 'triage') return isBacklogIssueTicket(ticket)
-    if (section === 'backlog') return isBacklogIssueTicket(ticket)
+    if (section === null)
+      return true
+    if (section === 'active' || !section)
+      return true
+    if (section === 'triage')
+      return isBacklogIssueTicket(ticket)
+    if (section === 'backlog')
+      return isBacklogIssueTicket(ticket)
     return true
   }
   function isBacklogIssueTicket(ticket: JiraTicket): boolean {
@@ -1752,39 +1803,45 @@ export function useTicketListController() {
     return getStatusGroup(ticket.statusCategory) !== 'done'
   }
   function isCompletedIssueVisible(ticket: JiraTicket): boolean {
-    if (getStatusGroup(ticket.statusCategory) !== 'done') return true
+    if (getStatusGroup(ticket.statusCategory) !== 'done')
+      return true
     return isDateVisibleInRange(completedRange.value, ticket.completedAt ?? ticket.updatedAt)
   }
   function getDisplayedIssueRowKey(ticket: JiraTicket): string {
     return ticket.key
   }
   function hideSubIssuesWithVisibleParents(nextTickets: JiraTicket[]): JiraTicket[] {
-    const visibleTicketKeys = new Set(nextTickets.map((ticket) => ticket.key))
+    const visibleTicketKeys = new Set(nextTickets.map(ticket => ticket.key))
     return nextTickets.filter(
-      (ticket) =>
-        !isSubIssueTicket(ticket) ||
-        !ticket.parent?.key ||
-        !visibleTicketKeys.has(ticket.parent.key),
+      ticket =>
+        !isSubIssueTicket(ticket)
+        || !ticket.parent?.key
+        || !visibleTicketKeys.has(ticket.parent.key),
     )
   }
   function isSubIssueVisible(ticket: JiraTicket): boolean {
-    if (!isSubIssueTicket(ticket)) return true
+    if (!isSubIssueTicket(ticket))
+      return true
     return isDateVisibleInRange(showSubIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
   }
   function isBacklogIssueVisible(ticket: JiraTicket): boolean {
-    if (!isBacklogIssueTicket(ticket)) return true
+    if (!isBacklogIssueTicket(ticket))
+      return true
     return isDateVisibleInRange(showTriageIssuesRange.value, ticket.createdAt ?? ticket.updatedAt)
   }
   function isDateVisibleInRange(
     range: IssueVisibilityRange,
     dateValue: string | undefined,
   ): boolean {
-    if (range === 'all') return true
-    if (range === 'hidden') return false
+    if (range === 'all')
+      return true
+    if (range === 'hidden')
+      return false
     const timeValue = getTimeValue(dateValue)
-    if (timeValue === 0) return false
-    const rangeMs =
-      range === 'day'
+    if (timeValue === 0)
+      return false
+    const rangeMs
+      = range === 'day'
         ? 24 * 60 * 60 * 1000
         : range === 'week'
           ? 7 * 24 * 60 * 60 * 1000
@@ -1805,26 +1862,32 @@ export function useTicketListController() {
       ticket.parent?.key,
       ticket.parent?.summary,
       ...getTicketLabels(ticket),
-    ].some((value) => value?.toLowerCase().includes(query))
+    ].some(value => value?.toLowerCase().includes(query))
   }
   function getActiveFilterContext(): FilterContextKind {
-    if (isProjectDisplayView.value) return 'projects'
-    if (currentView.value === 'initiatives') return 'initiatives'
-    if (isViewsDirectory.value) return 'views'
+    if (isProjectDisplayView.value)
+      return 'projects'
+    if (currentView.value === 'initiatives')
+      return 'initiatives'
+    if (isViewsDirectory.value)
+      return 'views'
     return 'issues'
   }
   function getFilterOptions(fieldId: FilterFieldId): FilterOption[] {
     const context = getActiveFilterContext()
-    if (context === 'projects') return getProjectFilterOptions(fieldId)
-    if (context === 'initiatives') return getInitiativeFilterOptions(fieldId)
-    if (context === 'views') return getSavedViewFilterOptions(fieldId)
+    if (context === 'projects')
+      return getProjectFilterOptions(fieldId)
+    if (context === 'initiatives')
+      return getInitiativeFilterOptions(fieldId)
+    if (context === 'views')
+      return getSavedViewFilterOptions(fieldId)
     return getIssueFilterOptions(fieldId)
   }
   function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
     const baseTickets = filterableTickets.value
     if (fieldId === 'status') {
       return countFilterOptions(
-        baseTickets.map((ticket) => ({
+        baseTickets.map(ticket => ({
           value: normalizeFilterValue(ticket.status || 'No status'),
           label: ticket.status || 'No status',
           icon: '◌',
@@ -1833,7 +1896,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'assignee' || fieldId === 'sharedWith') {
       const currentUser = currentUserName.value || 'Current user'
-      const people = baseTickets.map((ticket) => ({
+      const people = baseTickets.map(ticket => ({
         value: normalizeFilterValue(ticket.assignee || 'Unassigned'),
         label: ticket.assignee || 'Unassigned',
         icon: '♙',
@@ -1842,23 +1905,23 @@ export function useTicketListController() {
         { value: 'current-user', label: 'Current user', icon: '♙' },
         ...people,
       ])
-        .map((option) =>
+        .map(option =>
           option.value === 'current-user'
             ? {
                 ...option,
                 count: currentUserName.value
                   ? baseTickets.filter(
-                      (ticket) =>
-                        normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUser),
-                    ).length
+                    ticket =>
+                      normalizeFilterValue(ticket.assignee) === normalizeFilterValue(currentUser),
+                  ).length
                   : 0,
               }
             : option,
         )
-        .filter((option) => option.count > 0)
+        .filter(option => option.count > 0)
     }
     if (fieldId === 'reporter') {
-      const people = baseTickets.map((ticket) => ({
+      const people = baseTickets.map(ticket => ({
         value: normalizeFilterValue(ticket.reporter || 'Unknown'),
         label: ticket.reporter || 'Unknown',
         icon: '♙',
@@ -1867,20 +1930,20 @@ export function useTicketListController() {
         { value: 'current-user', label: 'Current user', icon: '♙' },
         ...people,
       ])
-        .map((option) =>
+        .map(option =>
           option.value === 'current-user'
             ? {
                 ...option,
-                count: baseTickets.filter((ticket) => ticketMatchesCurrentUserReporter(ticket))
+                count: baseTickets.filter(ticket => ticketMatchesCurrentUserReporter(ticket))
                   .length,
               }
             : option,
         )
-        .filter((option) => option.count > 0)
+        .filter(option => option.count > 0)
     }
     if (fieldId === 'priority') {
       return countFilterOptions(
-        baseTickets.map((ticket) => ({
+        baseTickets.map(ticket => ({
           value: normalizeFilterValue(ticket.priority || 'No priority'),
           label: ticket.priority || 'No priority',
           icon: '▥',
@@ -1900,7 +1963,7 @@ export function useTicketListController() {
               },
             ]
           }
-          return labels.map((label) => ({
+          return labels.map(label => ({
             value: normalizeFilterValue(label),
             label,
             icon: '▭',
@@ -1913,7 +1976,7 @@ export function useTicketListController() {
         baseTickets.map((ticket) => {
           const projectKey = getProjectKey(ticket)
           const project = projectKey
-            ? projectRows.value.find((row) => row.key === projectKey)
+            ? projectRows.value.find(row => row.key === projectKey)
             : null
           return {
             value: projectKey ?? 'no-project',
@@ -1925,7 +1988,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'projectStatus') {
       return countFilterOptions(
-        baseDisplayedProjectRows.value.map((project) => ({
+        baseDisplayedProjectRows.value.map(project => ({
           value: normalizeFilterValue(project.status || 'No status'),
           label: project.status || 'No status',
           icon: '◌',
@@ -1934,7 +1997,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'projectPriority') {
       return countFilterOptions(
-        baseDisplayedProjectRows.value.map((project) => ({
+        baseDisplayedProjectRows.value.map(project => ({
           value: normalizeFilterValue(project.priority || 'No priority'),
           label: project.priority || 'No priority',
           icon: '▥',
@@ -1943,7 +2006,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'projectLead') {
       return countFilterOptions(
-        baseDisplayedProjectRows.value.map((project) => ({
+        baseDisplayedProjectRows.value.map(project => ({
           value: normalizeFilterValue(project.lead || 'Unassigned'),
           label: project.lead || 'Unassigned',
           icon: '♙',
@@ -1952,7 +2015,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'initiative') {
       return countFilterOptions(
-        baseInitiativeRows.value.map((initiative) => ({
+        baseInitiativeRows.value.map(initiative => ({
           value: initiative.id,
           label: initiative.name,
           icon: '◒',
@@ -1961,7 +2024,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'subscribers') {
       return countFilterOptions(
-        baseTickets.map((ticket) => ({
+        baseTickets.map(ticket => ({
           value: ticket.isWatching ? 'watching' : 'not-watching',
           label: ticket.isWatching ? 'Watching' : 'Not watching',
           icon: '♧',
@@ -1973,14 +2036,14 @@ export function useTicketListController() {
         {
           value: 'shared',
           label: 'Shared',
-          count: baseTickets.filter((ticket) => (ticket.watchCount ?? 0) > 0).length,
+          count: baseTickets.filter(ticket => (ticket.watchCount ?? 0) > 0).length,
           icon: '♢',
         },
       ]
     }
     if (fieldId === 'externalSource') {
       return countFilterOptions(
-        baseTickets.map((ticket) => ({
+        baseTickets.map(ticket => ({
           value: isLocalTicketKey(ticket.key) ? 'local' : 'jira',
           label: isLocalTicketKey(ticket.key) ? 'Local' : 'Jira',
           icon: '◇',
@@ -1993,7 +2056,7 @@ export function useTicketListController() {
     const baseProjects = baseDisplayedProjectRows.value
     if (fieldId === 'status' || fieldId === 'projectStatus') {
       return countFilterOptions(
-        baseProjects.map((project) => ({
+        baseProjects.map(project => ({
           value: normalizeFilterValue(project.status || 'No status'),
           label: project.status || 'No status',
           icon: '◌',
@@ -2002,7 +2065,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
       const currentUser = currentUserName.value || 'Current user'
-      const people = baseProjects.map((project) => ({
+      const people = baseProjects.map(project => ({
         value: normalizeFilterValue(project.lead || 'Unassigned'),
         label: project.lead || 'Unassigned',
         icon: '♙',
@@ -2011,24 +2074,24 @@ export function useTicketListController() {
         { value: 'current-user', label: 'Current user', icon: '♙' },
         ...people,
       ])
-        .map((option) =>
+        .map(option =>
           option.value === 'current-user'
             ? {
                 ...option,
                 count: currentUserName.value
                   ? baseProjects.filter(
-                      (project) =>
-                        normalizeFilterValue(project.lead) === normalizeFilterValue(currentUser),
-                    ).length
+                    project =>
+                      normalizeFilterValue(project.lead) === normalizeFilterValue(currentUser),
+                  ).length
                   : 0,
               }
             : option,
         )
-        .filter((option) => option.count > 0)
+        .filter(option => option.count > 0)
     }
     if (fieldId === 'priority' || fieldId === 'projectPriority') {
       return countFilterOptions(
-        baseProjects.map((project) => ({
+        baseProjects.map(project => ({
           value: normalizeFilterValue(project.priority || 'No priority'),
           label: project.priority || 'No priority',
           icon: '▥',
@@ -2037,7 +2100,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'labels' || fieldId === 'suggestedLabel') {
       return countFilterOptions(
-        baseProjects.map((project) => ({
+        baseProjects.map(project => ({
           value: normalizeFilterValue(project.health),
           label: project.health,
           icon: project.health === 'Completed' ? '✓' : project.health === 'At risk' ? '◆' : '○',
@@ -2046,7 +2109,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'project') {
       return countFilterOptions(
-        baseProjects.map((project) => ({
+        baseProjects.map(project => ({
           value: project.key,
           label: project.name,
           icon: '◇',
@@ -2055,22 +2118,22 @@ export function useTicketListController() {
     }
     if (fieldId === 'initiative') {
       return countFilterOptions(
-        baseInitiativeRows.value.map((initiative) => ({
+        baseInitiativeRows.value.map(initiative => ({
           value: initiative.id,
           label: initiative.name,
           icon: '◒',
         })),
       )
-        .map((option) => ({
+        .map(option => ({
           ...option,
-          count: baseProjects.filter((project) =>
+          count: baseProjects.filter(project =>
             baseInitiativeRows.value.some(
-              (initiative) =>
+              initiative =>
                 initiative.id === option.value && initiative.health === project.health,
             ),
           ).length,
         }))
-        .filter((option) => option.count > 0)
+        .filter(option => option.count > 0)
     }
     if (fieldId === 'externalSource') {
       return [{ value: 'jira', label: 'Jira', count: baseProjects.length, icon: '◇' }]
@@ -2081,7 +2144,7 @@ export function useTicketListController() {
     const baseInitiatives = baseInitiativeRows.value
     if (fieldId === 'status' || fieldId === 'labels' || fieldId === 'suggestedLabel') {
       return countFilterOptions(
-        baseInitiatives.map((initiative) => ({
+        baseInitiatives.map(initiative => ({
           value: normalizeFilterValue(initiative.health),
           label: initiative.health,
           icon:
@@ -2091,7 +2154,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
       return countFilterOptions(
-        baseInitiatives.map((initiative) => ({
+        baseInitiatives.map(initiative => ({
           value: normalizeFilterValue(initiative.lead || 'Unassigned'),
           label: initiative.lead || 'Unassigned',
           icon: '♙',
@@ -2100,7 +2163,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'initiative') {
       return countFilterOptions(
-        baseInitiatives.map((initiative) => ({
+        baseInitiatives.map(initiative => ({
           value: initiative.id,
           label: initiative.name,
           icon: '◒',
@@ -2123,7 +2186,7 @@ export function useTicketListController() {
     const baseViews = baseDisplayedSavedViewRows.value
     if (fieldId === 'assignee' || fieldId === 'sharedWith') {
       return countFilterOptions(
-        baseViews.map((row) => ({
+        baseViews.map(row => ({
           value: normalizeFilterValue(row.owner),
           label: row.owner,
           icon: '♙',
@@ -2132,7 +2195,7 @@ export function useTicketListController() {
     }
     if (fieldId === 'labels' || fieldId === 'suggestedLabel' || fieldId === 'project') {
       return countFilterOptions(
-        baseViews.map((row) => ({
+        baseViews.map(row => ({
           value: normalizeFilterValue(row.category),
           label: row.category,
           icon: row.icon,
@@ -2145,13 +2208,13 @@ export function useTicketListController() {
     return []
   }
   function getIssueVisibilityRangeLabel(range: IssueVisibilityRange): string {
-    return issueVisibilityRangeOptions.find((option) => option.id === range)?.label ?? range
+    return issueVisibilityRangeOptions.find(option => option.id === range)?.label ?? range
   }
   function getProjectClosedRangeLabel(range: ProjectClosedRange): string {
-    return projectClosedRangeOptions.find((option) => option.id === range)?.label ?? range
+    return projectClosedRangeOptions.find(option => option.id === range)?.label ?? range
   }
   function countFilterOptions(
-    entries: Array<{ value: string; label: string; icon: string }>,
+    entries: Array<{ value: string, label: string, icon: string }>,
   ): FilterOption[] {
     const optionMap = new Map<string, FilterOption>()
     for (const entry of entries) {
@@ -2164,12 +2227,12 @@ export function useTicketListController() {
       })
     }
     return [...optionMap.values()]
-      .filter((option) => option.count > 0)
+      .filter(option => option.count > 0)
       .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
   }
   function getDateFilterOptions(fieldId: DateFilterFieldId): DateFilterOption[] {
     const context = getActiveFilterContext()
-    const options: Array<{ value: DateFilterOperator; label: string }> = [
+    const options: Array<{ value: DateFilterOperator, label: string }> = [
       { value: 'hasDate', label: 'Is set' },
       { value: 'noDate', label: 'Is not set' },
       { value: 'past', label: 'Before today' },
@@ -2177,7 +2240,7 @@ export function useTicketListController() {
       { value: 'next7', label: 'Next 7 days' },
       { value: 'next30', label: 'Next 30 days' },
     ]
-    return options.map((option) => ({
+    return options.map(option => ({
       ...option,
       count: getDateFilterOptionCount(context, fieldId, option.value),
     }))
@@ -2188,21 +2251,21 @@ export function useTicketListController() {
     operator: DateFilterOperator,
   ): number {
     if (context === 'projects') {
-      return baseDisplayedProjectRows.value.filter((project) =>
+      return baseDisplayedProjectRows.value.filter(project =>
         dateMatchesOperator(getProjectDateValue(project, fieldId), operator),
       ).length
     }
     if (context === 'initiatives') {
-      return baseInitiativeRows.value.filter((initiative) =>
+      return baseInitiativeRows.value.filter(initiative =>
         dateMatchesOperator(getInitiativeDateValue(initiative, fieldId), operator),
       ).length
     }
     if (context === 'views') {
-      return baseDisplayedSavedViewRows.value.filter((row) =>
+      return baseDisplayedSavedViewRows.value.filter(row =>
         dateMatchesOperator(getSavedViewDateValue(row, fieldId), operator),
       ).length
     }
-    return filterableTickets.value.filter((ticket) =>
+    return filterableTickets.value.filter(ticket =>
       dateMatchesOperator(getTicketDateValue(ticket, fieldId), operator),
     ).length
   }
@@ -2211,28 +2274,31 @@ export function useTicketListController() {
       return true
     }
     return (
-      Boolean(currentUserName.value) &&
-      normalizeFilterValue(ticket.reporter) === normalizeFilterValue(currentUserName.value)
+      Boolean(currentUserName.value)
+      && normalizeFilterValue(ticket.reporter) === normalizeFilterValue(currentUserName.value)
     )
   }
   function getInitiativeDateValue(
     initiative: InitiativeRow,
     fieldId: DateFilterFieldId,
   ): string | undefined {
-    if (fieldId === 'updatedDate') return initiative.updatedAt
+    if (fieldId === 'updatedDate')
+      return initiative.updatedAt
     return undefined
   }
   function getSavedViewDateValue(
     row: SavedViewRow,
     fieldId: DateFilterFieldId,
   ): string | undefined {
-    if (fieldId === 'updatedDate') return row.updatedAt
+    if (fieldId === 'updatedDate')
+      return row.updatedAt
     return undefined
   }
   function applyViewFiltersToTickets(nextTickets: JiraTicket[]): JiraTicket[] {
     const filters = currentViewFilters.value
-    if (!filters.length) return nextTickets
-    return nextTickets.filter((ticket) => filterGroupsMatch(ticket, filters, ticketMatchesFilter))
+    if (!filters.length)
+      return nextTickets
+    return nextTickets.filter(ticket => filterGroupsMatch(ticket, filters, ticketMatchesFilter))
   }
   function ticketMatchesFilter(ticket: JiraTicket, filter: ViewFilterClause): boolean {
     if (filter.fieldId === 'status') {
@@ -2256,25 +2322,28 @@ export function useTicketListController() {
       return normalizeFilterValue(ticket.priority || 'No priority') === filter.value
     if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') {
       const labels = getTicketLabels(ticket)
-      if (labels.length === 0) return filter.value === normalizeFilterValue('No labels')
-      return labels.some((label) => normalizeFilterValue(label) === filter.value)
+      if (labels.length === 0)
+        return filter.value === normalizeFilterValue('No labels')
+      return labels.some(label => normalizeFilterValue(label) === filter.value)
     }
     if (filter.fieldId === 'project')
       return (getProjectKey(ticket) ?? 'no-project') === filter.value
     if (
-      filter.fieldId === 'projectStatus' ||
-      filter.fieldId === 'projectPriority' ||
-      filter.fieldId === 'projectLead'
+      filter.fieldId === 'projectStatus'
+      || filter.fieldId === 'projectPriority'
+      || filter.fieldId === 'projectLead'
     ) {
       const project = getTicketProject(ticket)
-      if (!project) return false
+      if (!project)
+        return false
       return projectMatchesFilter(project, filter)
     }
     if (filter.fieldId === 'initiative')
       return getTicketInitiativeIds(ticket).includes(filter.value)
     if (filter.fieldId === 'subscribers')
       return filter.value === 'watching' ? ticket.isWatching === true : ticket.isWatching !== true
-    if (filter.fieldId === 'shared') return (ticket.watchCount ?? 0) > 0
+    if (filter.fieldId === 'shared')
+      return (ticket.watchCount ?? 0) > 0
     if (filter.fieldId === 'externalSource')
       return filter.value === (isLocalTicketKey(ticket.key) ? 'local' : 'jira')
     return dateMatchesOperator(
@@ -2284,22 +2353,25 @@ export function useTicketListController() {
   }
   function getTicketProject(ticket: JiraTicket): ProjectRow | null {
     const projectKey = getProjectKey(ticket)
-    if (!projectKey) return null
-    return projectRows.value.find((project) => project.key === projectKey) ?? null
+    if (!projectKey)
+      return null
+    return projectRows.value.find(project => project.key === projectKey) ?? null
   }
   function getTicketInitiativeIds(ticket: JiraTicket): string[] {
     const project = getTicketProject(ticket)
-    if (!project) return []
+    if (!project)
+      return []
     return baseInitiativeRows.value
       .filter(
-        (initiative) => initiative.name === project.health || initiative.health === project.health,
+        initiative => initiative.name === project.health || initiative.health === project.health,
       )
-      .map((initiative) => initiative.id)
+      .map(initiative => initiative.id)
   }
   function applyViewFiltersToProjects(nextProjects: ProjectRow[]): ProjectRow[] {
     const filters = currentViewFilters.value
-    if (!filters.length) return nextProjects
-    return nextProjects.filter((project) =>
+    if (!filters.length)
+      return nextProjects
+    return nextProjects.filter(project =>
       filterGroupsMatch(project, filters, projectMatchesFilter),
     )
   }
@@ -2307,27 +2379,32 @@ export function useTicketListController() {
     if (filter.fieldId === 'status' || filter.fieldId === 'projectStatus')
       return normalizeFilterValue(project.status || 'No status') === filter.value
     if (
-      filter.fieldId === 'assignee' ||
-      filter.fieldId === 'projectLead' ||
-      filter.fieldId === 'sharedWith'
-    )
+      filter.fieldId === 'assignee'
+      || filter.fieldId === 'projectLead'
+      || filter.fieldId === 'sharedWith'
+    ) {
       return normalizeFilterValue(project.lead || 'Unassigned') === filter.value
+    }
     if (filter.fieldId === 'priority' || filter.fieldId === 'projectPriority')
       return normalizeFilterValue(project.priority || 'No priority') === filter.value
     if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel')
       return normalizeFilterValue(project.health) === filter.value
-    if (filter.fieldId === 'project') return project.key === filter.value
-    if (filter.fieldId === 'initiative')
+    if (filter.fieldId === 'project')
+      return project.key === filter.value
+    if (filter.fieldId === 'initiative') {
       return baseInitiativeRows.value.some(
-        (initiative) => initiative.id === filter.value && initiative.health === project.health,
+        initiative => initiative.id === filter.value && initiative.health === project.health,
       )
-    if (filter.fieldId === 'externalSource') return filter.value === 'jira'
-    if (filter.fieldId === 'subscribers' || filter.fieldId === 'shared') return true
+    }
+    if (filter.fieldId === 'externalSource')
+      return filter.value === 'jira'
+    if (filter.fieldId === 'subscribers' || filter.fieldId === 'shared')
+      return true
     if (
-      filter.fieldId === 'dueDate' ||
-      filter.fieldId === 'createdDate' ||
-      filter.fieldId === 'updatedDate' ||
-      filter.fieldId === 'completedDate'
+      filter.fieldId === 'dueDate'
+      || filter.fieldId === 'createdDate'
+      || filter.fieldId === 'updatedDate'
+      || filter.fieldId === 'completedDate'
     ) {
       return dateMatchesOperator(
         getProjectDateValue(project, filter.fieldId),
@@ -2338,9 +2415,9 @@ export function useTicketListController() {
   }
   function applyProjectClosedRange(projects: ProjectRow[]): ProjectRow[] {
     return projects.filter(
-      (project) =>
-        project.health !== 'Completed' ||
-        isDateVisibleInRange(projectClosedRange.value, project.updatedAt),
+      project =>
+        project.health !== 'Completed'
+        || isDateVisibleInRange(projectClosedRange.value, project.updatedAt),
     )
   }
   function sortProjectsByOrdering(projects: ProjectRow[]): ProjectRow[] {
@@ -2354,16 +2431,20 @@ export function useTicketListController() {
     right: ProjectRow,
     ordering: ProjectOrderingFieldId,
   ): number {
-    if (ordering === 'name') return left.name.localeCompare(right.name)
+    if (ordering === 'name')
+      return left.name.localeCompare(right.name)
     if (ordering === 'health')
       return getProjectHealthRank(left.health) - getProjectHealthRank(right.health)
     if (ordering === 'priority')
       return getPriorityRank(left.priority) - getPriorityRank(right.priority)
-    if (ordering === 'lead') return left.lead.localeCompare(right.lead)
+    if (ordering === 'lead')
+      return left.lead.localeCompare(right.lead)
     if (ordering === 'targetDate')
       return compareOptionalDates(left.targetDateValue, right.targetDateValue)
-    if (ordering === 'updated') return getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
-    if (ordering === 'progress') return right.progress - left.progress
+    if (ordering === 'updated')
+      return getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
+    if (ordering === 'progress')
+      return right.progress - left.progress
     return 0
   }
   function groupProjects(
@@ -2383,38 +2464,44 @@ export function useTicketListController() {
       }))
       .sort(
         (left, right) =>
-          getProjectGroupingRank(left.label, grouping) -
-            getProjectGroupingRank(right.label, grouping) || left.label.localeCompare(right.label),
+          getProjectGroupingRank(left.label, grouping)
+          - getProjectGroupingRank(right.label, grouping) || left.label.localeCompare(right.label),
       )
   }
   function applyViewFiltersToInitiatives(nextInitiatives: InitiativeRow[]): InitiativeRow[] {
     const filters = currentViewFilters.value
-    if (!filters.length) return nextInitiatives
-    return nextInitiatives.filter((initiative) =>
+    if (!filters.length)
+      return nextInitiatives
+    return nextInitiatives.filter(initiative =>
       filterGroupsMatch(initiative, filters, initiativeMatchesFilter),
     )
   }
   function initiativeMatchesFilter(initiative: InitiativeRow, filter: ViewFilterClause): boolean {
-    if (filter.fieldId === 'initiative') return initiative.id === filter.value
-    if (filter.fieldId === 'shared') return true
+    if (filter.fieldId === 'initiative')
+      return initiative.id === filter.value
+    if (filter.fieldId === 'shared')
+      return true
     if (
-      filter.fieldId === 'status' ||
-      filter.fieldId === 'labels' ||
-      filter.fieldId === 'suggestedLabel'
-    )
+      filter.fieldId === 'status'
+      || filter.fieldId === 'labels'
+      || filter.fieldId === 'suggestedLabel'
+    ) {
       return normalizeFilterValue(initiative.health) === filter.value
+    }
     if (
-      filter.fieldId === 'assignee' ||
-      filter.fieldId === 'projectLead' ||
-      filter.fieldId === 'sharedWith'
-    )
+      filter.fieldId === 'assignee'
+      || filter.fieldId === 'projectLead'
+      || filter.fieldId === 'sharedWith'
+    ) {
       return normalizeFilterValue(initiative.lead || 'Unassigned') === filter.value
-    if (filter.fieldId === 'externalSource') return filter.value === 'jira'
+    }
+    if (filter.fieldId === 'externalSource')
+      return filter.value === 'jira'
     if (
-      filter.fieldId === 'dueDate' ||
-      filter.fieldId === 'createdDate' ||
-      filter.fieldId === 'updatedDate' ||
-      filter.fieldId === 'completedDate'
+      filter.fieldId === 'dueDate'
+      || filter.fieldId === 'createdDate'
+      || filter.fieldId === 'updatedDate'
+      || filter.fieldId === 'completedDate'
     ) {
       return dateMatchesOperator(
         getInitiativeDateValue(initiative, filter.fieldId),
@@ -2425,28 +2512,32 @@ export function useTicketListController() {
   }
   function applyViewFiltersToSavedViews(nextViews: SavedViewRow[]): SavedViewRow[] {
     const filters = currentViewFilters.value
-    if (!filters.length) return nextViews
-    return nextViews.filter((row) => filterGroupsMatch(row, filters, savedViewMatchesFilter))
+    if (!filters.length)
+      return nextViews
+    return nextViews.filter(row => filterGroupsMatch(row, filters, savedViewMatchesFilter))
   }
   function savedViewMatchesFilter(row: SavedViewRow, filter: ViewFilterClause): boolean {
-    if (filter.fieldId === 'shared') return true
+    if (filter.fieldId === 'shared')
+      return true
     if (filter.fieldId === 'assignee' || filter.fieldId === 'sharedWith')
       return normalizeFilterValue(row.owner) === filter.value
     if (
-      filter.fieldId === 'labels' ||
-      filter.fieldId === 'suggestedLabel' ||
-      filter.fieldId === 'project'
-    )
+      filter.fieldId === 'labels'
+      || filter.fieldId === 'suggestedLabel'
+      || filter.fieldId === 'project'
+    ) {
       return (
-        normalizeFilterValue(row.category) === filter.value ||
-        normalizeFilterValue(row.name).includes(filter.value)
+        normalizeFilterValue(row.category) === filter.value
+        || normalizeFilterValue(row.name).includes(filter.value)
       )
-    if (filter.fieldId === 'externalSource') return filter.value === 'jira'
+    }
+    if (filter.fieldId === 'externalSource')
+      return filter.value === 'jira'
     if (
-      filter.fieldId === 'dueDate' ||
-      filter.fieldId === 'createdDate' ||
-      filter.fieldId === 'updatedDate' ||
-      filter.fieldId === 'completedDate'
+      filter.fieldId === 'dueDate'
+      || filter.fieldId === 'createdDate'
+      || filter.fieldId === 'updatedDate'
+      || filter.fieldId === 'completedDate'
     ) {
       return dateMatchesOperator(
         getSavedViewDateValue(row, filter.fieldId),
@@ -2472,7 +2563,7 @@ export function useTicketListController() {
   function getFilterClause(fieldId: FilterFieldId, value: string): ViewFilterClause | null {
     return (
       currentViewFilters.value.find(
-        (filter) => filter.fieldId === fieldId && filter.value === value,
+        filter => filter.fieldId === fieldId && filter.value === value,
       ) ?? null
     )
   }
@@ -2483,7 +2574,7 @@ export function useTicketListController() {
     if (isFilterClauseSelected(fieldId, value)) {
       setActiveCustomViewFilters(
         currentViewFilters.value.filter(
-          (filter) => !(filter.fieldId === fieldId && filter.value === value),
+          filter => !(filter.fieldId === fieldId && filter.value === value),
         ),
       )
       return
@@ -2501,13 +2592,13 @@ export function useTicketListController() {
   function removeFilterClause(filterId: string) {
     if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
       setActiveCustomViewFilters(
-        currentViewFilters.value.filter((filter) => filter.id !== filterId),
+        currentViewFilters.value.filter(filter => filter.id !== filterId),
       )
       return
     }
     savedViewFilters.value = {
       ...savedViewFilters.value,
-      [currentView.value]: currentViewFilters.value.filter((filter) => filter.id !== filterId),
+      [currentView.value]: currentViewFilters.value.filter(filter => filter.id !== filterId),
     }
   }
   function removeActiveFilterChip(chip: ActiveFilterChip): void {
@@ -2593,16 +2684,17 @@ export function useTicketListController() {
   function sortTicketsByActivity(nextTickets: JiraTicket[]): JiraTicket[] {
     return [...nextTickets].sort(
       (left, right) =>
-        getTimeValue(right.updatedAt ?? right.createdAt) -
-          getTimeValue(left.updatedAt ?? left.createdAt) ||
-        left.key.localeCompare(right.key, undefined, {
+        getTimeValue(right.updatedAt ?? right.createdAt)
+        - getTimeValue(left.updatedAt ?? left.createdAt)
+        || left.key.localeCompare(right.key, undefined, {
           numeric: true,
           sensitivity: 'base',
         }),
     )
   }
   function getProjectKey(ticket: JiraTicket): string | null {
-    if (isEpicIssue(ticket)) return ticket.key
+    if (isEpicIssue(ticket))
+      return ticket.key
     let currentParent = ticket.parent
     const visitedKeys = new Set<string>()
     while (currentParent?.key && !visitedKeys.has(currentParent.key)) {
@@ -2611,24 +2703,30 @@ export function useTicketListController() {
       if (isEpicIssueType(currentParent.issueType)) {
         return parentKey
       }
-      const parentTicket = enabledTickets.value.find((candidate) => candidate.key === parentKey)
+      const parentTicket = enabledTickets.value.find(candidate => candidate.key === parentKey)
       currentParent = parentTicket?.parent
     }
     return null
   }
   function getProjectSourceTicket(ticket: JiraTicket, projectKey: string): JiraTicket | null {
-    if (ticket.key === projectKey) return ticket
-    return enabledTickets.value.find((candidate) => candidate.key === projectKey) ?? null
+    if (ticket.key === projectKey)
+      return ticket
+    return enabledTickets.value.find(candidate => candidate.key === projectKey) ?? null
   }
   function getProjectHealthRank(health: ProjectRow['health']): number {
-    if (health === 'At risk') return 0
-    if (health === 'On track') return 1
+    if (health === 'At risk')
+      return 0
+    if (health === 'On track')
+      return 1
     return 2
   }
   function getInsightBarClass(index: number): string {
-    if (index === 0) return 'bg-[#6f73ff]'
-    if (index === 1) return 'bg-[#4dbb83]'
-    if (index === 2) return 'bg-[#e59356]'
+    if (index === 0)
+      return 'bg-[#6f73ff]'
+    if (index === 1)
+      return 'bg-[#4dbb83]'
+    if (index === 2)
+      return 'bg-[#e59356]'
     return 'bg-[#8f9198]'
   }
   function isIssueRowFieldVisible(fieldId: IssueRowFieldId): boolean {
@@ -2636,8 +2734,9 @@ export function useTicketListController() {
   }
   function toggleIssueRowField(fieldId: IssueRowFieldId) {
     if (isIssueRowFieldVisible(fieldId)) {
-      if (visibleIssueRowFields.value.length === 1) return
-      visibleIssueRowFields.value = visibleIssueRowFields.value.filter((item) => item !== fieldId)
+      if (visibleIssueRowFields.value.length === 1)
+        return
+      visibleIssueRowFields.value = visibleIssueRowFields.value.filter(item => item !== fieldId)
       return
     }
     visibleIssueRowFields.value = [...visibleIssueRowFields.value, fieldId]
@@ -2701,7 +2800,7 @@ export function useTicketListController() {
     const hiddenIds = getCurrentHiddenIssueGroupIds()
     setCurrentHiddenIssueGroupIds(
       hiddenIds.includes(groupId)
-        ? hiddenIds.filter((id) => id !== groupId)
+        ? hiddenIds.filter(id => id !== groupId)
         : [...hiddenIds, groupId],
     )
   }
@@ -2722,8 +2821,8 @@ export function useTicketListController() {
       finishIssueGroupDrag()
       return
     }
-    const currentIds = issueGroupOrderingRows.value.map((row) => row.id)
-    const nextIds = currentIds.filter((id) => id !== draggedGroupId)
+    const currentIds = issueGroupOrderingRows.value.map(row => row.id)
+    const nextIds = currentIds.filter(id => id !== draggedGroupId)
     const targetIndex = nextIds.indexOf(targetGroupId)
     if (targetIndex === -1) {
       finishIssueGroupDrag()
@@ -2741,9 +2840,10 @@ export function useTicketListController() {
   }
   function toggleProjectRowField(fieldId: ProjectRowFieldId) {
     if (isProjectRowFieldVisible(fieldId)) {
-      if (visibleProjectRowFields.value.length === 1) return
+      if (visibleProjectRowFields.value.length === 1)
+        return
       visibleProjectRowFields.value = visibleProjectRowFields.value.filter(
-        (item) => item !== fieldId,
+        item => item !== fieldId,
       )
       return
     }
@@ -2754,9 +2854,10 @@ export function useTicketListController() {
   }
   function toggleInitiativeRowField(fieldId: InitiativeRowFieldId) {
     if (isInitiativeRowFieldVisible(fieldId)) {
-      if (visibleInitiativeRowFields.value.length === 1) return
+      if (visibleInitiativeRowFields.value.length === 1)
+        return
       visibleInitiativeRowFields.value = visibleInitiativeRowFields.value.filter(
-        (item) => item !== fieldId,
+        item => item !== fieldId,
       )
       return
     }
@@ -2767,9 +2868,10 @@ export function useTicketListController() {
   }
   function toggleSavedViewRowField(fieldId: SavedViewRowFieldId) {
     if (isSavedViewRowFieldVisible(fieldId)) {
-      if (visibleSavedViewRowFields.value.length === 1) return
+      if (visibleSavedViewRowFields.value.length === 1)
+        return
       visibleSavedViewRowFields.value = visibleSavedViewRowFields.value.filter(
-        (item) => item !== fieldId,
+        item => item !== fieldId,
       )
       return
     }
@@ -2777,29 +2879,44 @@ export function useTicketListController() {
   }
   function getProjectGridTemplate(): string {
     const columns = ['minmax(220px,1.4fr)']
-    if (isProjectRowFieldVisible('health')) columns.push('108px')
-    if (isProjectRowFieldVisible('priority')) columns.push('94px')
-    if (isProjectRowFieldVisible('lead')) columns.push('130px')
-    if (isProjectRowFieldVisible('targetDate')) columns.push('104px')
-    if (isProjectRowFieldVisible('issues')) columns.push('150px')
-    if (isProjectRowFieldVisible('status')) columns.push('116px')
+    if (isProjectRowFieldVisible('health'))
+      columns.push('108px')
+    if (isProjectRowFieldVisible('priority'))
+      columns.push('94px')
+    if (isProjectRowFieldVisible('lead'))
+      columns.push('130px')
+    if (isProjectRowFieldVisible('targetDate'))
+      columns.push('104px')
+    if (isProjectRowFieldVisible('issues'))
+      columns.push('150px')
+    if (isProjectRowFieldVisible('status'))
+      columns.push('116px')
     return columns.join(' ')
   }
   function getInitiativeGridTemplate(): string {
     const columns = ['minmax(260px,1.4fr)']
-    if (isInitiativeRowFieldVisible('health')) columns.push('112px')
-    if (isInitiativeRowFieldVisible('lead')) columns.push('124px')
-    if (isInitiativeRowFieldVisible('projects')) columns.push('132px')
-    if (isInitiativeRowFieldVisible('issues')) columns.push('156px')
-    if (isInitiativeRowFieldVisible('updated')) columns.push('112px')
+    if (isInitiativeRowFieldVisible('health'))
+      columns.push('112px')
+    if (isInitiativeRowFieldVisible('lead'))
+      columns.push('124px')
+    if (isInitiativeRowFieldVisible('projects'))
+      columns.push('132px')
+    if (isInitiativeRowFieldVisible('issues'))
+      columns.push('156px')
+    if (isInitiativeRowFieldVisible('updated'))
+      columns.push('112px')
     return columns.join(' ')
   }
   function getSavedViewGridTemplate(): string {
     const columns = ['minmax(260px,1fr)']
-    if (isSavedViewRowFieldVisible('type')) columns.push('112px')
-    if (isSavedViewRowFieldVisible('items')) columns.push('88px')
-    if (isSavedViewRowFieldVisible('owner')) columns.push('132px')
-    if (isSavedViewRowFieldVisible('updated')) columns.push('112px')
+    if (isSavedViewRowFieldVisible('type'))
+      columns.push('112px')
+    if (isSavedViewRowFieldVisible('items'))
+      columns.push('88px')
+    if (isSavedViewRowFieldVisible('owner'))
+      columns.push('132px')
+    if (isSavedViewRowFieldVisible('updated'))
+      columns.push('112px')
     return columns.join(' ')
   }
   function clampSidebarWidth(nextWidth: number): number {
@@ -2849,11 +2966,13 @@ export function useTicketListController() {
   }
   function openTicket(ticketKey: string) {
     focusedIssueKey.value = ticketKey
-    if (selectedKey.value === ticketKey) return
+    if (selectedKey.value === ticketKey)
+      return
     selectedKey.value = ticketKey
   }
   function closeTicket() {
-    if (selectedKey.value === null) return
+    if (selectedKey.value === null)
+      return
     selectedKey.value = null
   }
   function focusIssue(ticketKey: string) {
@@ -2861,7 +2980,7 @@ export function useTicketListController() {
   }
   function toggleCheckedIssue(ticketKey: string) {
     checkedIssueKeys.value = checkedIssueKeySet.value.has(ticketKey)
-      ? checkedIssueKeys.value.filter((key) => key !== ticketKey)
+      ? checkedIssueKeys.value.filter(key => key !== ticketKey)
       : [...checkedIssueKeys.value, ticketKey]
     selectionAnchorKey.value = ticketKey
   }
@@ -2872,12 +2991,13 @@ export function useTicketListController() {
   function getVisibleTicketRangeKeys(anchorKey: string, targetKey: string): string[] {
     const flatTickets = getFlatVisibleTickets()
     const anchorIndex = flatTickets.findIndex(
-      (ticket) => getDisplayedIssueRowKey(ticket) === anchorKey,
+      ticket => getDisplayedIssueRowKey(ticket) === anchorKey,
     )
     const targetIndex = flatTickets.findIndex(
-      (ticket) => getDisplayedIssueRowKey(ticket) === targetKey,
+      ticket => getDisplayedIssueRowKey(ticket) === targetKey,
     )
-    if (anchorIndex === -1 || targetIndex === -1) return targetKey ? [targetKey] : []
+    if (anchorIndex === -1 || targetIndex === -1)
+      return targetKey ? [targetKey] : []
     const start = Math.min(anchorIndex, targetIndex)
     const end = Math.max(anchorIndex, targetIndex)
     return flatTickets.slice(start, end + 1).map(getDisplayedIssueRowKey)
@@ -2892,7 +3012,8 @@ export function useTicketListController() {
   }
   function openFirstCheckedIssue() {
     const firstIssue = checkedIssues.value[0]
-    if (!firstIssue) return
+    if (!firstIssue)
+      return
     openTicket(firstIssue.key)
   }
   function selectInboxItem(ticketKey: string) {
@@ -2904,19 +3025,22 @@ export function useTicketListController() {
     const keySet = new Set(inboxReadKeys.value)
     if (isRead) {
       keySet.add(ticketKey)
-    } else {
+    }
+    else {
       keySet.delete(ticketKey)
     }
     inboxReadKeys.value = [...keySet]
   }
   function markActiveInboxRead() {
     const item = activeInboxItem.value
-    if (!item) return
+    if (!item)
+      return
     setInboxReadState(item.ticket.key, true)
   }
   function toggleActiveInboxRead() {
     const item = activeInboxItem.value
-    if (!item) return
+    if (!item)
+      return
     setInboxReadState(item.ticket.key, item.unread)
   }
   function markAllInboxRead() {
@@ -2928,11 +3052,12 @@ export function useTicketListController() {
   }
   function archiveInboxItem(ticketKey: string) {
     const currentIndex = inboxItems.value.findIndex(
-      (inboxItem) => inboxItem.ticket.key === ticketKey,
+      inboxItem => inboxItem.ticket.key === ticketKey,
     )
-    if (currentIndex === -1) return
-    const nextItem =
-      inboxItems.value[currentIndex + 1] ?? inboxItems.value[currentIndex - 1] ?? null
+    if (currentIndex === -1)
+      return
+    const nextItem
+      = inboxItems.value[currentIndex + 1] ?? inboxItems.value[currentIndex - 1] ?? null
     const archivedKeySet = new Set(inboxArchivedKeys.value)
     archivedKeySet.add(ticketKey)
     inboxArchivedKeys.value = [...archivedKeySet]
@@ -2945,7 +3070,8 @@ export function useTicketListController() {
   }
   function archiveActiveInboxItem() {
     const item = activeInboxItem.value
-    if (!item) return
+    if (!item)
+      return
     archiveInboxItem(item.ticket.key)
   }
   function restoreArchivedInboxItems() {
@@ -2953,31 +3079,36 @@ export function useTicketListController() {
   }
   function openActiveInboxIssue() {
     const item = activeInboxItem.value
-    if (!item) return
+    if (!item)
+      return
     markActiveInboxRead()
     openTicket(item.ticket.key)
   }
   function selectRelativeInboxItem(direction: 1 | -1) {
     const items = inboxItems.value
-    if (!items.length) return
+    if (!items.length)
+      return
     const activeKey = activeInboxItem.value?.ticket.key ?? activeInboxKey.value
-    const currentIndex = activeKey ? items.findIndex((item) => item.ticket.key === activeKey) : -1
+    const currentIndex = activeKey ? items.findIndex(item => item.ticket.key === activeKey) : -1
     const fallbackIndex = direction > 0 ? 0 : items.length - 1
-    const nextIndex =
-      currentIndex === -1
+    const nextIndex
+      = currentIndex === -1
         ? fallbackIndex
         : Math.min(items.length - 1, Math.max(0, currentIndex + direction))
     const nextItem = items[nextIndex]
-    if (!nextItem) return
+    if (!nextItem)
+      return
     selectInboxItem(nextItem.ticket.key)
   }
   async function copyCheckedIssueKeys() {
     const text = checkedIssueKeys.value.join(', ')
-    if (!text || !navigator.clipboard) return
+    if (!text || !navigator.clipboard)
+      return
     await navigator.clipboard.writeText(text)
   }
   async function copyIssueKey(ticketKey: string) {
-    if (!ticketKey || !navigator.clipboard) return
+    if (!ticketKey || !navigator.clipboard)
+      return
     await navigator.clipboard.writeText(ticketKey)
   }
   function openSettings() {
@@ -3275,14 +3406,15 @@ export function useTicketListController() {
   }
   function handleDocumentPointerDown(event: PointerEvent) {
     const target = event.target
-    if (!(target instanceof Node)) return
+    if (!(target instanceof Node))
+      return
     if (customViewContextMenu.value.open && !customViewContextMenuRef.value?.contains(target)) {
       closeCustomViewContextMenu()
     }
     if (displayOptionsOpen.value) {
       if (
-        displayOptionsPanelRef.value?.contains(target) ||
-        displayOptionsButtonRef.value?.contains(target)
+        displayOptionsPanelRef.value?.contains(target)
+        || displayOptionsButtonRef.value?.contains(target)
       ) {
         return
       }
@@ -3290,8 +3422,8 @@ export function useTicketListController() {
     }
     if (filterMenuOpen.value) {
       if (
-        filterMenuPanelRef.value?.contains(target) ||
-        filterMenuButtonRef.value?.contains(target)
+        filterMenuPanelRef.value?.contains(target)
+        || filterMenuButtonRef.value?.contains(target)
       ) {
         return
       }
@@ -3304,19 +3436,22 @@ export function useTicketListController() {
   }
   function runActiveCommand() {
     const item = commandItems.value[commandActiveIndex.value]
-    if (!item) return
+    if (!item)
+      return
     runCommandItem(item)
   }
   function moveCommandSelection(delta: number) {
     const itemCount = commandItems.value.length
-    if (itemCount === 0) return
+    if (itemCount === 0)
+      return
     commandActiveIndex.value = (commandActiveIndex.value + delta + itemCount) % itemCount
   }
   function getIssueSectionCollapseId(section: IssueSection): string {
     return `${currentView.value}:${listGrouping.value}:${section.id}`
   }
   function isIssueSectionCollapsed(section: IssueSection): boolean {
-    if (!shouldShowIssueSectionHeader()) return false
+    if (!shouldShowIssueSectionHeader())
+      return false
     return collapsedIssueSectionIds.value.includes(getIssueSectionCollapseId(section))
   }
   function shouldShowIssueSectionHeader(): boolean {
@@ -3325,7 +3460,7 @@ export function useTicketListController() {
   function toggleIssueSection(section: IssueSection) {
     const sectionId = getIssueSectionCollapseId(section)
     collapsedIssueSectionIds.value = isIssueSectionCollapsed(section)
-      ? collapsedIssueSectionIds.value.filter((id) => id !== sectionId)
+      ? collapsedIssueSectionIds.value.filter(id => id !== sectionId)
       : [...collapsedIssueSectionIds.value, sectionId]
   }
   function getExpandedSectionTickets(section: IssueSection): JiraTicket[] {
@@ -3335,13 +3470,14 @@ export function useTicketListController() {
     return `${currentView.value}:${projectGrouping.value}:${section.id}`
   }
   function isProjectSectionCollapsed(section: ProjectSection): boolean {
-    if (projectGrouping.value === 'none') return false
+    if (projectGrouping.value === 'none')
+      return false
     return collapsedProjectSectionIds.value.includes(getProjectSectionCollapseId(section))
   }
   function toggleProjectSection(section: ProjectSection): void {
     const sectionId = getProjectSectionCollapseId(section)
     collapsedProjectSectionIds.value = isProjectSectionCollapsed(section)
-      ? collapsedProjectSectionIds.value.filter((id) => id !== sectionId)
+      ? collapsedProjectSectionIds.value.filter(id => id !== sectionId)
       : [...collapsedProjectSectionIds.value, sectionId]
   }
   function getFlatVisibleTickets(): JiraTicket[] {
@@ -3349,27 +3485,29 @@ export function useTicketListController() {
   }
   function openRelativeVisibleTicket(delta: number, extendSelection = false) {
     const flatTickets = getFlatVisibleTickets()
-    if (!flatTickets.length) return
+    if (!flatTickets.length)
+      return
     const currentKey = selectedKey.value || focusedIssueKey.value
     const currentIndex = currentKey
-      ? flatTickets.findIndex((ticket) => getDisplayedIssueRowKey(ticket) === currentKey)
+      ? flatTickets.findIndex(ticket => getDisplayedIssueRowKey(ticket) === currentKey)
       : -1
-    const nextIndex =
-      currentIndex === -1
+    const nextIndex
+      = currentIndex === -1
         ? delta > 0
           ? 0
           : flatTickets.length - 1
         : Math.min(flatTickets.length - 1, Math.max(0, currentIndex + delta))
     const nextTicket = flatTickets[nextIndex]
-    if (!nextTicket) return
+    if (!nextTicket)
+      return
     if (selectedKey.value) {
       openTicket(getDisplayedIssueRowKey(nextTicket))
       return
     }
     if (extendSelection) {
       const nextTicketKey = getDisplayedIssueRowKey(nextTicket)
-      const anchorKey =
-        selectionAnchorKey.value ?? focusedIssueKey.value ?? currentKey ?? nextTicketKey
+      const anchorKey
+        = selectionAnchorKey.value ?? focusedIssueKey.value ?? currentKey ?? nextTicketKey
       selectionAnchorKey.value = anchorKey
       addCheckedIssueRange(anchorKey, nextTicketKey)
     }
@@ -3397,7 +3535,8 @@ export function useTicketListController() {
     }
   }
   function handleGlobalKeydown(event: KeyboardEvent) {
-    if (event.defaultPrevented) return
+    if (event.defaultPrevented)
+      return
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault()
       openCommandMenu()
@@ -3489,17 +3628,19 @@ export function useTicketListController() {
     }
     if (key === 'x') {
       const firstVisibleTicket = getFlatVisibleTickets()[0]
-      const keyToToggle =
-        selectedKey.value ||
-        focusedIssueKey.value ||
-        (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
-      if (!keyToToggle) return
+      const keyToToggle
+        = selectedKey.value
+          || focusedIssueKey.value
+          || (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
+      if (!keyToToggle)
+        return
       event.preventDefault()
       if (event.shiftKey) {
         const anchorKey = selectionAnchorKey.value ?? keyToToggle
         selectionAnchorKey.value = anchorKey
         addCheckedIssueRange(anchorKey, keyToToggle)
-      } else {
+      }
+      else {
         toggleCheckedIssue(keyToToggle)
       }
       return
@@ -3516,10 +3657,11 @@ export function useTicketListController() {
     }
     if (key === 'enter' && !selectedKey.value) {
       const firstVisibleTicket = getFlatVisibleTickets()[0]
-      const keyToOpen =
-        focusedIssueKey.value ??
-        (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
-      if (!keyToOpen) return
+      const keyToOpen
+        = focusedIssueKey.value
+          ?? (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
+      if (!keyToOpen)
+        return
       event.preventDefault()
       openTicket(keyToOpen)
       return

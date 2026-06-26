@@ -1,5 +1,6 @@
-import { computed, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { fetchCreateIssueTypes } from '@/api/jira'
 
 export const createIssueTypesQueryKey = (parentKey: string | null) => ['create-issue-types', parentKey]

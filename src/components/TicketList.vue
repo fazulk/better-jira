@@ -142,8 +142,8 @@ const activeDateFilterId = ref<DateFilterFieldId>('dueDate')
 const activeProjectPropertyFilterId = ref<ProjectPropertyFilterFieldId>('projectStatus')
 const filterFieldSearchQuery = ref('')
 const filterSearchQuery = ref('')
-const savedViewFilters = useLocalStorage<Record<string, ViewFilterClause[]>>('jira2.linear.viewFilters', {})
-const savedViewDisplays = useLocalStorage<Record<string, CustomViewDisplay>>('jira2.linear.viewDisplay', {})
+const savedViewFilters = ref<Record<string, ViewFilterClause[]>>({})
+const savedViewDisplays = ref<Record<string, CustomViewDisplay>>({})
 type ViewEditorMode = 'create' | 'edit'
 const viewEditorMode = ref<ViewEditorMode | null>(null)
 const viewEditorDraft = ref<CustomView | null>(null)
@@ -176,7 +176,6 @@ type ProjectRowFieldId = 'health' | 'priority' | 'lead' | 'targetDate' | 'issues
 type InitiativeRowFieldId = 'health' | 'lead' | 'projects' | 'issues' | 'updated'
 type SavedViewRowFieldId = 'type' | 'items' | 'owner' | 'updated'
 type MyIssuesViewId = 'my-issues' | 'my-created'
-type StatusTypeValue = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed'
 type DateFilterOperator = 'hasDate' | 'noDate' | 'past' | 'today' | 'next7' | 'next30'
 type DateFilterFieldId = 'dueDate' | 'createdDate' | 'updatedDate' | 'completedDate'
 type ProjectPropertyFilterFieldId = 'projectStatus' | 'projectPriority' | 'projectLead'
@@ -185,7 +184,6 @@ type ViewsDirectoryTabId = 'views' | 'project-views'
 type CustomViewKind = 'issues' | 'projects'
 type FilterFieldId =
   | 'status'
-  | 'statusType'
   | 'assignee'
   | 'reporter'
   | 'priority'
@@ -201,7 +199,6 @@ type FilterFieldId =
   | 'externalSource'
 const filterFieldIds = new Set<string>([
   'status',
-  'statusType',
   'assignee',
   'reporter',
   'priority',
@@ -223,7 +220,6 @@ const filterFieldIds = new Set<string>([
 ])
 type FilterEntryId =
   | 'status'
-  | 'statusType'
   | 'assignee'
   | 'reporter'
   | 'priority'
@@ -425,8 +421,8 @@ function getDefaultViewDisplay(): CustomViewDisplay {
     orderingDirection: 'asc',
     completedRange: 'all',
     showSubIssueContext: true,
-    showSubIssuesRange: 'all',
-    showTriageIssuesRange: 'all',
+    showSubIssuesRange: 'hidden',
+    showTriageIssuesRange: 'hidden',
     orderCompletedByRecency: false,
     showEmptyGroups: false,
     issueGroupOrders: {},
@@ -606,6 +602,40 @@ function stringSetsMatch(left: readonly string[], right: readonly string[]): boo
   return left.length === right.length && left.every(value => right.includes(value))
 }
 
+function filterClausesMatch(left: readonly ViewFilterClause[], right: readonly ViewFilterClause[]): boolean {
+  return left.length === right.length
+    && left.every(filter => right.some(candidate => (
+      candidate.fieldId === filter.fieldId
+      && candidate.value === filter.value
+    )))
+}
+
+function filterGroupsMatch<Item>(
+  item: Item,
+  filters: readonly ViewFilterClause[],
+  matchesFilter: (item: Item, filter: ViewFilterClause) => boolean,
+): boolean {
+  const filtersByField = new Map<FilterFieldId, ViewFilterClause[]>()
+
+  for (const filter of filters) {
+    const existingFilters = filtersByField.get(filter.fieldId)
+    if (existingFilters) {
+      existingFilters.push(filter)
+      continue
+    }
+
+    filtersByField.set(filter.fieldId, [filter])
+  }
+
+  for (const filtersForField of filtersByField.values()) {
+    if (!filtersForField.some(filter => matchesFilter(item, filter))) {
+      return false
+    }
+  }
+
+  return true
+}
+
 function issueGroupConfigMapsMatch(left: IssueGroupConfigMap, right: IssueGroupConfigMap): boolean {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)])
 
@@ -710,7 +740,6 @@ function applyDisplay(display: CustomViewDisplay): void {
 function normalizeFilterFieldId(value: string): FilterFieldId | null {
   switch (value) {
     case 'status':
-    case 'statusType':
     case 'assignee':
     case 'reporter':
     case 'priority':
@@ -811,23 +840,17 @@ function getDefaultFiltersForView(viewId: string): ViewFilterClause[] {
     return [createViewFilterClause('reporter', 'current-user', 'Current user')]
   }
 
+  if (viewId === 'ready-qa') {
+    return [createViewFilterClause('status', 'ready-for-qa', 'Ready for QA')]
+  }
 
   const [scope, , section] = viewId.split(':')
   if (scope !== 'team') {
     return []
   }
 
-  if (section === 'triage') {
-    return [createViewFilterClause('statusType', 'triage', 'Triage')]
-  }
-
-  if (section === 'backlog') {
-    return [createViewFilterClause('statusType', 'backlog', 'Backlog')]
-  }
-
-
-  if (section === 'active' || !section) {
-    return [createViewFilterClause('statusType', 'active', 'Active')]
+  if (section === 'ready-qa') {
+    return [createViewFilterClause('status', 'ready-for-qa', 'Ready for QA')]
   }
 
   return []
@@ -843,7 +866,15 @@ function getDefaultDisplayForView(viewId: string): CustomViewDisplay {
     return copyViewDisplay(customView.display)
   }
 
-  return getDefaultViewDisplay()
+  const display = getDefaultViewDisplay()
+  const [, , section] = viewId.split(':')
+  const nextDisplay: CustomViewDisplay = isMyIssuesView(viewId) || section === 'all'
+    ? { ...display, completedRange: 'day' }
+    : display
+
+  return section === 'backlog' || section === 'triage'
+    ? { ...nextDisplay, showTriageIssuesRange: 'all' }
+    : nextDisplay
 }
 
 function copyCustomView(view: CustomView): CustomView {
@@ -953,7 +984,6 @@ const savedViewRowFieldOptions: SavedViewRowFieldOption[] = [
 
 const filterMenuEntries: FilterMenuEntry[] = [
   { id: 'status', label: 'Status', icon: '◌', hasSubmenu: true },
-  { id: 'statusType', label: 'Status type', icon: '◐', hasSubmenu: true },
   { id: 'assignee', label: 'Assignee', icon: '♙', hasSubmenu: true },
   { id: 'reporter', label: 'Creator', icon: '♙', hasSubmenu: true },
   { id: 'priority', label: 'Priority', icon: '▥', hasSubmenu: true },
@@ -1290,7 +1320,26 @@ const currentViewFilters = computed(() => {
 
   return getDefaultFiltersForView(currentView.value)
 })
-const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0)
+const hasIssueInclusionFilters = computed(() => {
+  if (!isIssueDisplayView.value) {
+    return false
+  }
+
+  return completedRange.value !== 'all'
+    || showSubIssuesRange.value === 'hidden'
+    || showTriageIssuesRange.value === 'hidden'
+})
+const hasCurrentViewFilters = computed(() => currentViewFilters.value.length > 0 || hasIssueInclusionFilters.value)
+const hasModifiedFilterOptions = computed(() => {
+  const defaults = getDefaultDisplayForView(currentView.value)
+
+  return !filterClausesMatch(currentViewFilters.value, getDefaultFiltersForView(currentView.value))
+    || (isIssueDisplayView.value && (
+      completedRange.value !== defaults.completedRange
+      || showSubIssuesRange.value !== defaults.showSubIssuesRange
+      || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
+    ))
+})
 const hasModifiedDisplayOptions = computed(() => {
   const defaults = getDefaultDisplayForView(currentView.value)
 
@@ -1318,9 +1367,6 @@ const hasModifiedDisplayOptions = computed(() => {
     || listOrdering.value !== defaults.ordering
     || listGroupingDirection.value !== defaults.groupingDirection
     || listOrderingDirection.value !== defaults.orderingDirection
-    || completedRange.value !== defaults.completedRange
-    || showSubIssuesRange.value !== defaults.showSubIssuesRange
-    || showTriageIssuesRange.value !== defaults.showTriageIssuesRange
     || orderCompletedByRecency.value !== defaults.orderCompletedByRecency
     || showEmptyGroups.value !== defaults.showEmptyGroups
     || !stringSetsMatch(visibleIssueRowFields.value, defaults.visibleIssueRowFields)
@@ -1345,7 +1391,6 @@ const activeValueFilterFieldId = computed<FilterFieldId>(() => {
   if (activeFilterEntryId.value === 'dates') return activeDateFilterId.value
   if (activeFilterEntryId.value === 'projectProperties') return activeProjectPropertyFilterId.value
   if (activeFilterEntryId.value === 'status') return 'status'
-  if (activeFilterEntryId.value === 'statusType') return 'statusType'
   if (activeFilterEntryId.value === 'assignee') return 'assignee'
   if (activeFilterEntryId.value === 'reporter') return 'reporter'
   if (activeFilterEntryId.value === 'priority') return 'priority'
@@ -1432,7 +1477,10 @@ const baseSearchedTickets = computed(() => {
   return baseTickets.filter(ticket => ticketMatchesQuery(ticket, query))
 })
 
-const searchedTickets = computed(() => applyViewFiltersToTickets(baseSearchedTickets.value))
+const searchedTickets = computed(() => {
+  const filteredTickets = applyViewFiltersToTickets(baseSearchedTickets.value)
+  return showSubIssues.value ? filteredTickets : hideSubIssuesWithVisibleParents(filteredTickets)
+})
 
 const searchedProjectRows = computed(() => {
   const query = normalizedIssueSearch.value
@@ -1493,7 +1541,7 @@ const searchTabs = computed<SearchTab[]>(() => [
 ])
 
 const baseIssueSections = computed<IssueSection[]>(() => {
-  if (isMyIssuesView(currentView.value)) {
+  if (isMyIssuesView(currentView.value) && listGrouping.value === 'none') {
     const label = currentView.value === 'my-created' ? 'Created by you' : 'Assigned to you'
 
     return [{
@@ -1836,7 +1884,7 @@ function getCustomViewStats(view: CustomView): { count: number, updatedAt?: stri
 
   if (kind === 'projects') {
     const projects = getProjectRowsForCustomView(view.contextKey)
-      .filter(project => filters.every(filter => projectMatchesFilter(project, filter)))
+      .filter(project => filterGroupsMatch(project, filters, projectMatchesFilter))
     const updatedAt = [...projects]
       .sort((left, right) => getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt))[0]?.updatedAt
 
@@ -1847,7 +1895,7 @@ function getCustomViewStats(view: CustomView): { count: number, updatedAt?: stri
   }
 
   const tickets = getIssueTicketsForCustomView(view.contextKey)
-    .filter(ticket => filters.every(filter => ticketMatchesFilter(ticket, filter)))
+    .filter(ticket => filterGroupsMatch(ticket, filters, ticketMatchesFilter))
 
   return {
     count: tickets.length,
@@ -2166,11 +2214,11 @@ watch([issueSections, collapsedIssueSectionIds], () => {
     return
   }
 
-  if (!focusedIssueKey.value || !flatTickets.some(ticket => ticket.key === focusedIssueKey.value)) {
-    focusedIssueKey.value = flatTickets[0]?.key ?? null
+  if (!focusedIssueKey.value || !flatTickets.some(ticket => getDisplayedIssueRowKey(ticket) === focusedIssueKey.value)) {
+    focusedIssueKey.value = flatTickets[0] ? getDisplayedIssueRowKey(flatTickets[0]) : null
   }
 
-  if (selectionAnchorKey.value && !flatTickets.some(ticket => ticket.key === selectionAnchorKey.value)) {
+  if (selectionAnchorKey.value && !flatTickets.some(ticket => getDisplayedIssueRowKey(ticket) === selectionAnchorKey.value)) {
     selectionAnchorKey.value = null
   }
 }, { immediate: true })
@@ -2311,10 +2359,20 @@ function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
 
 function filterTicketsForCurrentView(nextTickets: JiraTicket[]): JiraTicket[] {
   return nextTickets.filter(ticket => (
-    isCompletedIssueVisible(ticket)
+    isTicketInCurrentTeamSection(ticket)
+    && isCompletedIssueVisible(ticket)
     && isSubIssueVisible(ticket)
     && isTriageIssueVisible(ticket)
   ))
+}
+
+function isTicketInCurrentTeamSection(ticket: JiraTicket): boolean {
+  const section = currentTeamSection.value
+  if (section === null) return true
+  if (section === 'active' || !section) return isActiveIssueTicket(ticket)
+  if (section === 'triage') return getStatusGroup(ticket.statusCategory) === 'new'
+  if (section === 'backlog') return isBacklogIssueTicket(ticket)
+  return true
 }
 
 function isBacklogIssueTicket(ticket: JiraTicket): boolean {
@@ -2333,6 +2391,19 @@ function isCompletedIssueVisible(ticket: JiraTicket): boolean {
 function isSubIssueTicket(ticket: JiraTicket): boolean {
   const parentIssueType = ticket.parent?.issueType.trim().toLowerCase()
   return Boolean(parentIssueType && !parentIssueType.includes('epic'))
+}
+
+function getIssueRowKey(ticket: JiraTicket): string {
+  return isSubIssueTicket(ticket) && ticket.parent?.key ? ticket.parent.key : ticket.key
+}
+
+function getDisplayedIssueRowKey(ticket: JiraTicket): string {
+  return showSubIssueContext.value ? getIssueRowKey(ticket) : ticket.key
+}
+
+function hideSubIssuesWithVisibleParents(nextTickets: JiraTicket[]): JiraTicket[] {
+  const visibleTicketKeys = new Set(nextTickets.map(ticket => ticket.key))
+  return nextTickets.filter(ticket => !isSubIssueTicket(ticket) || !ticket.parent?.key || !visibleTicketKeys.has(ticket.parent.key))
 }
 
 function isSubIssueVisible(ticket: JiraTicket): boolean {
@@ -2383,7 +2454,6 @@ function ticketMatchesQuery(ticket: JiraTicket, query: string): boolean {
 
 function getFilterFieldLabel(fieldId: FilterFieldId): string {
   if (fieldId === 'status') return 'Status'
-  if (fieldId === 'statusType') return 'Status type'
   if (fieldId === 'assignee') return 'Assignee'
   if (fieldId === 'reporter') return 'Creator'
   if (fieldId === 'priority') return 'Priority'
@@ -2422,35 +2492,11 @@ function getFilterOptions(fieldId: FilterFieldId): FilterOption[] {
 function getIssueFilterOptions(fieldId: FilterFieldId): FilterOption[] {
   const baseTickets = filterableTickets.value
   if (fieldId === 'status') {
-    const statusOptions = countFilterOptions(baseTickets.map(ticket => ({
+    return countFilterOptions(baseTickets.map(ticket => ({
       value: normalizeFilterValue(ticket.status || 'No status'),
       label: ticket.status || 'No status',
       icon: '◌',
     })))
-  }
-
-  if (fieldId === 'statusType') {
-    const statusTypeOptions = countFilterOptions(baseTickets.map(ticket => {
-      const statusType = getTicketStatusType(ticket)
-      return {
-        value: statusType,
-        label: getStatusTypeLabel(statusType),
-        icon: getStatusTypeIcon(statusType),
-      }
-    }))
-    const activeCount = baseTickets.filter(isActiveIssueTicket).length
-
-    return activeCount > 0
-      ? [
-          {
-            value: 'active',
-            label: 'Active',
-            count: activeCount,
-            icon: getStatusTypeIcon('active'),
-          },
-          ...statusTypeOptions.filter(option => option.value !== 'active'),
-        ]
-      : statusTypeOptions
   }
 
   if (fieldId === 'assignee' || fieldId === 'sharedWith') {
@@ -2606,17 +2652,6 @@ function getProjectFilterOptions(fieldId: FilterFieldId): FilterOption[] {
     })))
   }
 
-  if (fieldId === 'statusType') {
-    return countFilterOptions(baseProjects.map(project => {
-      const statusType = getProjectStatusType(project)
-      return {
-        value: statusType,
-        label: getStatusTypeLabel(statusType),
-        icon: getStatusTypeIcon(statusType),
-      }
-    }))
-  }
-
   if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
     const currentUser = currentUserName.value || 'Current user'
     const people = baseProjects.map(project => ({
@@ -2700,17 +2735,6 @@ function getInitiativeFilterOptions(fieldId: FilterFieldId): FilterOption[] {
       label: initiative.health,
       icon: initiative.health === 'Completed' ? '✓' : initiative.health === 'At risk' ? '◆' : '○',
     })))
-  }
-
-  if (fieldId === 'statusType') {
-    return countFilterOptions(baseInitiatives.map(initiative => {
-      const statusType = getInitiativeStatusType(initiative)
-      return {
-        value: statusType,
-        label: getStatusTypeLabel(statusType),
-        icon: getStatusTypeIcon(statusType),
-      }
-    }))
   }
 
   if (fieldId === 'assignee' || fieldId === 'projectLead' || fieldId === 'sharedWith') {
@@ -2834,15 +2858,6 @@ function normalizeFilterValue(value: string | undefined): string {
   return normalized || 'none'
 }
 
-function getTicketStatusType(ticket: JiraTicket): StatusTypeValue {
-  const status = ticket.status.trim().toLowerCase()
-  if (status === 'backlog') return 'backlog'
-  const group = getStatusGroup(ticket.statusCategory)
-  if (group === 'new') return 'triage'
-  if (group === 'done') return 'completed'
-  return 'started'
-}
-
 function ticketMatchesCurrentUserReporter(ticket: JiraTicket): boolean {
   if (isLocalTicketKey(ticket.key)) {
     return true
@@ -2850,23 +2865,6 @@ function ticketMatchesCurrentUserReporter(ticket: JiraTicket): boolean {
 
   return Boolean(currentUserName.value)
     && normalizeFilterValue(ticket.reporter) === normalizeFilterValue(currentUserName.value)
-}
-
-function getStatusTypeLabel(value: string): string {
-  if (value === 'active') return 'Active'
-  if (value === 'triage') return 'Triage'
-  if (value === 'backlog') return 'Backlog'
-  if (value === 'unstarted') return 'Unstarted'
-  if (value === 'completed') return 'Completed'
-  return 'Started'
-}
-
-function getStatusTypeIcon(value: string): string {
-  if (value === 'active') return '◐'
-  if (value === 'triage') return '⊕'
-  if (value === 'backlog') return '◌'
-  if (value === 'completed') return '✓'
-  return '◐'
 }
 
 function getTicketDateValue(ticket: JiraTicket, fieldId: DateFilterFieldId): string | undefined {
@@ -2910,18 +2908,12 @@ function dateMatchesOperator(value: string | undefined, operator: DateFilterOper
 function applyViewFiltersToTickets(nextTickets: JiraTicket[]): JiraTicket[] {
   const filters = currentViewFilters.value
   if (!filters.length) return nextTickets
-  return nextTickets.filter(ticket => filters.every(filter => ticketMatchesFilter(ticket, filter)))
+  return nextTickets.filter(ticket => filterGroupsMatch(ticket, filters, ticketMatchesFilter))
 }
 
 function ticketMatchesFilter(ticket: JiraTicket, filter: ViewFilterClause): boolean {
   if (filter.fieldId === 'status') {
     return normalizeFilterValue(ticket.status || 'No status') === filter.value
-  }
-  if (filter.fieldId === 'statusType') {
-    if (filter.value === 'active') {
-      return isActiveIssueTicket(ticket)
-    }
-    return getTicketStatusType(ticket) === filter.value
   }
   if (filter.fieldId === 'assignee' || filter.fieldId === 'sharedWith') {
     if (filter.value === 'current-user') {
@@ -2982,12 +2974,11 @@ function getTicketInitiativeIds(ticket: JiraTicket): string[] {
 function applyViewFiltersToProjects(nextProjects: ProjectRow[]): ProjectRow[] {
   const filters = currentViewFilters.value
   if (!filters.length) return nextProjects
-  return nextProjects.filter(project => filters.every(filter => projectMatchesFilter(project, filter)))
+  return nextProjects.filter(project => filterGroupsMatch(project, filters, projectMatchesFilter))
 }
 
 function projectMatchesFilter(project: ProjectRow, filter: ViewFilterClause): boolean {
   if (filter.fieldId === 'status' || filter.fieldId === 'projectStatus') return normalizeFilterValue(project.status || 'No status') === filter.value
-  if (filter.fieldId === 'statusType') return getProjectStatusType(project) === filter.value
   if (filter.fieldId === 'assignee' || filter.fieldId === 'projectLead' || filter.fieldId === 'sharedWith') return normalizeFilterValue(project.lead || 'Unassigned') === filter.value
   if (filter.fieldId === 'priority' || filter.fieldId === 'projectPriority') return normalizeFilterValue(project.priority || 'No priority') === filter.value
   if (filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(project.health) === filter.value
@@ -3076,28 +3067,16 @@ function getProjectGroupingRank(label: string, grouping: ProjectGroupingFieldId)
   return 0
 }
 
-function getProjectStatusType(project: ProjectRow): StatusTypeValue {
-  if (project.health === 'Completed') return 'completed'
-  if (project.status.trim().toLowerCase() === 'backlog') return 'backlog'
-  return 'started'
-}
-
-function getInitiativeStatusType(initiative: InitiativeRow): StatusTypeValue {
-  if (initiative.health === 'Completed') return 'completed'
-  return 'started'
-}
-
 function applyViewFiltersToInitiatives(nextInitiatives: InitiativeRow[]): InitiativeRow[] {
   const filters = currentViewFilters.value
   if (!filters.length) return nextInitiatives
-  return nextInitiatives.filter(initiative => filters.every(filter => initiativeMatchesFilter(initiative, filter)))
+  return nextInitiatives.filter(initiative => filterGroupsMatch(initiative, filters, initiativeMatchesFilter))
 }
 
 function initiativeMatchesFilter(initiative: InitiativeRow, filter: ViewFilterClause): boolean {
   if (filter.fieldId === 'initiative') return initiative.id === filter.value
   if (filter.fieldId === 'shared') return true
   if (filter.fieldId === 'status' || filter.fieldId === 'labels' || filter.fieldId === 'suggestedLabel') return normalizeFilterValue(initiative.health) === filter.value
-  if (filter.fieldId === 'statusType') return getInitiativeStatusType(initiative) === filter.value
   if (filter.fieldId === 'assignee' || filter.fieldId === 'projectLead' || filter.fieldId === 'sharedWith') return normalizeFilterValue(initiative.lead || 'Unassigned') === filter.value
   if (filter.fieldId === 'externalSource') return filter.value === 'jira'
   if (filter.fieldId === 'dueDate' || filter.fieldId === 'createdDate' || filter.fieldId === 'updatedDate' || filter.fieldId === 'completedDate') {
@@ -3109,7 +3088,7 @@ function initiativeMatchesFilter(initiative: InitiativeRow, filter: ViewFilterCl
 function applyViewFiltersToSavedViews(nextViews: SavedViewRow[]): SavedViewRow[] {
   const filters = currentViewFilters.value
   if (!filters.length) return nextViews
-  return nextViews.filter(row => filters.every(filter => savedViewMatchesFilter(row, filter)))
+  return nextViews.filter(row => filterGroupsMatch(row, filters, savedViewMatchesFilter))
 }
 
 function savedViewMatchesFilter(row: SavedViewRow, filter: ViewFilterClause): boolean {
@@ -3140,9 +3119,23 @@ function setActiveCustomViewFilters(filters: ViewFilterClause[]): void {
   }
 }
 
-function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string) {
+function getFilterClause(fieldId: FilterFieldId, value: string): ViewFilterClause | null {
+  return currentViewFilters.value.find(filter => filter.fieldId === fieldId && filter.value === value) ?? null
+}
+
+function isFilterClauseSelected(fieldId: FilterFieldId, value: string): boolean {
+  return getFilterClause(fieldId, value) !== null
+}
+
+function toggleFilterClause(fieldId: FilterFieldId, value: string, valueLabel: string): void {
+  if (isFilterClauseSelected(fieldId, value)) {
+    setActiveCustomViewFilters(currentViewFilters.value.filter(filter => !(
+      filter.fieldId === fieldId && filter.value === value
+    )))
+    return
+  }
+
   const fieldLabel = getFilterFieldLabel(fieldId)
-  const existingFilters = currentViewFilters.value.filter(filter => !(filter.fieldId === fieldId && filter.value === value))
   const nextFilter: ViewFilterClause = {
     id: `${fieldId}:${value}:${Date.now()}`,
     fieldId,
@@ -3151,21 +3144,7 @@ function addFilterClause(fieldId: FilterFieldId, value: string, valueLabel: stri
     valueLabel,
   }
 
-  if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
-    setActiveCustomViewFilters([...existingFilters, nextFilter])
-    filterMenuOpen.value = false
-    filterFieldSearchQuery.value = ''
-    filterSearchQuery.value = ''
-    return
-  }
-
-  savedViewFilters.value = {
-    ...savedViewFilters.value,
-    [currentView.value]: [...existingFilters, nextFilter],
-  }
-  filterMenuOpen.value = false
-  filterFieldSearchQuery.value = ''
-  filterSearchQuery.value = ''
+  setActiveCustomViewFilters([...currentViewFilters.value, nextFilter])
 }
 
 function removeFilterClause(filterId: string) {
@@ -3183,12 +3162,28 @@ function removeFilterClause(filterId: string) {
 function clearCurrentViewFilters() {
   if (viewEditorDraft.value && currentView.value === viewEditorDraft.value.id) {
     setActiveCustomViewFilters([])
+    resetIssueInclusionFilters()
     return
   }
 
   const nextFilters = { ...savedViewFilters.value }
   delete nextFilters[currentView.value]
   savedViewFilters.value = nextFilters
+  resetIssueInclusionFilters()
+}
+
+function resetIssueInclusionFilters(): void {
+  const defaults = getDefaultDisplayForView(currentView.value)
+  completedRange.value = normalizeIssueVisibilityRange(defaults.completedRange)
+  showSubIssuesRange.value = normalizeIssueVisibilityRange(defaults.showSubIssuesRange)
+  showTriageIssuesRange.value = normalizeIssueVisibilityRange(defaults.showTriageIssuesRange)
+
+  const currentDisplay = captureDisplay()
+  const nextDisplays = { ...savedViewDisplays.value }
+  if (viewDisplayMatches(currentDisplay, defaults)) {
+    delete nextDisplays[currentView.value]
+    savedViewDisplays.value = nextDisplays
+  }
 }
 
 function openFilterMenu() {
@@ -3384,11 +3379,7 @@ function resetIssueDisplayOptions() {
   listOrdering.value = normalizeIssueOrderingFieldId(defaults.ordering)
   listGroupingDirection.value = defaults.groupingDirection
   listOrderingDirection.value = defaults.orderingDirection
-  completedRange.value = normalizeIssueVisibilityRange(defaults.completedRange)
   orderCompletedByRecency.value = defaults.orderCompletedByRecency
-  showSubIssueContext.value = defaults.showSubIssueContext
-  showSubIssuesRange.value = normalizeIssueVisibilityRange(defaults.showSubIssuesRange)
-  showTriageIssuesRange.value = normalizeIssueVisibilityRange(defaults.showTriageIssuesRange)
   showEmptyGroups.value = defaults.showEmptyGroups
   issueGroupOrders.value = copyIssueGroupConfigMap(defaults.issueGroupOrders)
   hiddenIssueGroupIds.value = copyIssueGroupConfigMap(defaults.hiddenIssueGroupIds)
@@ -3711,13 +3702,13 @@ function clearCheckedIssues() {
 
 function getVisibleTicketRangeKeys(anchorKey: string, targetKey: string): string[] {
   const flatTickets = getFlatVisibleTickets()
-  const anchorIndex = flatTickets.findIndex(ticket => ticket.key === anchorKey)
-  const targetIndex = flatTickets.findIndex(ticket => ticket.key === targetKey)
+  const anchorIndex = flatTickets.findIndex(ticket => getDisplayedIssueRowKey(ticket) === anchorKey)
+  const targetIndex = flatTickets.findIndex(ticket => getDisplayedIssueRowKey(ticket) === targetKey)
   if (anchorIndex === -1 || targetIndex === -1) return targetKey ? [targetKey] : []
 
   const start = Math.min(anchorIndex, targetIndex)
   const end = Math.max(anchorIndex, targetIndex)
-  return flatTickets.slice(start, end + 1).map(ticket => ticket.key)
+  return flatTickets.slice(start, end + 1).map(getDisplayedIssueRowKey)
 }
 
 function addCheckedIssueRange(anchorKey: string, targetKey: string) {
@@ -4297,7 +4288,7 @@ function openRelativeVisibleTicket(delta: number, extendSelection = false) {
 
   const currentKey = selectedKey.value || focusedIssueKey.value
   const currentIndex = currentKey
-    ? flatTickets.findIndex(ticket => ticket.key === currentKey)
+    ? flatTickets.findIndex(ticket => getDisplayedIssueRowKey(ticket) === currentKey)
     : -1
   const nextIndex = currentIndex === -1
     ? (delta > 0 ? 0 : flatTickets.length - 1)
@@ -4306,17 +4297,18 @@ function openRelativeVisibleTicket(delta: number, extendSelection = false) {
   if (!nextTicket) return
 
   if (selectedKey.value) {
-    openTicket(nextTicket.key)
+    openTicket(getDisplayedIssueRowKey(nextTicket))
     return
   }
 
   if (extendSelection) {
-    const anchorKey = selectionAnchorKey.value ?? focusedIssueKey.value ?? currentKey ?? nextTicket.key
+    const nextTicketKey = getDisplayedIssueRowKey(nextTicket)
+    const anchorKey = selectionAnchorKey.value ?? focusedIssueKey.value ?? currentKey ?? nextTicketKey
     selectionAnchorKey.value = anchorKey
-    addCheckedIssueRange(anchorKey, nextTicket.key)
+    addCheckedIssueRange(anchorKey, nextTicketKey)
   }
 
-  focusedIssueKey.value = nextTicket.key
+  focusedIssueKey.value = getDisplayedIssueRowKey(nextTicket)
 }
 
 function handleCommandMenuKeydown(event: KeyboardEvent) {
@@ -4454,7 +4446,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
   if (key === 'x') {
     const firstVisibleTicket = getFlatVisibleTickets()[0]
-    const keyToToggle = selectedKey.value || focusedIssueKey.value || firstVisibleTicket?.key
+    const keyToToggle = selectedKey.value || focusedIssueKey.value || (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
     if (!keyToToggle) return
     event.preventDefault()
     if (event.shiftKey) {
@@ -4481,7 +4473,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
   if (key === 'enter' && !selectedKey.value) {
     const firstVisibleTicket = getFlatVisibleTickets()[0]
-    const keyToOpen = focusedIssueKey.value ?? firstVisibleTicket?.key
+    const keyToOpen = focusedIssueKey.value ?? (firstVisibleTicket ? getDisplayedIssueRowKey(firstVisibleTicket) : null)
     if (!keyToOpen) return
     event.preventDefault()
     openTicket(keyToOpen)
@@ -4658,9 +4650,14 @@ onBeforeUnmount(() => {
                   :class="activeFilterEntryId === entry.id ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
                   @mouseenter="activeFilterEntryId = entry.id"
                   @focus="activeFilterEntryId = entry.id"
-                  @click="entry.id === 'shared' ? addFilterClause('shared', 'shared', 'Shared') : activeFilterEntryId = entry.id"
+                  @click="entry.id === 'shared' ? toggleFilterClause('shared', 'shared', 'Shared') : activeFilterEntryId = entry.id"
                 >
-                  <span class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
+                  <span
+                    v-if="entry.id === 'shared'"
+                    class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
+                    :class="isFilterClauseSelected('shared', 'shared') ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]' : 'border-white/[0.18] text-transparent'"
+                  >✓</span>
+                  <span v-else class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
                   <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
                   <span v-if="entry.hasSubmenu" class="text-[11px] text-[#777a83]">›</span>
                 </button>
@@ -4675,10 +4672,58 @@ onBeforeUnmount(() => {
                   <button
                     type="button"
                     class="rounded px-1.5 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4] disabled:cursor-not-allowed disabled:opacity-40"
-                    :disabled="!hasCurrentViewFilters"
+                    :disabled="!hasModifiedFilterOptions"
                     @click="clearCurrentViewFilters"
                   >
                     Reset
+                  </button>
+                </div>
+
+                <div v-if="isIssueDisplayView" class="border-b border-white/[0.06] px-3 py-2">
+                  <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">Issue inclusion</p>
+                  <label class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 rounded-md py-1.5">
+                    <span class="text-[12px] text-[#aeb0b7]">Completed issues</span>
+                    <select v-model="completedRange" name="filter-completed-issues-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
+                      <option v-for="option in issueVisibilityRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-4 rounded-md py-1.5 text-left transition hover:bg-white/[0.025]"
+                    role="switch"
+                    :aria-checked="showSubIssues"
+                    @click="showSubIssues = !showSubIssues"
+                  >
+                    <span class="text-[12px] text-[#aeb0b7]">Show sub-issues</span>
+                    <span
+                      class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
+                      :class="showSubIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                    >
+                      <span
+                        class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
+                        :class="showSubIssues ? 'translate-x-3' : 'translate-x-0'"
+                      ></span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-4 rounded-md py-1.5 text-left transition hover:bg-white/[0.025]"
+                    role="switch"
+                    :aria-checked="showTriageAndBacklogIssues"
+                    @click="showTriageAndBacklogIssues = !showTriageAndBacklogIssues"
+                  >
+                    <span class="text-[12px] text-[#aeb0b7]">Show triage (backlog)</span>
+                    <span
+                      class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
+                      :class="showTriageAndBacklogIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
+                    >
+                      <span
+                        class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
+                        :class="showTriageAndBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
+                      ></span>
+                    </span>
                   </button>
                 </div>
 
@@ -4703,9 +4748,16 @@ onBeforeUnmount(() => {
                       v-for="option in activeDateFilterOptions"
                       :key="option.value"
                       type="button"
-                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
-                      @click="addFilterClause(activeDateFilterId, option.value, option.label)"
+                      role="checkbox"
+                      :aria-checked="isFilterClauseSelected(activeDateFilterId, option.value)"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+                      :class="isFilterClauseSelected(activeDateFilterId, option.value) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                      @click="toggleFilterClause(activeDateFilterId, option.value, option.label)"
                     >
+                      <span
+                        class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
+                        :class="isFilterClauseSelected(activeDateFilterId, option.value) ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]' : 'border-white/[0.18] text-transparent'"
+                      >✓</span>
                       <span class="w-4 text-center text-[#8f9198]">◷</span>
                       <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
                       <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
@@ -4734,9 +4786,16 @@ onBeforeUnmount(() => {
                       v-for="option in activeFilterOptions"
                       :key="option.value"
                       type="button"
-                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
-                      @click="addFilterClause(activeProjectPropertyFilterId, option.value, option.label)"
+                      role="checkbox"
+                      :aria-checked="isFilterClauseSelected(activeProjectPropertyFilterId, option.value)"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+                      :class="isFilterClauseSelected(activeProjectPropertyFilterId, option.value) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                      @click="toggleFilterClause(activeProjectPropertyFilterId, option.value, option.label)"
                     >
+                      <span
+                        class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
+                        :class="isFilterClauseSelected(activeProjectPropertyFilterId, option.value) ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]' : 'border-white/[0.18] text-transparent'"
+                      >✓</span>
                       <span class="w-4 text-center text-[#8f9198]">{{ option.icon }}</span>
                       <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
                       <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
@@ -4759,9 +4818,16 @@ onBeforeUnmount(() => {
                       v-for="option in activeFilterOptions"
                       :key="option.value"
                       type="button"
-                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]"
-                      @click="addFilterClause(activeValueFilterFieldId, option.value, option.label)"
+                      role="checkbox"
+                      :aria-checked="isFilterClauseSelected(activeValueFilterFieldId, option.value)"
+                      class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
+                      :class="isFilterClauseSelected(activeValueFilterFieldId, option.value) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'"
+                      @click="toggleFilterClause(activeValueFilterFieldId, option.value, option.label)"
                     >
+                      <span
+                        class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
+                        :class="isFilterClauseSelected(activeValueFilterFieldId, option.value) ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]' : 'border-white/[0.18] text-transparent'"
+                      >✓</span>
                       <span class="w-4 shrink-0 text-center text-[#8f9198]">{{ option.icon }}</span>
                       <span class="min-w-0 flex-1 truncate">{{ option.label }}</span>
                       <span class="text-[11px] text-[#6f727b]">{{ option.count }}</span>
@@ -4919,53 +4985,6 @@ onBeforeUnmount(() => {
                     </span>
                   </button>
                 </template>
-              </div>
-
-              <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-2">
-                <label class="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-white/[0.025]">
-                  <span class="text-[12px] text-[#bfc1c8]">Completed issues</span>
-                  <select v-model="completedRange" name="completed-issues-range" class="w-full rounded-md border border-white/[0.08] bg-white/[0.045] px-2 py-1.5 text-[12px] text-[#d7d8dc] outline-none focus:border-white/[0.16]">
-                    <option v-for="option in issueVisibilityRangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
-                  role="switch"
-                  :aria-checked="showSubIssues"
-                  @click="showSubIssues = !showSubIssues"
-                >
-                  <span class="text-[12px] text-[#bfc1c8]">Show sub-issues</span>
-                  <span
-                    class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
-                    :class="showSubIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
-                  >
-                    <span
-                      class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
-                      :class="showSubIssues ? 'translate-x-3' : 'translate-x-0'"
-                    ></span>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-4 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.025]"
-                  role="switch"
-                  :aria-checked="showTriageAndBacklogIssues"
-                  @click="showTriageAndBacklogIssues = !showTriageAndBacklogIssues"
-                >
-                  <span class="text-[12px] text-[#bfc1c8]">Show triage (backlog)</span>
-                  <span
-                    class="flex h-4 w-7 items-center rounded-full border p-0.5 transition"
-                    :class="showTriageAndBacklogIssues ? 'border-white/[0.14] bg-white/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'"
-                  >
-                    <span
-                      class="h-2.5 w-2.5 rounded-full bg-[#f0f1f4] transition"
-                      :class="showTriageAndBacklogIssues ? 'translate-x-3' : 'translate-x-0'"
-                    ></span>
-                  </span>
-                </button>
               </div>
 
               <div v-if="!groupOrderingOpen && isIssueDisplayView" class="border-t border-white/[0.06] p-3">
@@ -5344,10 +5363,10 @@ onBeforeUnmount(() => {
                 </div>
                 <IssueRow
                   v-for="ticket in searchedTickets.slice(0, 12)"
-                  :key="ticket.key"
+                  :key="getDisplayedIssueRowKey(ticket)"
                   :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
-                  :selected="focusedIssueKey === ticket.key"
-                  :checked="checkedIssueKeySet.has(ticket.key)"
+                  :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
+                  :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"
                   @select="openTicket"
                   @prefetch="prefetchTicket"
@@ -5425,10 +5444,10 @@ onBeforeUnmount(() => {
               <div v-if="searchedTickets.length">
                 <IssueRow
                   v-for="ticket in searchedTickets"
-                  :key="ticket.key"
+                  :key="getDisplayedIssueRowKey(ticket)"
                   :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
-                  :selected="focusedIssueKey === ticket.key"
-                  :checked="checkedIssueKeySet.has(ticket.key)"
+                  :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
+                  :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"
                   @select="openTicket"
                   @prefetch="prefetchTicket"
@@ -5847,7 +5866,7 @@ onBeforeUnmount(() => {
           <div class="min-w-0 overflow-y-auto">
             <div v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" class="flex h-9 items-center justify-end border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
               <button type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
-                {{ hiddenCompletedCount }} completed hidden by display options
+                {{ hiddenCompletedCount }} completed hidden by filter options
               </button>
             </div>
 
@@ -5873,10 +5892,10 @@ onBeforeUnmount(() => {
                 <template v-if="!isIssueSectionCollapsed(section)">
                   <IssueRow
                     v-for="ticket in section.tickets"
-                    :key="ticket.key"
+                    :key="getDisplayedIssueRowKey(ticket)"
                     :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
-                    :selected="focusedIssueKey === ticket.key"
-                    :checked="checkedIssueKeySet.has(ticket.key)"
+                    :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
+                    :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                     v-bind="issueRowDisplayProps"
                     @select="openTicket"
                     @prefetch="prefetchTicket"
@@ -5981,7 +6000,7 @@ onBeforeUnmount(() => {
         <div v-else class="min-h-0 flex-1 overflow-y-auto">
           <div v-if="hiddenCompletedCount > 0 && completedRange !== 'all'" class="flex h-9 items-center justify-end border-b border-white/[0.06] px-4 text-[12px] text-[#777a83]">
             <button type="button" class="hover:text-[#d7d8dc]" @click="completedRange = 'all'">
-              {{ hiddenCompletedCount }} completed hidden by display options
+              {{ hiddenCompletedCount }} completed hidden by filter options
             </button>
           </div>
 
@@ -6007,10 +6026,10 @@ onBeforeUnmount(() => {
               <template v-if="!isIssueSectionCollapsed(section)">
                 <IssueRow
                   v-for="ticket in section.tickets"
-                  :key="ticket.key"
+                  :key="getDisplayedIssueRowKey(ticket)"
                   :ticket="showSubIssueContext ? ticket : { ...ticket, parent: undefined }"
-                  :selected="focusedIssueKey === ticket.key"
-                  :checked="checkedIssueKeySet.has(ticket.key)"
+                  :selected="focusedIssueKey === getDisplayedIssueRowKey(ticket)"
+                  :checked="checkedIssueKeySet.has(getDisplayedIssueRowKey(ticket))"
                   v-bind="issueRowDisplayProps"
                   @select="openTicket"
                   @prefetch="prefetchTicket"

@@ -83,6 +83,9 @@ const parentContext = computed(() => {
   if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
   return parent
 })
+const rowIssueKey = computed(() => parentContext.value?.key ?? props.ticket.key)
+const rowPrimarySummary = computed(() => parentContext.value?.summary ?? props.ticket.summary)
+const rowContextSummary = computed(() => parentContext.value ? props.ticket.summary : '')
 
 const rowGridTemplate = computed(() => {
   const columns = ['18px']
@@ -90,7 +93,6 @@ const rowGridTemplate = computed(() => {
   if (props.showId !== false) columns.push('82px')
   columns.push('minmax(0,1fr)')
   if (props.showLabels !== false && visibleLabels.value.length > 0) columns.push('auto')
-  if (props.showParent === true) columns.push('minmax(72px, 128px)')
   if (props.showPriority !== false) columns.push('auto')
   if (
     props.showAssignee !== false
@@ -121,18 +123,18 @@ function formatDate(value: string | undefined): string {
     class="linear-row group relative grid min-h-12 w-full cursor-default items-center gap-2 px-4 py-2.5 text-left transition"
     :class="selected ? 'linear-row-active text-[#f0f1f4]' : 'text-[#d6d7dc]'"
     :style="{ gridTemplateColumns: rowGridTemplate }"
-    @mouseenter="$emit('prefetch', ticket.key)"
-    @click="$emit('select', ticket.key)"
-    @keydown.enter.prevent="$emit('select', ticket.key)"
-    @keydown.space.prevent="$emit('select', ticket.key)"
+    @mouseenter="$emit('prefetch', rowIssueKey)"
+    @click="$emit('select', rowIssueKey)"
+    @keydown.enter.prevent="$emit('select', rowIssueKey)"
+    @keydown.space.prevent="$emit('select', rowIssueKey)"
   >
     <span
       class="flex h-4 w-4 items-center justify-center rounded border transition"
       :class="checked ? 'border-white/[0.18] bg-white/[0.08] text-slate-100' : 'border-white/[0.1] bg-white/[0.03] text-transparent group-hover:text-[#8f9198]'"
       role="checkbox"
       :aria-checked="checked"
-      :aria-label="checked ? `Deselect ${ticket.key}` : `Select ${ticket.key}`"
-      @click.stop="$emit('toggleCheck', ticket.key)"
+      :aria-label="checked ? `Deselect ${rowIssueKey}` : `Select ${rowIssueKey}`"
+      @click.stop="$emit('toggleCheck', rowIssueKey)"
     >
       <span v-if="checked" class="text-[10px] leading-none">✓</span>
     </span>
@@ -141,11 +143,11 @@ function formatDate(value: string | undefined): string {
       <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
     </span>
 
-    <span v-if="showId !== false" class="truncate font-medium text-[#8f9198]">{{ ticket.key }}</span>
+    <span v-if="showId !== false" class="truncate font-medium text-[#8f9198]">{{ rowIssueKey }}</span>
 
     <span class="min-w-0 truncate">
-      <span class="font-medium">{{ ticket.summary }}</span>
-      <span v-if="parentContext" class="ml-2 text-[#6f727b]">› {{ parentContext.summary }}</span>
+      <span class="font-medium">{{ rowPrimarySummary }}</span>
+      <span v-if="rowContextSummary" class="ml-2 text-[#6f727b]">› {{ rowContextSummary }}</span>
     </span>
 
     <span v-if="showLabels !== false && visibleLabels.length > 0" class="hidden max-w-[28rem] flex-wrap items-center justify-end gap-1 md:flex">
@@ -157,10 +159,6 @@ function formatDate(value: string | undefined): string {
       >
         +{{ hiddenLabelCount }}
       </span>
-    </span>
-
-    <span v-if="showParent === true && parentContext" class="hidden truncate text-[12px] text-[#8f9198] xl:inline">
-      {{ parentContext.key }}
     </span>
 
     <span v-if="showPriority !== false" class="hidden min-w-0 items-center gap-1 text-[12px] text-[#8f9198] lg:flex">
@@ -182,9 +180,9 @@ function formatDate(value: string | undefined): string {
       <button
         type="button"
         class="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-[#15161a] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
-        :aria-label="`Copy issue ID ${ticket.key}`"
+        :aria-label="`Copy issue ID ${rowIssueKey}`"
         title="Copy issue ID"
-        @click.stop="$emit('copyKey', ticket.key)"
+        @click.stop="$emit('copyKey', rowIssueKey)"
       >
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
@@ -195,8 +193,8 @@ function formatDate(value: string | undefined): string {
       <button
         type="button"
         class="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-[#15161a] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
-        :aria-label="`Add child issue to ${ticket.key}`"
-        @click.stop="$emit('createChild', ticket.key)"
+        :aria-label="`Add child issue to ${rowIssueKey}`"
+        @click.stop="$emit('createChild', rowIssueKey)"
       >
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />

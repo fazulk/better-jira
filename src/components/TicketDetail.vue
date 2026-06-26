@@ -187,9 +187,24 @@ const detailProjectParent = computed(() => {
   if (!parent || !parent.issueType.toLowerCase().includes('epic')) return null
   return parent
 })
+const detailIssueParent = computed(() => {
+  const parent = ticket.value?.parent
+  if (!parent || parent.issueType.toLowerCase().includes('epic')) return null
+  return parent
+})
 const detailProjectParentLabel = computed(() => {
   const parent = detailProjectParent.value
   return parent?.summary ?? ''
+})
+const detailIssueParentProgressLabel = computed(() => {
+  const parent = detailIssueParent.value
+  const currentTicket = ticket.value
+  if (!parent || !currentTicket) return null
+
+  const cachedChildren = getCachedTickets(queryClient)?.filter((t) => t.parent?.key === parent.key) ?? []
+  const children = cachedChildren.length > 0 ? cachedChildren : [currentTicket]
+  const completedCount = children.filter((child) => getStatusGroup(child.statusCategory) === 'done').length
+  return `${completedCount}/${children.length}`
 })
 const detailLabels = computed(() => {
   const labels: string[] = []
@@ -1199,6 +1214,31 @@ async function submitMessage() {
                       <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" />
                     </svg>
                   </button>
+                </div>
+                <div v-if="detailIssueParent" class="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span>Sub-issue of</span>
+                  <button
+                    type="button"
+                    class="inline-flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left transition hover:bg-white/[0.04]"
+                    @click="$emit('select', detailIssueParent.key)"
+                    @mouseenter="prefetchTicket(detailIssueParent.key)"
+                  >
+                    <span class="flex h-4 w-4 shrink-0 items-center justify-center text-cyan-400" aria-hidden="true">
+                      <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <circle cx="8" cy="8" r="5.2" />
+                        <path stroke-linecap="round" d="M5.7 10.3 10.3 5.7" />
+                      </svg>
+                    </span>
+                    <span class="shrink-0 font-medium text-slate-400">{{ detailIssueParent.key }}</span>
+                    <span class="min-w-0 truncate font-medium text-slate-200">{{ detailIssueParent.summary }}</span>
+                  </button>
+                  <span
+                    v-if="detailIssueParentProgressLabel"
+                    class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.025] px-2.5 text-xs text-slate-500"
+                  >
+                    <span class="h-2 w-2 rounded-full border border-cyan-400/50"></span>
+                    {{ detailIssueParentProgressLabel }}
+                  </span>
                 </div>
               </div>
 

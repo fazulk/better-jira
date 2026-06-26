@@ -34,6 +34,19 @@ function bumpEditorTick() {
   editorTick.value += 1
 }
 
+function syncLinkTitlesSoon() {
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const root = editor.value?.view.dom
+    if (!root) return
+
+    for (const link of root.querySelectorAll('a[href]')) {
+      const href = link.getAttribute('href')
+      if (href) link.setAttribute('title', href)
+    }
+  })
+}
+
 function toEditorMark(mark: JiraAdfMark): { type: string; attrs?: Record<string, unknown> } | null {
   if (typeof mark.type !== 'string' || !mark.type) return null
 
@@ -50,7 +63,7 @@ function toEditorMark(mark: JiraAdfMark): { type: string; attrs?: Record<string,
     if (typeof href !== 'string' || !href) return null
     return {
       type: 'link',
-      attrs: { href },
+      attrs: { href, title: href },
     }
   }
 
@@ -220,11 +233,18 @@ const editor = useEditor({
     }),
   ],
   content: toEditorDocument(props.modelValue),
-  onCreate: bumpEditorTick,
+  onCreate: () => {
+    bumpEditorTick()
+    syncLinkTitlesSoon()
+  },
   onSelectionUpdate: bumpEditorTick,
-  onTransaction: bumpEditorTick,
+  onTransaction: () => {
+    bumpEditorTick()
+    syncLinkTitlesSoon()
+  },
   onUpdate: () => {
     emit('update:modelValue', readEditorDocument())
+    syncLinkTitlesSoon()
   },
 })
 
@@ -239,6 +259,7 @@ watch(() => props.modelValue, (nextValue) => {
 
   instance.commands.setContent(toEditorDocument(nextValue), false)
   bumpEditorTick()
+  syncLinkTitlesSoon()
 })
 
 watch(() => props.disabled || props.unsupported, (nextDisabled) => {
@@ -353,7 +374,7 @@ function applyLink() {
   }
 
   const href = /^https?:\/\//.test(nextHref) ? nextHref : `https://${nextHref}`
-  instance.chain().focus().extendMarkRange('link').setLink({ href }).run()
+  instance.chain().focus().extendMarkRange('link').setLink({ href, title: href }).run()
   linkMenuOpen.value = false
 }
 
@@ -581,6 +602,32 @@ defineExpose({
 :deep(.jira-description-editor .ProseMirror ol) {
   list-style-type: decimal;
   padding-left: 1.5rem;
+}
+
+:deep(.jira-description-editor .ProseMirror > ul),
+:deep(.jira-description-editor .ProseMirror > ol) {
+  margin: 0 0 0.875rem;
+}
+
+:deep(.jira-description-editor .ProseMirror > ul:last-child),
+:deep(.jira-description-editor .ProseMirror > ol:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.jira-description-editor .ProseMirror p) {
+  margin: 0 0 0.875rem;
+}
+
+:deep(.jira-description-editor .ProseMirror p:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.jira-description-editor .ProseMirror a) {
+  color: #d7d8dc;
+  text-decoration-line: underline;
+  text-decoration-color: #4cb782;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 :deep(.jira-description-editor .ProseMirror li) {

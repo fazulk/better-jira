@@ -88,13 +88,20 @@ export function getStatusProgress(status: string, statusCategory: string): numbe
   return 0.2 + 0.65 * (index / (STARTED_PROGRESS_ORDER.length - 1))
 }
 
+// Stride between lanes; larger than the known-name list so a status's lane
+// always dominates its within-lane position.
+const STATUS_LANE_RANK_STRIDE = DEFAULT_STATUS_NAME_ORDER.length + 1
+
 function getDefaultStatusRank(status: string, statusCategory: string): number {
+  // Rank by lane first so unknown statuses interleave with known ones instead
+  // of always sorting after them (e.g. a new "Idea" status landing after "Done").
+  const laneBase = getStatusLaneRank(getStatusLane(status, statusCategory)) * STATUS_LANE_RANK_STRIDE
   const index = DEFAULT_STATUS_NAME_ORDER.indexOf(normalizeStatusName(status))
   if (index !== -1) {
-    return index
+    return laneBase + index
   }
-  // Unknown statuses sort after known ones, grouped by lane.
-  return DEFAULT_STATUS_NAME_ORDER.length + getStatusLaneRank(getStatusLane(status, statusCategory))
+  // Unknown statuses sort after known ones within the same lane.
+  return laneBase + DEFAULT_STATUS_NAME_ORDER.length
 }
 
 interface StatusPreferenceApi {

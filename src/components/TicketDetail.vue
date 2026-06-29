@@ -17,6 +17,8 @@ import { getCachedTickets } from '@/composables/useJiraTickets'
 import { localTicketQueryKey, useLocalTicket } from '@/composables/useLocalTicket'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { useToast } from '@/composables/useToast'
+import { buildJiraIssueUrl } from '@/utils/jiraIssueUrl'
 import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
 import { getAssistantActionLabel } from '~/shared/assistant'
 import {
@@ -37,8 +39,9 @@ const emit = defineEmits<{
 }>()
 
 const { isPinned, togglePinnedTicket } = usePinnedTickets()
-const { enabledSpaces, hasJiraCredentialsConfigured } = useSpaceSettings()
+const { enabledSpaces, hasJiraCredentialsConfigured, jiraConnection } = useSpaceSettings()
 const { settings: assistantSettings } = useAssistantSettings()
+const { showError, showSuccess } = useToast()
 const isAssistantOpen = ref(false)
 const assistantActionLabel = computed(() => getAssistantActionLabel(assistantSettings.value.provider))
 const ticketKey = computed(() => props.ticketKey)
@@ -66,6 +69,14 @@ const ticket = computed(() => {
   }
 
   return ticketQuery.data.value ?? cachedTicket.value
+})
+const jiraIssueUrl = computed(() => {
+  const currentTicket = ticket.value
+  if (!currentTicket || isLocalTicket.value) {
+    return null
+  }
+
+  return buildJiraIssueUrl(jiraConnection.value.baseUrl, currentTicket.key)
 })
 const detailSpaceAppearance = computed(() => {
   const currentTicket = ticket.value
@@ -180,10 +191,51 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select'
 }
 
+function isCopyJiraIssueUrlShortcut(event: KeyboardEvent): boolean {
+  return (event.metaKey || event.ctrlKey)
+    && event.shiftKey
+    && !event.altKey
+    && event.key.toLowerCase() === 'c'
+}
+
+async function copyActiveJiraIssueUrl(): Promise<void> {
+  const currentTicket = ticket.value
+  const currentJiraIssueUrl = jiraIssueUrl.value
+
+  if (!currentTicket || !currentJiraIssueUrl || isLocalTicket.value) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(currentJiraIssueUrl)
+    showSuccess(`Copied ${currentTicket.key} Jira link to clipboard.`)
+  }
+  catch (error) {
+    console.error('Failed to copy Jira link', error)
+    showError('Failed to copy Jira link.')
+  }
+}
+
 function handleDetailShortcut(event: KeyboardEvent): void {
   if (imagePreview.value && event.key === 'Escape') {
     event.preventDefault()
     closeImagePreview()
+    return
+  }
+
+  if (isCopyJiraIssueUrlShortcut(event)) {
+    if (
+      !ticket.value
+      || props.mode !== 'inline'
+      || !jiraIssueUrl.value
+      || isLocalTicket.value
+      || isEditableShortcutTarget(event.target)
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    void copyActiveJiraIssueUrl()
     return
   }
 

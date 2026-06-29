@@ -2,6 +2,8 @@
 import type { JiraTicket } from '@/types/jira'
 import { computed, ref } from 'vue'
 import TicketDetailPropertiesSection from '@/components/ticket-detail/TicketDetailPropertiesSection.vue'
+import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { buildJiraIssueUrl } from '@/utils/jiraIssueUrl'
 
 const props = defineProps<{
   isLocalTicket: boolean
@@ -15,6 +17,8 @@ const emit = defineEmits<{
   select: [key: string]
 }>()
 
+const { jiraConnection } = useSpaceSettings()
+
 const copiedKey = ref(false)
 const copiedUrl = ref(false)
 const propertiesRef = ref<InstanceType<typeof TicketDetailPropertiesSection> | null>(null)
@@ -25,8 +29,7 @@ const collapsedSections = ref({
   jira: false,
 })
 
-const JIRA_BASE_URL = 'https://lifemd.atlassian.net'
-const jiraUrl = computed(() => `${JIRA_BASE_URL}/browse/${props.ticket.key}`)
+const jiraUrl = computed(() => buildJiraIssueUrl(jiraConnection.value.baseUrl, props.ticket.key))
 const detailJiraTypeLabel = computed(() => (
   !props.isLocalTicket && props.ticket.issueType ? props.ticket.issueType : null
 ))
@@ -56,7 +59,12 @@ function toggleSection(section: keyof typeof collapsedSections.value) {
 }
 
 async function copyJiraUrl() {
-  await navigator.clipboard.writeText(jiraUrl.value)
+  const currentJiraUrl = jiraUrl.value
+  if (!currentJiraUrl) {
+    return
+  }
+
+  await navigator.clipboard.writeText(currentJiraUrl)
   copiedUrl.value = true
   setTimeout(() => {
     copiedUrl.value = false
@@ -99,6 +107,7 @@ defineExpose({
           class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
           :aria-label="`Copy Jira link for ${ticket.key}`"
           title="Copy Jira link"
+          :disabled="!jiraUrl"
           @click="copyJiraUrl"
         >
           <svg v-if="!copiedUrl" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -242,7 +251,7 @@ defineExpose({
             </span>
           </div>
           <a
-            v-if="!isLocalTicket"
+            v-if="!isLocalTicket && jiraUrl"
             :href="jiraUrl"
             target="_blank"
             rel="noopener noreferrer"

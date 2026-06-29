@@ -66,6 +66,7 @@ export default defineComponent({
         @command="openCommandMenu"
         @view="handleViewChange"
         @favorite-view="handleFavoriteViewChange"
+        @favorite-count-visibility="setFavoriteViewIssueCountVisible"
         @add-space="openAddSpaceModal"
         @leave-space="handleLeaveSpace"
       />

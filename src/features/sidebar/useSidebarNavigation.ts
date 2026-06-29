@@ -18,6 +18,8 @@ export interface FavoriteViewNavItem {
   label: string
   icon?: string
   color?: string
+  count?: number
+  showIssueCount: boolean
 }
 
 interface SidebarNavigationProps {
@@ -29,6 +31,7 @@ interface SidebarNavigationProps {
 interface SidebarNavigationEmit {
   (event: 'view', viewId: string): void
   (event: 'leave-space', spaceKey: string): void
+  (event: 'favorite-count-visibility', viewId: string, visible: boolean): void
 }
 
 interface NavItem {
@@ -51,6 +54,15 @@ interface TeamMenuState {
   open: boolean
   teamKey: string
   teamName: string
+  x: number
+  y: number
+}
+
+interface FavoriteMenuState {
+  open: boolean
+  viewId: string
+  viewLabel: string
+  showIssueCount: boolean
   x: number
   y: number
 }
@@ -133,6 +145,15 @@ export function useSidebarNavigation(
     x: 0,
     y: 0,
   })
+  const favoriteMenuElement = ref<HTMLElement | null>(null)
+  const favoriteMenuState = ref<FavoriteMenuState>({
+    open: false,
+    viewId: '',
+    viewLabel: '',
+    showIssueCount: false,
+    x: 0,
+    y: 0,
+  })
   const teamMenuStyle = computed(() => {
     const leftBoundary = typeof window === 'undefined' ? teamMenuState.value.x : window.innerWidth - 184
     const topBoundary = typeof window === 'undefined' ? teamMenuState.value.y : window.innerHeight - 72
@@ -140,6 +161,15 @@ export function useSidebarNavigation(
     return {
       left: `${Math.max(8, Math.min(teamMenuState.value.x, leftBoundary))}px`,
       top: `${Math.max(8, Math.min(teamMenuState.value.y, topBoundary))}px`,
+    }
+  })
+  const favoriteMenuStyle = computed(() => {
+    const leftBoundary = typeof window === 'undefined' ? favoriteMenuState.value.x : window.innerWidth - 184
+    const topBoundary = typeof window === 'undefined' ? favoriteMenuState.value.y : window.innerHeight - 96
+
+    return {
+      left: `${Math.max(8, Math.min(favoriteMenuState.value.x, leftBoundary))}px`,
+      top: `${Math.max(8, Math.min(favoriteMenuState.value.y, topBoundary))}px`,
     }
   })
 
@@ -277,6 +307,7 @@ export function useSidebarNavigation(
   function openTeamMenu(team: TeamNavItem, event: MouseEvent): void {
     event.preventDefault()
     event.stopPropagation()
+    closeFavoriteMenu()
 
     if (team.key === LOCAL_SPACE_KEY) {
       closeTeamMenu()
@@ -297,6 +328,37 @@ export function useSidebarNavigation(
       ...teamMenuState.value,
       open: false,
     }
+  }
+
+  function openFavoriteMenu(favoriteView: FavoriteViewNavItem, event: MouseEvent): void {
+    event.preventDefault()
+    event.stopPropagation()
+    closeTeamMenu()
+
+    favoriteMenuState.value = {
+      open: true,
+      viewId: favoriteView.id,
+      viewLabel: favoriteView.label,
+      showIssueCount: favoriteView.showIssueCount,
+      x: event.clientX,
+      y: event.clientY,
+    }
+  }
+
+  function closeFavoriteMenu(): void {
+    favoriteMenuState.value = {
+      ...favoriteMenuState.value,
+      open: false,
+    }
+  }
+
+  function setFavoriteIssueCountVisibility(visible: boolean): void {
+    if (!favoriteMenuState.value.viewId) {
+      return
+    }
+
+    emit('favorite-count-visibility', favoriteMenuState.value.viewId, visible)
+    closeFavoriteMenu()
   }
 
   function leaveCurrentTeam(): void {
@@ -324,21 +386,28 @@ export function useSidebarNavigation(
   }
 
   function handlePointerDown(event: PointerEvent): void {
-    if (!teamMenuState.value.open) {
+    if (!teamMenuState.value.open && !favoriteMenuState.value.open) {
       return
     }
 
     const target = event.target
-    if (target instanceof Node && teamMenuElement.value?.contains(target)) {
-      return
+    if (target instanceof Node) {
+      if (teamMenuElement.value?.contains(target)) {
+        return
+      }
+      if (favoriteMenuElement.value?.contains(target)) {
+        return
+      }
     }
 
     closeTeamMenu()
+    closeFavoriteMenu()
   }
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       closeTeamMenu()
+      closeFavoriteMenu()
     }
   }
 
@@ -361,6 +430,9 @@ export function useSidebarNavigation(
 
   return {
     currentViewId,
+    favoriteMenuElement,
+    favoriteMenuState,
+    favoriteMenuStyle,
     favoritesExpanded,
     getTeamViewId,
     isActiveView,
@@ -368,6 +440,7 @@ export function useSidebarNavigation(
     isTeamIssuesView,
     isTeamViewsView,
     leaveCurrentTeam,
+    openFavoriteMenu,
     openTeamMenu,
     pinnedTickets,
     primaryItems,
@@ -376,6 +449,7 @@ export function useSidebarNavigation(
     teamMenuElement,
     teamMenuState,
     teamMenuStyle,
+    setFavoriteIssueCountVisibility,
     toggleFavorites,
     toggleTeam,
     toggleWorkspace,

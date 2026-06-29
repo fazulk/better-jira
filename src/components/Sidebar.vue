@@ -25,6 +25,7 @@ const emit = defineEmits<{
   'command': []
   'view': [viewId: string]
   'favoriteView': [viewId: string]
+  'favorite-count-visibility': [viewId: string, visible: boolean]
   'addSpace': []
   'leave-space': [spaceKey: string]
   'back': []
@@ -33,6 +34,9 @@ const emit = defineEmits<{
 
 const {
   currentViewId,
+  favoriteMenuElement,
+  favoriteMenuState,
+  favoriteMenuStyle,
   favoritesExpanded,
   getTeamViewId,
   isActiveView,
@@ -40,6 +44,7 @@ const {
   isTeamIssuesView,
   isTeamViewsView,
   leaveCurrentTeam,
+  openFavoriteMenu,
   openTeamMenu,
   pinnedTickets,
   primaryItems,
@@ -48,6 +53,7 @@ const {
   teamMenuElement,
   teamMenuState,
   teamMenuStyle,
+  setFavoriteIssueCountVisibility,
   toggleFavorites,
   toggleTeam,
   toggleWorkspace,
@@ -194,6 +200,7 @@ const {
               class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
               :class="isActiveView(favoriteView.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
               @click="emit('favoriteView', favoriteView.id)"
+              @contextmenu="openFavoriteMenu(favoriteView, $event)"
             >
               <Icon
                 v-if="favoriteView.icon"
@@ -204,6 +211,7 @@ const {
               />
               <span v-else class="w-3.5 shrink-0 text-center text-[13px] leading-none text-[#d7a543]" aria-hidden="true">★</span>
               <span class="min-w-0 flex-1 truncate">{{ favoriteView.label }}</span>
+              <span v-if="favoriteView.showIssueCount && favoriteView.count !== undefined" class="text-[11px] text-[#6f727b]">{{ favoriteView.count }}</span>
             </button>
             <button
               v-for="ticket in pinnedTickets"
@@ -371,6 +379,30 @@ const {
         >
           <Icon name="lucide:log-out" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>Leave space</span>
+        </button>
+      </div>
+
+      <div
+        v-if="favoriteMenuState.open"
+        ref="favoriteMenuElement"
+        class="fixed z-[100] w-44 overflow-hidden rounded-xl border border-white/[0.08] bg-[#11131a]/95 p-1 text-sm text-slate-200 shadow-2xl shadow-black/40 backdrop-blur"
+        :style="favoriteMenuStyle"
+        role="menu"
+        @contextmenu.prevent
+      >
+        <div class="border-b border-white/[0.06] px-2 py-1.5">
+          <p class="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
+            {{ favoriteMenuState.viewLabel }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
+          role="menuitem"
+          @click="setFavoriteIssueCountVisibility(!favoriteMenuState.showIssueCount)"
+        >
+          <Icon :name="favoriteMenuState.showIssueCount ? 'lucide:eye-off' : 'lucide:hash'" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{{ favoriteMenuState.showIssueCount ? 'Hide issue count' : 'Show issue count' }}</span>
         </button>
       </div>
     </Teleport>

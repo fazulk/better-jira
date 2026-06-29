@@ -68,6 +68,7 @@ export function normalizeFavoriteViews(value: unknown): FavoriteView[] {
     favoriteViewsById.set(id, {
       id,
       filters,
+      showIssueCount: normalizeBoolean(recordValue.showIssueCount, false),
     })
   }
 

@@ -24,6 +24,7 @@ function normalizeFavoriteViewList(value: unknown): FavoriteView[] {
     favoriteViewsById.set(id, {
       id,
       filters: normalizeFavoriteViewFilters(recordValue.filters),
+      showIssueCount: recordValue.showIssueCount === true,
     })
   }
 
@@ -89,7 +90,13 @@ export function useFavoriteViews() {
   function toggleFavoriteView(id: string, filters: FavoriteViewFilter[]) {
     favoriteViews.value = isFavoriteView(id)
       ? favoriteViews.value.filter(view => view.id !== id)
-      : [{ id, filters }, ...favoriteViews.value]
+      : [{ id, filters, showIssueCount: false }, ...favoriteViews.value]
+  }
+
+  function setFavoriteViewIssueCountVisible(id: string, visible: boolean): void {
+    favoriteViews.value = favoriteViews.value.map(view =>
+      view.id === id ? { ...view, showIssueCount: visible } : view,
+    )
   }
 
   return {
@@ -98,5 +105,6 @@ export function useFavoriteViews() {
     isFavoriteView,
     getFavoriteView,
     toggleFavoriteView,
+    setFavoriteViewIssueCountVisible,
   }
 }

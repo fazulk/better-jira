@@ -117,6 +117,8 @@ export interface FavoriteViewNavItem {
   label: string
   icon?: string
   color?: string
+  count?: number
+  showIssueCount: boolean
 }
 
 export interface SearchTab {

@@ -47,6 +47,7 @@ export interface FavoriteViewFilter {
 export interface FavoriteView {
   id: string
   filters: FavoriteViewFilter[]
+  showIssueCount: boolean
 }
 
 export interface CustomViewFilter {

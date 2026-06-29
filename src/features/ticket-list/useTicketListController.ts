@@ -42,6 +42,7 @@ import type { JiraTicket } from '@/types/jira'
 import type {
   CustomView,
   CustomViewDisplay,
+  FavoriteView,
   FavoriteViewFilter,
 } from '~/shared/settings'
 import { useQueryClient } from '@tanstack/vue-query'
@@ -159,7 +160,13 @@ export function useTicketListController() {
     getStatusColor,
     statusPreferences,
   } = useStatusPreferences()
-  const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
+  const {
+    favoriteViews,
+    isFavoriteView,
+    getFavoriteView,
+    toggleFavoriteView,
+    setFavoriteViewIssueCountVisible,
+  } = useFavoriteViews()
   const { customViews, getCustomView, customViewsForContext } = useCustomViews()
   const { viewOverrides, getViewOverride, upsertViewOverride, removeViewOverride } = useViewOverrides()
   const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
@@ -1419,9 +1426,185 @@ export function useTicketListController() {
           label: deriveViewLabel(view.id),
           icon: customView?.icon,
           color: customView?.color,
+          count: view.showIssueCount ? getFavoriteViewCount(view) : undefined,
+          showIssueCount: view.showIssueCount,
         }
       }),
   )
+  function getFavoriteViewCount(view: FavoriteView): number | undefined {
+    const context = getFavoriteViewFilterContext(view.id)
+    if (context === null) {
+      return undefined
+    }
+
+    const filters = toViewFilterClauses(view.filters)
+    if (context === 'issues') {
+      return getFavoriteViewIssueTickets(view.id)
+        .filter(ticket => favoriteTicketMatchesDisplay(view.id, ticket))
+        .filter(ticket => filterGroupsMatch(ticket, filters, ticketMatchesFilter))
+        .length
+    }
+
+    if (context === 'projects') {
+      const display = resolveDisplayForView(view.id)
+      const closedRange = normalizeProjectClosedRange(display.projectClosedRange)
+      return getFavoriteViewProjectRows(view.id)
+        .filter(project => favoriteProjectMatchesClosedRange(project, closedRange))
+        .filter(project => filterGroupsMatch(project, filters, projectMatchesFilter))
+        .length
+    }
+
+    if (context === 'initiatives') {
+      return baseInitiativeRows.value
+        .filter(initiative => filterGroupsMatch(initiative, filters, initiativeMatchesFilter))
+        .length
+    }
+
+    return getFavoriteViewSavedViewRows(view.id)
+      .filter(row => filterGroupsMatch(row, filters, savedViewMatchesFilter))
+      .length
+  }
+
+  function getFavoriteViewFilterContext(viewId: string): FilterContextKind | null {
+    const customView = getCustomView(viewId)
+    if (customView) {
+      return getCustomViewKind(customView.contextKey)
+    }
+
+    const baseViewId = getFavoriteViewBaseId(viewId)
+    if (baseViewId === 'initiatives') {
+      return 'initiatives'
+    }
+    if (isFavoriteProjectView(baseViewId)) {
+      return 'projects'
+    }
+    if (getViewsDirectoryTabFromViewId(baseViewId) !== null) {
+      return 'views'
+    }
+    if (isFavoriteTeamSettingsView(baseViewId) || baseViewId === 'inbox') {
+      return null
+    }
+    return 'issues'
+  }
+
+  function getFavoriteViewBaseId(viewId: string): string {
+    const customView = getCustomView(viewId)
+    return customView ? getBaseViewIdForCustomContext(customView.contextKey) : viewId
+  }
+
+  function getFavoriteViewTeamKey(viewId: string): string | null {
+    const [scope, key] = getFavoriteViewBaseId(viewId).split(':')
+    return scope === 'team' && key ? key : null
+  }
+
+  function getFavoriteViewTeamSection(viewId: string): string | null {
+    const [scope, , section] = getFavoriteViewBaseId(viewId).split(':')
+    return scope === 'team' ? (section ?? 'active') : null
+  }
+
+  function isFavoriteProjectView(viewId: string): boolean {
+    const [scope, , section] = viewId.split(':')
+    return viewId === 'projects' || (scope === 'team' && section === 'projects')
+  }
+
+  function isFavoriteTeamSettingsView(viewId: string): boolean {
+    const [scope, , section] = viewId.split(':')
+    return scope === 'team' && section === 'settings'
+  }
+
+  function getFavoriteViewIssueTickets(viewId: string): JiraTicket[] {
+    const teamKey = getFavoriteViewTeamKey(viewId)
+    const baseTickets = teamKey
+      ? issueTickets.value.filter(ticket => ticket.spaceKey === teamKey)
+      : issueTickets.value
+
+    return baseTickets.filter(ticket => favoriteTicketMatchesTeamSection(viewId, ticket))
+  }
+
+  function favoriteTicketMatchesTeamSection(viewId: string, ticket: JiraTicket): boolean {
+    const section = getFavoriteViewTeamSection(viewId)
+    if (section === null) {
+      return true
+    }
+    if (section === 'triage' || section === 'backlog') {
+      return isBacklogIssueTicket(ticket)
+    }
+    return true
+  }
+
+  function favoriteTicketMatchesDisplay(viewId: string, ticket: JiraTicket): boolean {
+    const display = resolveDisplayForView(viewId)
+    return (
+      favoriteSubIssueMatchesDisplay(ticket, display)
+      && favoriteBacklogIssueMatchesDisplay(ticket, display)
+      && favoriteCompletedIssueMatchesDisplay(ticket, display)
+    )
+  }
+
+  function favoriteSubIssueMatchesDisplay(ticket: JiraTicket, display: CustomViewDisplay): boolean {
+    if (!isSubIssueTicket(ticket)) {
+      return true
+    }
+    return isDateVisibleInRange(
+      normalizeIssueVisibilityRange(display.showSubIssuesRange),
+      ticket.createdAt ?? ticket.updatedAt,
+    )
+  }
+
+  function favoriteBacklogIssueMatchesDisplay(ticket: JiraTicket, display: CustomViewDisplay): boolean {
+    if (!isBacklogIssueTicket(ticket)) {
+      return true
+    }
+    return isDateVisibleInRange(
+      normalizeIssueVisibilityRange(display.showTriageIssuesRange),
+      ticket.createdAt ?? ticket.updatedAt,
+    )
+  }
+
+  function favoriteCompletedIssueMatchesDisplay(ticket: JiraTicket, display: CustomViewDisplay): boolean {
+    if (getStatusGroup(ticket.statusCategory) !== 'done') {
+      return true
+    }
+    return isDateVisibleInRange(
+      normalizeIssueVisibilityRange(display.completedRange),
+      ticket.completedAt ?? ticket.updatedAt,
+    )
+  }
+
+  function getFavoriteViewProjectRows(viewId: string): ProjectRow[] {
+    const teamKey = getFavoriteViewTeamKey(viewId)
+    return teamKey
+      ? projectRows.value.filter(project => project.spaceKey === teamKey)
+      : projectRows.value
+  }
+
+  function favoriteProjectMatchesClosedRange(
+    project: ProjectRow,
+    closedRange: ProjectClosedRange,
+  ): boolean {
+    return project.health !== 'Completed' || isDateVisibleInRange(closedRange, project.updatedAt)
+  }
+
+  function getFavoriteViewSavedViewRows(viewId: string): SavedViewRow[] {
+    return customViews.value
+      .filter(view => customViewBelongsInFavoriteViewsDirectory(view, viewId))
+      .map(view => customViewToSavedViewRow(view))
+  }
+
+  function customViewBelongsInFavoriteViewsDirectory(view: CustomView, viewId: string): boolean {
+    const kind = getCustomViewKind(view.contextKey)
+    const tab = getViewsDirectoryTabFromViewId(getFavoriteViewBaseId(viewId))
+    if (kind === null || tab === null) {
+      return false
+    }
+    if ((tab === 'project-views') !== (kind === 'projects')) {
+      return false
+    }
+    const favoriteTeamKey = getFavoriteViewTeamKey(viewId)
+    const viewTeamKey = getCustomViewTeamKey(view.contextKey)
+    return favoriteTeamKey ? viewTeamKey === favoriteTeamKey : viewTeamKey === null
+  }
+
   function customViewBelongsInCurrentViewsDirectory(view: CustomView): boolean {
     const kind = getCustomViewKind(view.contextKey)
     if (kind === null) {
@@ -4266,6 +4449,7 @@ export function useTicketListController() {
     toViewFilterClauses,
     restoreFavoriteViewFilters,
     toggleCurrentViewFavorite,
+    setFavoriteViewIssueCountVisible,
     commandSearchQuery,
     navigationCommands,
     projectCommandItems,

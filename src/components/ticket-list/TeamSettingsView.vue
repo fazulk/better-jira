@@ -78,8 +78,8 @@ onBeforeUnmount(() => {
           :aria-label="`Change icon and color for ${teamName}`"
           @click="togglePicker"
         >
-          <Icon v-if="appearance.icon" :name="`lucide:${appearance.icon}`" class="h-7 w-7" aria-hidden="true" />
-          <span v-else class="text-[22px] font-semibold">{{ appearance.initial }}</span>
+          <Icon v-if="appearance.icon" :name="`lucide:${appearance.icon}`" class="text-[32px] leading-none" aria-hidden="true" />
+          <span v-else class="text-[28px] font-semibold leading-none">{{ appearance.initial }}</span>
         </button>
 
         <h1 class="min-w-0 truncate text-[28px] font-semibold text-[#f0f1f4]">

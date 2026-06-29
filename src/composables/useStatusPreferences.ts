@@ -200,13 +200,7 @@ export function compareStatusesByPreference(
     || left.status.localeCompare(right.status)
 }
 
-let statusPreferenceApi: StatusPreferenceApi | null = null
-
 export function useStatusPreferences(): StatusPreferenceApi {
-  if (statusPreferenceApi) {
-    return statusPreferenceApi
-  }
-
   const { settings, setStatusPreferences } = useSpaceSettings()
   const statusPreferences = computed<StatusPreferences>(() => settings.value.statusPreferences)
 
@@ -284,6 +278,5 @@ export function useStatusPreferences(): StatusPreferenceApi {
     setStatusOrder,
   }
 
-  statusPreferenceApi = api
   return api
 }

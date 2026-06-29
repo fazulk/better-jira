@@ -6,6 +6,7 @@ import CreateTicketModal from '../CreateTicketModal.vue'
 import Sidebar from '../Sidebar.vue'
 import TicketDetail from '../TicketDetail.vue'
 import TeamSettingsView from './TeamSettingsView.vue'
+import TicketListAssistantHome from './TicketListAssistantHome.vue'
 import TicketListCommandMenu from './TicketListCommandMenu.vue'
 import TicketListInboxView from './TicketListInboxView.vue'
 import TicketListInitiativesView from './TicketListInitiativesView.vue'
@@ -22,6 +23,7 @@ export default defineComponent({
     CreateTicketModal,
     Sidebar,
     TicketDetail,
+    TicketListAssistantHome,
     TicketListCommandMenu,
     TicketListInboxView,
     TicketListSearchView,
@@ -61,7 +63,7 @@ export default defineComponent({
         @prefetch="prefetchTicket"
         @toggle-collapse="sidebarCollapsed = !sidebarCollapsed"
         @refresh="handleRefresh"
-        @home="handleViewChange('my-issues')"
+        @home="handleViewChange('assistant')"
         @settings="openSettings"
         @command="openCommandMenu"
         @view="handleViewChange"
@@ -84,7 +86,7 @@ export default defineComponent({
       <div
         class="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.055] bg-issue-detail-bg"
       >
-        <TicketListToolbarArea v-if="!selectedKey && !isTeamSettingsView" :controller="controller" />
+        <TicketListToolbarArea v-if="!selectedKey && !isTeamSettingsView && currentView !== 'assistant'" :controller="controller" />
         <div v-if="selectedKey" class="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           <TicketDetail
             :ticket-key="selectedKey"
@@ -96,6 +98,7 @@ export default defineComponent({
           />
         </div>
         <TeamSettingsView v-else-if="isTeamSettingsView && currentTeamKey" :space-key="currentTeamKey" />
+        <TicketListAssistantHome v-else-if="currentView === 'assistant'" />
         <TicketListSearchView v-else-if="currentView === 'search'" :controller="controller" />
         <TicketListInboxView v-else-if="currentView === 'inbox'" :controller="controller" />
         <TicketListInitiativesView

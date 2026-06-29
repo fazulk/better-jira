@@ -72,6 +72,8 @@ export interface CustomView {
   name: string
   description: string
   contextKey: string
+  icon: string
+  color: string
   filters: CustomViewFilter[]
   display: CustomViewDisplay
 }

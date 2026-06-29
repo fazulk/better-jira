@@ -11,6 +11,9 @@ import {
   normalizeStringListRecord,
 } from './settingsNormalizers'
 
+export const DEFAULT_CUSTOM_VIEW_ICON = 'layers'
+export const DEFAULT_CUSTOM_VIEW_COLOR = '#8f9198'
+
 function normalizeFavoriteViewFilter(value: unknown): FavoriteViewFilter | null {
   if (typeof value !== 'object' || value === null) {
     return null
@@ -155,6 +158,14 @@ function normalizeCustomViewFilter(value: unknown): CustomViewFilter | null {
   }
 }
 
+function normalizeCustomViewIcon(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_CUSTOM_VIEW_ICON
+}
+
+function normalizeCustomViewColor(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_CUSTOM_VIEW_COLOR
+}
+
 export function normalizeCustomViews(value: unknown): CustomView[] {
   if (!Array.isArray(value)) {
     return []
@@ -187,6 +198,8 @@ export function normalizeCustomViews(value: unknown): CustomView[] {
       name,
       description: typeof recordValue.description === 'string' ? recordValue.description.trim() : '',
       contextKey,
+      icon: normalizeCustomViewIcon(recordValue.icon),
+      color: normalizeCustomViewColor(recordValue.color),
       filters,
       display: normalizeCustomViewDisplay(recordValue.display),
     })

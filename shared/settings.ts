@@ -31,3 +31,4 @@ export type {
   UpdateSidebarSettingsInput,
   UpdateStatusPreferencesInput,
 } from './settingsTypes'
+export { DEFAULT_CUSTOM_VIEW_COLOR, DEFAULT_CUSTOM_VIEW_ICON } from './settingsViews'

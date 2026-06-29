@@ -143,7 +143,13 @@ export default defineComponent({
         @click="handleViewTabClick(tab)"
         @contextmenu.prevent="handleViewTabContextMenu(tab, $event)"
       >
-        <Icon v-if="tab.custom" name="lucide:layers" class="h-3.5 w-3.5" aria-hidden="true" />
+        <Icon
+          v-if="tab.custom"
+          :name="`lucide:${tab.icon || 'layers'}`"
+          class="h-3.5 w-3.5"
+          :style="tab.color ? { color: tab.color } : undefined"
+          aria-hidden="true"
+        />
         <span>{{ tab.label }}</span>
         <Icon
           v-if="tab.draft"
@@ -241,9 +247,13 @@ export default defineComponent({
     v-if="!selectedTicket && viewEditorDraft"
     :name="viewEditorDraft.name"
     :description="viewEditorDraft.description"
+    :icon="viewEditorDraft.icon"
+    :color="viewEditorDraft.color"
     :save-disabled="viewEditorDraft.name.trim().length === 0"
     @update:name="updateViewEditorName"
     @update:description="updateViewEditorDescription"
+    @update:icon="updateViewEditorIcon"
+    @update:color="updateViewEditorColor"
     @open-filters="openViewEditorFilters"
     @open-settings="openViewEditorSettings"
     @save="saveViewEditor"

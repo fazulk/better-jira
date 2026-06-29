@@ -168,7 +168,14 @@ const {
               :class="isActiveView(favoriteView.id) ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
               @click="emit('favoriteView', favoriteView.id)"
             >
-              <span class="w-3.5 shrink-0 text-center text-[13px] leading-none text-[#d7a543]" aria-hidden="true">★</span>
+              <Icon
+                v-if="favoriteView.icon"
+                :name="`lucide:${favoriteView.icon}`"
+                class="h-3.5 w-3.5 shrink-0"
+                :style="favoriteView.color ? { color: favoriteView.color } : undefined"
+                aria-hidden="true"
+              />
+              <span v-else class="w-3.5 shrink-0 text-center text-[13px] leading-none text-[#d7a543]" aria-hidden="true">★</span>
               <span class="min-w-0 flex-1 truncate">{{ favoriteView.label }}</span>
             </button>
             <button

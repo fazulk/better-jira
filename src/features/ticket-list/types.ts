@@ -108,11 +108,15 @@ export interface ViewTab {
   label: string
   custom?: boolean
   draft?: boolean
+  icon?: string
+  color?: string
 }
 
 export interface FavoriteViewNavItem {
   id: string
   label: string
+  icon?: string
+  color?: string
 }
 
 export interface SearchTab {
@@ -181,6 +185,7 @@ export interface SavedViewRow {
   count: number
   updatedAt?: string
   icon: string
+  color: string
   viewId: string
 }
 

@@ -16,6 +16,8 @@ import { isLocalTicketKey, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 export interface FavoriteViewNavItem {
   id: string
   label: string
+  icon?: string
+  color?: string
 }
 
 interface SidebarNavigationProps {

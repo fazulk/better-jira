@@ -60,6 +60,7 @@ import { compareStatusesByPreference, createStatusBadgeStyle, useStatusPreferenc
 import { getStatusGroup } from '@/types/jira'
 import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
 import { isLocalTicketKey } from '~/shared/localTickets'
+import { DEFAULT_CUSTOM_VIEW_COLOR, DEFAULT_CUSTOM_VIEW_ICON } from '~/shared/settings'
 import {
   clausesToCustomViewFilters,
   createViewFilterClause,
@@ -627,13 +628,21 @@ export function useTicketListController() {
     const draft = viewEditorDraft.value
     const tabs: ViewTab[] = customViewsForContext(contextKey)
       .filter(view => view.id !== draft?.id)
-      .map(view => ({ id: view.id, label: view.name, custom: true }))
+      .map(view => ({
+        id: view.id,
+        label: view.name,
+        custom: true,
+        icon: view.icon,
+        color: view.color,
+      }))
     if (draft && draft.contextKey === contextKey) {
       tabs.push({
         id: draft.id,
         label: draft.name.trim() || 'New view',
         custom: true,
         draft: true,
+        icon: draft.icon,
+        color: draft.color,
       })
     }
     return tabs
@@ -1300,10 +1309,15 @@ export function useTicketListController() {
   )
   const currentViewIsFavoritable = computed(() => currentView.value !== 'search')
   const favoriteViewNavItems = computed<FavoriteViewNavItem[]>(() =>
-    favoriteViews.value.map(view => ({
-      id: view.id,
-      label: deriveViewLabel(view.id),
-    })),
+    favoriteViews.value.map((view) => {
+      const customView = getCustomView(view.id)
+      return {
+        id: view.id,
+        label: deriveViewLabel(view.id),
+        icon: customView?.icon,
+        color: customView?.color,
+      }
+    }),
   )
   function customViewBelongsInCurrentViewsDirectory(view: CustomView): boolean {
     const kind = getCustomViewKind(view.contextKey)
@@ -1332,7 +1346,8 @@ export function useTicketListController() {
       owner: currentUserName.value || 'Me',
       count: stats.count,
       updatedAt: stats.updatedAt,
-      icon: kind === 'projects' ? '◈' : '▱',
+      icon: view.icon,
+      color: view.color,
       viewId: view.id,
     }
   }
@@ -3304,6 +3319,8 @@ export function useTicketListController() {
       name: '',
       description: '',
       contextKey,
+      icon: DEFAULT_CUSTOM_VIEW_ICON,
+      color: DEFAULT_CUSTOM_VIEW_COLOR,
       filters: clausesToCustomViewFilters(currentViewFilters.value),
       display: copyViewDisplay(display),
     }
@@ -3414,6 +3431,18 @@ export function useTicketListController() {
       return
     }
     viewEditorDraft.value = { ...viewEditorDraft.value, description: value }
+  }
+  function updateViewEditorIcon(value: string): void {
+    if (!viewEditorDraft.value) {
+      return
+    }
+    viewEditorDraft.value = { ...viewEditorDraft.value, icon: value }
+  }
+  function updateViewEditorColor(value: string): void {
+    if (!viewEditorDraft.value) {
+      return
+    }
+    viewEditorDraft.value = { ...viewEditorDraft.value, color: value }
   }
   function openViewEditorFilters(): void {
     openFilterMenu()
@@ -4273,6 +4302,8 @@ export function useTicketListController() {
     activateCustomView,
     updateViewEditorName,
     updateViewEditorDescription,
+    updateViewEditorIcon,
+    updateViewEditorColor,
     openViewEditorFilters,
     openViewEditorSettings,
     handleViewTabClick,

@@ -37,8 +37,12 @@ const emit = defineEmits<{
       >
         <span class="flex min-w-0 items-center gap-3 pr-4">
           <span
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-[12px] text-[#bfc1c8]"
-          >{{ row.icon }}</span>
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white"
+            :style="{ backgroundColor: row.color }"
+            aria-hidden="true"
+          >
+            <Icon :name="`lucide:${row.icon}`" class="h-4 w-4" />
+          </span>
           <span class="min-w-0">
             <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{
               row.name

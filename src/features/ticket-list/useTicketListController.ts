@@ -287,6 +287,10 @@ export function useTicketListController() {
   const commandActiveIndex = ref(0)
   const commandInputRef = ref<HTMLInputElement | null>(null)
   const searchInputRef = ref<HTMLInputElement | null>(null)
+  function setSearchInputRef(element: Element | null): void {
+    searchInputRef.value = element instanceof HTMLInputElement ? element : null
+  }
+  const lastNonSearchView = ref(currentView.value === 'search' ? 'my-issues' : currentView.value)
   const draggedIssueGroupId = ref<string | null>(null)
   const pendingGotoKey = ref(false)
   const focusedIssueKey = ref<string | null>(null)
@@ -652,7 +656,11 @@ export function useTicketListController() {
     return viewId === 'my-issues' || viewId === 'my-created'
   }
   watchEffect(() => {
-    if (currentView.value === 'my-subscribed' || currentView.value === 'my-activity') {
+    if (
+      currentView.value === 'inbox'
+      || currentView.value === 'my-subscribed'
+      || currentView.value === 'my-activity'
+    ) {
       currentView.value = 'my-issues'
     }
   })
@@ -1400,17 +1408,19 @@ export function useTicketListController() {
   const displayedSavedViewRows = computed(() =>
     applyViewFiltersToSavedViews(baseDisplayedSavedViewRows.value),
   )
-  const currentViewIsFavoritable = computed(() => currentView.value !== 'search')
+  const currentViewIsFavoritable = computed(() => currentView.value !== 'search' && currentView.value !== 'inbox')
   const favoriteViewNavItems = computed<FavoriteViewNavItem[]>(() =>
-    favoriteViews.value.map((view) => {
-      const customView = getCustomView(view.id)
-      return {
-        id: view.id,
-        label: deriveViewLabel(view.id),
-        icon: customView?.icon,
-        color: customView?.color,
-      }
-    }),
+    favoriteViews.value
+      .filter(view => view.id !== 'inbox')
+      .map((view) => {
+        const customView = getCustomView(view.id)
+        return {
+          id: view.id,
+          label: deriveViewLabel(view.id),
+          icon: customView?.icon,
+          color: customView?.color,
+        }
+      }),
   )
   function customViewBelongsInCurrentViewsDirectory(view: CustomView): boolean {
     const kind = getCustomViewKind(view.contextKey)
@@ -1613,14 +1623,6 @@ export function useTicketListController() {
         execute: () => {
           void handleRefresh()
         },
-      },
-      {
-        id: 'inbox',
-        label: 'Inbox',
-        description: 'Open workspace inbox',
-        section: 'Navigation',
-        icon: '▤',
-        execute: () => handleViewChange('inbox'),
       },
       {
         id: 'my-issues',
@@ -3584,7 +3586,22 @@ export function useTicketListController() {
       handleViewChange(getBaseViewIdForCustomContext(customView.contextKey))
     }
   }
+  function focusSearchInputWhenReady(): void {
+    nextTick(() => {
+      if (currentView.value === 'search') {
+        searchInputRef.value?.focus()
+      }
+    })
+  }
+  function closeSearchView(): void {
+    if (currentView.value !== 'search')
+      return
+    handleViewChange(lastNonSearchView.value)
+  }
   function handleViewChange(viewId: string) {
+    if (viewId === 'inbox') {
+      viewId = 'my-issues'
+    }
     if (viewId === 'command') {
       openCommandMenu()
       return
@@ -3593,29 +3610,21 @@ export function useTicketListController() {
       openGlobalCreate()
       return
     }
+    if (viewId === 'search') {
+      searchResultTab.value = 'all'
+      focusSearchInputWhenReady()
+    }
     if (viewEditorMode.value) {
       discardViewEditorAndSwitch(viewId)
       focusedIssueKey.value = null
       clearCheckedIssues()
       closeTicket()
-      if (viewId === 'search') {
-        searchResultTab.value = 'all'
-        nextTick(() => {
-          searchInputRef.value?.focus()
-        })
-      }
       return
     }
     currentView.value = viewId
     focusedIssueKey.value = null
     clearCheckedIssues()
     closeTicket()
-    if (viewId === 'search') {
-      searchResultTab.value = 'all'
-      nextTick(() => {
-        searchInputRef.value?.focus()
-      })
-    }
   }
   function handleFavoriteViewChange(viewId: string) {
     restoreFavoriteViewFilters(viewId)
@@ -3839,6 +3848,11 @@ export function useTicketListController() {
       }
       return
     }
+    if (currentView.value === 'search' && event.key === 'Escape' && event.target === searchInputRef.value) {
+      event.preventDefault()
+      closeSearchView()
+      return
+    }
     if (isCreateModalOpen.value || isEditableTarget(event.target)) {
       return
     }
@@ -3856,6 +3870,11 @@ export function useTicketListController() {
         event.preventDefault()
         openSettings()
       }
+      return
+    }
+    if (currentView.value === 'search' && key === 'escape') {
+      event.preventDefault()
+      closeSearchView()
       return
     }
     if (key === 'g') {
@@ -3960,6 +3979,20 @@ export function useTicketListController() {
       stopSidebarResize()
     }
   })
+  watch(
+    currentView,
+    (view, previousView) => {
+      if (previousView && previousView !== 'search') {
+        lastNonSearchView.value = previousView
+      }
+      if (view !== 'search') {
+        lastNonSearchView.value = view
+        return
+      }
+      focusSearchInputWhenReady()
+    },
+    { flush: 'post' },
+  )
   let stopNavigationHistoryAfterEach: (() => void) | null = null
   onMounted(() => {
     window.addEventListener('pointermove', handleSidebarResize)
@@ -4061,6 +4094,7 @@ export function useTicketListController() {
     commandActiveIndex,
     commandInputRef,
     searchInputRef,
+    setSearchInputRef,
     draggedIssueGroupId,
     pendingGotoKey,
     focusedIssueKey,

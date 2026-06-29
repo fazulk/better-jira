@@ -20,6 +20,7 @@ export default defineComponent({
       >
         <span class="text-[12px] text-[#777a83]">Search</span>
         <input
+          :ref="setSearchInputRef"
           v-model="issueSearch"
           type="search"
           class="min-w-0 flex-1 bg-transparent text-[13px] text-[#e6e7ea] outline-none placeholder:text-[#6f727b]"

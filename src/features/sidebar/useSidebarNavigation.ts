@@ -121,7 +121,6 @@ export function useSidebarNavigation(
     ticket => !projectTicketKeySet.value.has(ticket.key) && !initiativeTicketKeySet.value.has(ticket.key),
   ))
   const activeTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done'))
-  const triageTickets = computed(() => issueTickets.value.filter(ticket => isBacklogIssueTicket(ticket) && !isSubIssueTicket(ticket)))
   const workspaceExpanded = ref(true)
   const favoritesExpanded = ref(true)
   const expandedTeamKeys = useLocalStorage<string[]>('jira2.expandedTeams', [])
@@ -145,7 +144,6 @@ export function useSidebarNavigation(
   })
 
   const primaryItems = computed<NavItem[]>(() => [
-    { id: 'inbox', label: 'Inbox', icon: 'inbox', count: triageTickets.value.length },
     { id: 'my-issues', label: 'My issues', icon: 'target', count: activeTickets.value.length },
   ])
 

@@ -287,23 +287,9 @@ async function shutdown(exitCode) {
   }, 500).unref()
 }
 
-function buildNativeAddon() {
-  // Build after tsdown's first run so its initial clean of dist-electron/ can't
-  // wipe the .node. main.ts loads the addon gracefully if this fails.
-  const result = spawnSync(process.execPath, [join(repoDir, 'electron', 'native', 'build.mjs')], {
-    cwd: repoDir,
-    stdio: 'inherit',
-    env: process.env,
-  })
-  if (result.status !== 0) {
-    console.error('[native] mouse-nav addon build failed; side mouse buttons disabled in dev')
-  }
-}
-
 tsdownProcess = startTsdown()
 nuxtProcess = startNuxt()
 await waitForMainCjs()
-buildNativeAddon()
 mainCjsReady = true
 const watcher = watchMainCjs()
 if (watcher)

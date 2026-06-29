@@ -16,7 +16,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "app:dev": "node scripts/dev-electron.mjs",
-    "app:build:main": "tsdown && node electron/native/build.mjs",
+    "app:build:main": "tsdown",
     "app:build": "node scripts/build-desktop-artifact.mjs --platform mac --target dir --output-dir dist",
     "dist:desktop:artifact": "node scripts/build-desktop-artifact.mjs",
     "dist:desktop:dmg": "node scripts/build-desktop-artifact.mjs --platform mac --target dmg",
@@ -52,8 +52,6 @@
     "electron": "^40.9.1",
     "electron-builder": "^25.1.8",
     "eslint": "^10.5.0",
-    "node-addon-api": "^8.9.0",
-    "node-gyp": "^13.0.0",
     "tailwindcss": "^4.1.0",
     "tsdown": "^0.21.9",
     "typescript": "^5.7.0"

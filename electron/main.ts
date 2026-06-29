@@ -10,7 +10,6 @@ import process from 'node:process'
 import { app, BrowserWindow, shell } from 'electron'
 
 import { findFreePort } from './freePort'
-import { installMouseButtonNavigation, stopMouseButtonNavigation } from './mouseButtonNavigation'
 import { waitForHttpReady } from './waitForHttpReady'
 
 // File-based logging so we can diagnose packaged-app issues where stdout is
@@ -66,7 +65,6 @@ const BACKEND_HOST = '127.0.0.1'
 // Nuxt/Nitro's graceful shutdown can take a few seconds — we SIGTERM the whole
 // process group (so bun → nuxt → nitro all see it), then hard-kill after this.
 const SHUTDOWN_GRACE_MS = 5_000
-const MOUSE_NAVIGATION_PREFIX = '[mouse-navigation]'
 
 let backendProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
@@ -162,23 +160,17 @@ async function startBackend(): Promise<string> {
   return url
 }
 
-function logMouseNavigation(message: string): void {
-  logLine(`${MOUSE_NAVIGATION_PREFIX} ${message}`)
-}
-
 function navigateWindowHistory(window: BrowserWindow, direction: 'back' | 'forward'): void {
-  logMouseNavigation(`navigate direction=${direction} canGoBack=${String(window.webContents.canGoBack())} canGoForward=${String(window.webContents.canGoForward())} url=${window.webContents.getURL()}`)
-
-  if (direction === 'back') {
-    if (window.webContents.canGoBack()) {
-      window.webContents.goBack()
-    }
-    return
-  }
-
-  if (window.webContents.canGoForward()) {
-    window.webContents.goForward()
-  }
+  // Drive the renderer's History API rather than webContents.goBack(): the app's
+  // own back button and Vue Router both navigate via window.history, and mixing
+  // webContents-level navigation with the SPA's pushState entries desyncs the two
+  // history stacks (Electron #24899) — which is why mouse-back failed after an
+  // in-app click. history.back()/forward() is a no-op at the ends of the stack,
+  // so no guard is needed.
+  const script = direction === 'back' ? 'window.history.back()' : 'window.history.forward()'
+  window.webContents.executeJavaScript(script, true).catch((err: unknown) => {
+    logLine(`[mouse-navigation] navigate failed direction=${direction} err=${String(err)}`)
+  })
 }
 
 function installHardwareNavigation(window: BrowserWindow): void {
@@ -192,22 +184,16 @@ function installHardwareNavigation(window: BrowserWindow): void {
     navigateWindowHistory(window, command === 'browser-backward' ? 'back' : 'forward')
   })
 
-  // macOS three-finger trackpad swipe.
+  // macOS receives mouse/trackpad browser navigation as swipe events in this app.
+  // Its direction is the visual page movement, so left means history back.
   window.on('swipe', (event, direction) => {
     if (direction !== 'right' && direction !== 'left') {
       return
     }
 
     event.preventDefault()
-    navigateWindowHistory(window, direction === 'right' ? 'back' : 'forward')
+    navigateWindowHistory(window, direction === 'left' ? 'back' : 'forward')
   })
-
-  // macOS: mouse buttons 4/5 never reach web contents or `app-command`, so a
-  // native NSEvent monitor feeds them in. Act on the focused window.
-  installMouseButtonNavigation((direction) => {
-    const target = BrowserWindow.getFocusedWindow() ?? window
-    navigateWindowHistory(target, direction)
-  }, logMouseNavigation)
 }
 
 function createWindow(url: string): BrowserWindow {
@@ -359,10 +345,6 @@ app.whenReady().then(() => {
     logLine(`Failed to start BetterJira: ${String(err)}`)
     app.quit()
   })
-})
-
-app.on('will-quit', () => {
-  stopMouseButtonNavigation()
 })
 
 app.on('activate', () => {

@@ -31,5 +31,6 @@ export type {
   UpdateJiraConnectionInput,
   UpdateSidebarSettingsInput,
   UpdateStatusPreferencesInput,
+  ViewOverride,
 } from './settingsTypes'
 export { DEFAULT_CUSTOM_VIEW_COLOR, DEFAULT_CUSTOM_VIEW_ICON } from './settingsViews'

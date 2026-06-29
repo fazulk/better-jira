@@ -12,6 +12,7 @@ import {
 import {
   normalizeCustomViews,
   normalizeFavoriteViews,
+  normalizeViewOverrides,
 } from './settingsViews'
 
 function normalizeSidebarSortBy(value: unknown): SidebarSortBy {
@@ -60,6 +61,7 @@ export function getDefaultSidebarSettings(): SidebarSettings {
     pinnedTicketKeys: [],
     favoriteViews: [],
     customViews: [],
+    viewOverrides: {},
     filterTypeKeys: [],
     filterStatuses: [],
     filterAssignees: [],
@@ -84,6 +86,7 @@ export function normalizeSidebarSettings(value: unknown): SidebarSettings {
     pinnedTicketKeys: normalizeStringList(recordValue.pinnedTicketKeys),
     favoriteViews: normalizeFavoriteViews(recordValue.favoriteViews),
     customViews: normalizeCustomViews(recordValue.customViews),
+    viewOverrides: normalizeViewOverrides(recordValue.viewOverrides),
     filterTypeKeys: normalizeStringList(recordValue.filterTypeKeys),
     filterStatuses: normalizeStringList(recordValue.filterStatuses),
     filterAssignees: normalizeStringList(recordValue.filterAssignees),
@@ -109,6 +112,8 @@ export function normalizeSidebarSettingsUpdate(value: unknown): UpdateSidebarSet
     nextSidebar.favoriteViews = normalizeFavoriteViews(recordValue.favoriteViews)
   if ('customViews' in recordValue)
     nextSidebar.customViews = normalizeCustomViews(recordValue.customViews)
+  if ('viewOverrides' in recordValue)
+    nextSidebar.viewOverrides = normalizeViewOverrides(recordValue.viewOverrides)
   if ('filterTypeKeys' in recordValue)
     nextSidebar.filterTypeKeys = normalizeStringList(recordValue.filterTypeKeys)
   if ('filterStatuses' in recordValue)
@@ -134,6 +139,7 @@ export function reconcileSidebarSettings(sidebar: SidebarSettings): SidebarSetti
     pinnedTicketKeys: normalizeStringList(sidebar.pinnedTicketKeys),
     favoriteViews: normalizeFavoriteViews(sidebar.favoriteViews),
     customViews: normalizeCustomViews(sidebar.customViews),
+    viewOverrides: normalizeViewOverrides(sidebar.viewOverrides),
     filterTypeKeys: normalizeStringList(sidebar.filterTypeKeys),
     filterStatuses: normalizeStringList(sidebar.filterStatuses),
     filterAssignees: normalizeStringList(sidebar.filterAssignees),

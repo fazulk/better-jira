@@ -1,11 +1,16 @@
 import type {
   FilterFieldId,
+  InitiativeRowFieldId,
   IssueGroupConfigMap,
   IssueGroupingFieldId,
   IssueOrderingFieldId,
   IssueRowFieldId,
   IssueVisibilityRange,
+  ProjectClosedRange,
+  ProjectGroupingFieldId,
+  ProjectOrderingFieldId,
   ProjectRowFieldId,
+  SavedViewRowFieldId,
   ViewFilterClause,
 } from './types'
 import type { CustomViewDisplay } from '~/shared/settings'
@@ -35,6 +40,12 @@ export function getDefaultViewDisplay(): CustomViewDisplay {
       'created',
     ],
     visibleProjectRowFields: ['health', 'priority', 'lead', 'targetDate', 'issues', 'status'],
+    projectGrouping: 'none',
+    projectOrdering: 'manual',
+    projectClosedRange: 'hidden',
+    collapsedProjectSectionIds: [],
+    visibleInitiativeRowFields: ['health', 'lead', 'projects', 'issues', 'updated'],
+    visibleSavedViewRowFields: ['owner'],
   }
 }
 
@@ -93,6 +104,47 @@ export function normalizeIssueOrderingFieldId(value: string): IssueOrderingField
       return value
     default:
       return 'status'
+  }
+}
+
+export function normalizeProjectGroupingFieldId(value: string): ProjectGroupingFieldId {
+  switch (value) {
+    case 'none':
+    case 'health':
+    case 'status':
+    case 'priority':
+    case 'lead':
+      return value
+    default:
+      return 'none'
+  }
+}
+
+export function normalizeProjectOrderingFieldId(value: string): ProjectOrderingFieldId {
+  switch (value) {
+    case 'manual':
+    case 'name':
+    case 'health':
+    case 'priority':
+    case 'lead':
+    case 'targetDate':
+    case 'updated':
+    case 'progress':
+      return value
+    default:
+      return 'manual'
+  }
+}
+
+export function normalizeProjectClosedRange(value: string): ProjectClosedRange {
+  switch (value) {
+    case 'all':
+    case 'day':
+    case 'week':
+      return value
+    case 'hidden':
+    default:
+      return 'hidden'
   }
 }
 
@@ -164,6 +216,47 @@ export function normalizeProjectRowFields(values: readonly string[]): ProjectRow
   return normalizedValues.length > 0
     ? normalizedValues
     : ['health', 'priority', 'lead', 'targetDate', 'issues', 'status']
+}
+
+export function normalizeInitiativeRowFields(values: readonly string[]): InitiativeRowFieldId[] {
+  const normalizedValues: InitiativeRowFieldId[] = []
+
+  for (const value of values) {
+    switch (value) {
+      case 'health':
+      case 'lead':
+      case 'projects':
+      case 'issues':
+      case 'updated':
+        if (!normalizedValues.includes(value)) {
+          normalizedValues.push(value)
+        }
+        break
+    }
+  }
+
+  return normalizedValues.length > 0
+    ? normalizedValues
+    : ['health', 'lead', 'projects', 'issues', 'updated']
+}
+
+export function normalizeSavedViewRowFields(values: readonly string[]): SavedViewRowFieldId[] {
+  const normalizedValues: SavedViewRowFieldId[] = []
+
+  for (const value of values) {
+    switch (value) {
+      case 'type':
+      case 'items':
+      case 'owner':
+      case 'updated':
+        if (!normalizedValues.includes(value)) {
+          normalizedValues.push(value)
+        }
+        break
+    }
+  }
+
+  return normalizedValues.length > 0 ? normalizedValues : ['owner']
 }
 
 export function copyIssueGroupConfigMap(
@@ -289,6 +382,12 @@ export function viewDisplayMatches(left: CustomViewDisplay, right: CustomViewDis
     && stringArraysMatch(left.collapsedIssueSectionIds, right.collapsedIssueSectionIds)
     && stringSetsMatch(left.visibleIssueRowFields, right.visibleIssueRowFields)
     && stringSetsMatch(left.visibleProjectRowFields, right.visibleProjectRowFields)
+    && left.projectGrouping === right.projectGrouping
+    && left.projectOrdering === right.projectOrdering
+    && left.projectClosedRange === right.projectClosedRange
+    && stringArraysMatch(left.collapsedProjectSectionIds, right.collapsedProjectSectionIds)
+    && stringSetsMatch(left.visibleInitiativeRowFields, right.visibleInitiativeRowFields)
+    && stringSetsMatch(left.visibleSavedViewRowFields, right.visibleSavedViewRowFields)
   )
 }
 
@@ -317,6 +416,18 @@ export function copyViewDisplay(display: CustomViewDisplay): CustomViewDisplay {
     visibleIssueRowFields: [...(display.visibleIssueRowFields ?? defaults.visibleIssueRowFields)],
     visibleProjectRowFields: [
       ...(display.visibleProjectRowFields ?? defaults.visibleProjectRowFields),
+    ],
+    projectGrouping: display.projectGrouping ?? defaults.projectGrouping,
+    projectOrdering: display.projectOrdering ?? defaults.projectOrdering,
+    projectClosedRange: display.projectClosedRange ?? defaults.projectClosedRange,
+    collapsedProjectSectionIds: [
+      ...(display.collapsedProjectSectionIds ?? defaults.collapsedProjectSectionIds),
+    ],
+    visibleInitiativeRowFields: [
+      ...(display.visibleInitiativeRowFields ?? defaults.visibleInitiativeRowFields),
+    ],
+    visibleSavedViewRowFields: [
+      ...(display.visibleSavedViewRowFields ?? defaults.visibleSavedViewRowFields),
     ],
   }
 }

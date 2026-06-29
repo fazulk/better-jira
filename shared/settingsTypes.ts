@@ -72,6 +72,17 @@ export interface CustomViewDisplay {
   collapsedIssueSectionIds: string[]
   visibleIssueRowFields: string[]
   visibleProjectRowFields: string[]
+  projectGrouping: string
+  projectOrdering: string
+  projectClosedRange: string
+  collapsedProjectSectionIds: string[]
+  visibleInitiativeRowFields: string[]
+  visibleSavedViewRowFields: string[]
+}
+
+export interface ViewOverride {
+  filters: CustomViewFilter[]
+  display: CustomViewDisplay
 }
 
 export interface CustomView {
@@ -101,6 +112,7 @@ export interface SidebarSettings {
   pinnedTicketKeys: string[]
   favoriteViews: FavoriteView[]
   customViews: CustomView[]
+  viewOverrides: Record<string, ViewOverride>
   filterTypeKeys: string[]
   filterStatuses: string[]
   filterAssignees: string[]
@@ -127,6 +139,7 @@ export interface UpdateSidebarSettingsInput {
   pinnedTicketKeys?: string[]
   favoriteViews?: FavoriteView[]
   customViews?: CustomView[]
+  viewOverrides?: Record<string, ViewOverride>
   filterTypeKeys?: string[]
   filterStatuses?: string[]
   filterAssignees?: string[]

@@ -4,6 +4,7 @@ import type {
   CustomViewFilter,
   FavoriteView,
   FavoriteViewFilter,
+  ViewOverride,
 } from './settingsTypes'
 import {
   normalizeBoolean,
@@ -89,6 +90,12 @@ function getDefaultCustomViewDisplay(): CustomViewDisplay {
     collapsedIssueSectionIds: [],
     visibleIssueRowFields: ['id', 'status', 'assignee', 'priority', 'project', 'due', 'labels', 'created'],
     visibleProjectRowFields: ['health', 'priority', 'lead', 'targetDate', 'issues', 'status'],
+    projectGrouping: 'none',
+    projectOrdering: 'manual',
+    projectClosedRange: 'hidden',
+    collapsedProjectSectionIds: [],
+    visibleInitiativeRowFields: ['health', 'lead', 'projects', 'issues', 'updated'],
+    visibleSavedViewRowFields: ['owner'],
   }
 }
 
@@ -120,6 +127,9 @@ function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
   const recordValue: Record<string, unknown> = value
   const visibleIssueRowFields = normalizeStringList(recordValue.visibleIssueRowFields)
   const visibleProjectRowFields = normalizeStringList(recordValue.visibleProjectRowFields)
+  const collapsedProjectSectionIds = normalizeStringList(recordValue.collapsedProjectSectionIds)
+  const visibleInitiativeRowFields = normalizeStringList(recordValue.visibleInitiativeRowFields)
+  const visibleSavedViewRowFields = normalizeStringList(recordValue.visibleSavedViewRowFields)
 
   return {
     grouping: typeof recordValue.grouping === 'string' && recordValue.grouping.trim() ? recordValue.grouping.trim() : defaults.grouping,
@@ -140,6 +150,12 @@ function normalizeCustomViewDisplay(value: unknown): CustomViewDisplay {
     collapsedIssueSectionIds: normalizeStringList(recordValue.collapsedIssueSectionIds),
     visibleIssueRowFields: visibleIssueRowFields.length > 0 ? visibleIssueRowFields : defaults.visibleIssueRowFields,
     visibleProjectRowFields: visibleProjectRowFields.length > 0 ? visibleProjectRowFields : defaults.visibleProjectRowFields,
+    projectGrouping: typeof recordValue.projectGrouping === 'string' && recordValue.projectGrouping.trim() ? recordValue.projectGrouping.trim() : defaults.projectGrouping,
+    projectOrdering: typeof recordValue.projectOrdering === 'string' && recordValue.projectOrdering.trim() ? recordValue.projectOrdering.trim() : defaults.projectOrdering,
+    projectClosedRange: typeof recordValue.projectClosedRange === 'string' && recordValue.projectClosedRange.trim() ? recordValue.projectClosedRange.trim() : defaults.projectClosedRange,
+    collapsedProjectSectionIds,
+    visibleInitiativeRowFields: visibleInitiativeRowFields.length > 0 ? visibleInitiativeRowFields : defaults.visibleInitiativeRowFields,
+    visibleSavedViewRowFields: visibleSavedViewRowFields.length > 0 ? visibleSavedViewRowFields : defaults.visibleSavedViewRowFields,
   }
 }
 
@@ -164,6 +180,36 @@ function normalizeCustomViewIcon(value: unknown): string {
 
 function normalizeCustomViewColor(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_CUSTOM_VIEW_COLOR
+}
+
+export function normalizeViewOverrides(value: unknown): Record<string, ViewOverride> {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const overrides: Record<string, ViewOverride> = {}
+
+  for (const [rawViewId, entry] of Object.entries(recordValue)) {
+    const viewId = rawViewId.trim()
+    if (!viewId || typeof entry !== 'object' || entry === null) {
+      continue
+    }
+
+    const entryValue: Record<string, unknown> = entry
+    const filters = Array.isArray(entryValue.filters)
+      ? entryValue.filters
+          .map(normalizeCustomViewFilter)
+          .filter((filter): filter is CustomViewFilter => filter !== null)
+      : []
+
+    overrides[viewId] = {
+      filters,
+      display: normalizeCustomViewDisplay(entryValue.display),
+    }
+  }
+
+  return overrides
 }
 
 export function normalizeCustomViews(value: unknown): CustomView[] {

@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import ViewEditorCard from '../ViewEditorCard.vue'
 import ViewHeaderBreadcrumb from '../ViewHeaderBreadcrumb.vue'
 import TicketListDisplayOptionsMenu from './TicketListDisplayOptionsMenu.vue'
@@ -10,7 +10,36 @@ export default defineComponent({
   components: { ViewHeaderBreadcrumb, ViewEditorCard, TicketListDisplayOptionsMenu, TicketListFilterMenu },
   props: ['controller'],
   setup(props: { controller: TicketListController }) {
-    return { ...props.controller, controller: props.controller }
+    const saveMenuOpen = ref(false)
+
+    function toggleSaveMenu(): void {
+      saveMenuOpen.value = !saveMenuOpen.value
+    }
+
+    function saveChangesToThisView(): void {
+      props.controller.saveCurrentViewChangesToThisView()
+      saveMenuOpen.value = false
+    }
+
+    function createNewViewFromChanges(): void {
+      props.controller.saveCurrentViewFilters()
+      saveMenuOpen.value = false
+    }
+
+    function clearCurrentViewChanges(): void {
+      props.controller.clearCurrentViewFilters()
+      saveMenuOpen.value = false
+    }
+
+    return {
+      ...props.controller,
+      controller: props.controller,
+      clearCurrentViewChanges,
+      createNewViewFromChanges,
+      saveChangesToThisView,
+      saveMenuOpen,
+      toggleSaveMenu,
+    }
   },
 })
 </script>
@@ -94,7 +123,7 @@ export default defineComponent({
           type="button"
           class="flex h-8 w-8 items-center justify-center rounded-md border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
           :class="
-            hasCurrentViewFilters || filterMenuOpen
+            hasModifiedFilterOptions || filterMenuOpen
               ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]'
               : 'border-white/[0.08] bg-white/[0.035]'
           "
@@ -182,7 +211,7 @@ export default defineComponent({
         type="button"
         class="relative flex h-8 w-8 items-center justify-center rounded-full border text-[#8f9198] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
         :class="
-          hasCurrentViewFilters || filterMenuOpen
+          hasModifiedFilterOptions || filterMenuOpen
             ? 'border-white/[0.14] bg-white/[0.075] text-[#f0f1f4]'
             : 'border-white/[0.08] bg-white/[0.035]'
         "
@@ -191,7 +220,7 @@ export default defineComponent({
       >
         <Icon name="lucide:list-filter" class="h-4 w-4" aria-hidden="true" />
         <span
-          v-if="hasCurrentViewFilters"
+          v-if="hasModifiedFilterOptions"
           class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#4dbb83] ring-2 ring-[#0d0e10]"
           aria-hidden="true"
         />
@@ -261,7 +290,7 @@ export default defineComponent({
   />
 
   <div
-    v-if="!selectedTicket && activeFilterChips.length"
+    v-if="!selectedTicket && hasModifiedFilterOptions"
     class="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2"
   >
     <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -293,21 +322,53 @@ export default defineComponent({
       </button>
     </div>
 
-    <div v-if="!viewEditorMode" class="flex shrink-0 items-center gap-2">
+    <div v-if="!viewEditorMode" class="relative flex shrink-0 items-center gap-2">
       <button
         type="button"
         class="rounded-md px-2 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4]"
-        @click="clearCurrentViewFilters"
+        @click="clearCurrentViewChanges"
       >
-        Reset
+        Clear
       </button>
       <button
+        v-if="!activeViewIsCustomView"
         type="button"
         class="rounded-md border border-white/[0.08] bg-white/[0.045] px-2.5 py-1 text-[12px] text-[#d7d8dc] hover:bg-white/[0.07] hover:text-[#f0f1f4]"
-        @click="saveCurrentViewFilters"
+        @click="createNewViewFromChanges"
       >
         Save
       </button>
+      <button
+        v-else
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.045] px-2.5 py-1 text-[12px] text-[#d7d8dc] hover:bg-white/[0.07] hover:text-[#f0f1f4]"
+        :aria-expanded="saveMenuOpen"
+        @click="toggleSaveMenu"
+      >
+        <span>Save</span>
+        <Icon name="lucide:chevron-down" class="h-3 w-3" aria-hidden="true" />
+      </button>
+      <div
+        v-if="saveMenuOpen"
+        class="absolute top-8 right-0 z-30 w-48 overflow-hidden rounded-lg border border-white/[0.08] bg-[#18191d] py-1 shadow-2xl shadow-black/40"
+      >
+        <button
+          type="button"
+          class="flex h-9 w-full items-center gap-2 px-3 text-left text-[12px] text-[#d7d8dc] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+          @click="saveChangesToThisView"
+        >
+          <Icon name="lucide:layers" class="h-3.5 w-3.5 text-[#8f9198]" aria-hidden="true" />
+          <span>Save to this view</span>
+        </button>
+        <button
+          type="button"
+          class="flex h-9 w-full items-center gap-2 px-3 text-left text-[12px] text-[#d7d8dc] hover:bg-white/[0.06] hover:text-[#f0f1f4]"
+          @click="createNewViewFromChanges"
+        >
+          <Icon name="lucide:copy-plus" class="h-3.5 w-3.5 text-[#8f9198]" aria-hidden="true" />
+          <span>Create new view…</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>

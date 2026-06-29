@@ -73,6 +73,12 @@ export interface CustomView {
 }
 
 export type LabelColors = Record<string, string>
+export type StatusColors = Record<string, string>
+
+export interface StatusPreferences {
+  colors: StatusColors
+  order: string[]
+}
 
 export type SidebarSortBy = 'key' | 'summary' | 'status' | 'priority' | 'assignee' | 'type' | 'createdAt' | 'updatedAt' | 'dueDate' | 'completedAt'
 export type SidebarGroupBy = Exclude<SidebarSortBy, 'key'> | 'hierarchy' | 'none'
@@ -118,6 +124,11 @@ export interface UpdateSidebarSettingsInput {
   sortReversed?: boolean
 }
 
+export interface UpdateStatusPreferencesInput {
+  colors?: StatusColors
+  order?: string[]
+}
+
 export interface AppSettings {
   spaces: AppSpaceSetting[]
   filterSpaceKeys: string[]
@@ -126,6 +137,7 @@ export interface AppSettings {
   ai: AiConnectionSettings
   aiInstructionPresets: AiInstructionPresetSetting[]
   labelColors: LabelColors
+  statusPreferences: StatusPreferences
 }
 
 export interface UpdateAppSettingsInput {
@@ -136,6 +148,7 @@ export interface UpdateAppSettingsInput {
   ai?: UpdateAiConnectionInput
   aiInstructionPresets?: AiInstructionPresetSetting[]
   labelColors?: LabelColors
+  statusPreferences?: UpdateStatusPreferencesInput
 }
 
 export interface JiraSpaceDirectoryEntry {

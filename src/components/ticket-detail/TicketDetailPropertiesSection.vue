@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { JiraTicket } from '@/types/jira'
 import { computed } from 'vue'
+import StatusIcon from '@/components/StatusIcon.vue'
 import {
   priorityConfig,
-  statusColors,
   useTicketDetailPropertyEditors,
 } from '@/features/ticket-detail/useTicketDetailPropertyEditors'
 import { useTicketDetailStatusEditor } from '@/features/ticket-detail/useTicketDetailStatusEditor'
@@ -146,9 +146,9 @@ defineExpose({
         </div>
         <button v-else class="min-w-0 text-left" @click="startEditingStatus">
           <span
-            class="inline-flex max-w-full items-center rounded-md px-2 py-1 text-xs font-medium"
-            :class="statusColors[ticket.statusCategory] || statusColors.indeterminate"
+            class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-xs font-medium text-slate-200"
           >
+            <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="14" />
             <span class="truncate">{{ ticket.status }}</span>
           </span>
         </button>

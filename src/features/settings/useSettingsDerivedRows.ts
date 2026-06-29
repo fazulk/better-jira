@@ -10,6 +10,7 @@ import type { AiInstructionPreset } from '@/composables/useAiInstructionPresets'
 import type { JiraTicket, StatusGroup } from '@/types/jira'
 import type { AiSettings } from '~/shared/ai'
 import { computed } from 'vue'
+import { compareStatusesByPreference, getStatusLane, getStatusPreferenceKey, useStatusPreferences } from '@/composables/useStatusPreferences'
 import { getStatusGroup } from '@/types/jira'
 import { getProviderLabel } from '~/shared/ai'
 
@@ -27,17 +28,12 @@ interface SettingsDerivedRowsInput {
   tickets: Ref<readonly JiraTicket[]> | ComputedRef<readonly JiraTicket[]>
 }
 
-const statusGroupRank: Record<StatusGroup, number> = {
-  new: 0,
-  indeterminate: 1,
-  done: 2,
-}
-
 function formatCount(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
 export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
+  const { statusPreferences } = useStatusPreferences()
   const enabledSpaceItems = computed(() => input.spaces.value
     .filter(space => space.enabled)
     .map(space => ({ key: space.key, name: space.name.trim() || space.key })))
@@ -55,24 +51,29 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
   }
 
   const teamStatusRows = computed<TeamStatusSettingsRow[]>(() => {
-    const rows = new Map<string, { status: string, group: StatusGroup, issueCount: number, spaceKeys: Set<string> }>()
+    const rows = new Map<string, { key: string, status: string, statusCategory: string, group: StatusGroup, lane: TeamStatusSettingsRow['lane'], issueCount: number, spaceKeys: Set<string> }>()
     for (const ticket of input.tickets.value) {
       if (!enabledSpaceKeySet.value.has(ticket.spaceKey))
         continue
       const status = ticket.status.trim() || 'No status'
       const group = getStatusGroup(ticket.statusCategory)
-      const key = `${group}:${status.toLowerCase()}`
+      const key = getStatusPreferenceKey(status, ticket.statusCategory)
+      const lane = getStatusLane(status, ticket.statusCategory)
       const current = rows.get(key)
       if (current) {
         current.issueCount += 1
         current.spaceKeys.add(ticket.spaceKey)
         continue
       }
-      rows.set(key, { status, group, issueCount: 1, spaceKeys: new Set([ticket.spaceKey]) })
+      rows.set(key, { key, status, statusCategory: ticket.statusCategory, group, lane, issueCount: 1, spaceKeys: new Set([ticket.spaceKey]) })
     }
     return [...rows.values()]
-      .sort((left, right) => statusGroupRank[left.group] - statusGroupRank[right.group] || left.status.localeCompare(right.status))
-      .map(row => ({ status: row.status, group: row.group, issueCount: row.issueCount, spaces: [...row.spaceKeys].sort().join(', ') }))
+      .sort((left, right) => compareStatusesByPreference(
+        { status: left.status, statusCategory: left.statusCategory },
+        { status: right.status, statusCategory: right.statusCategory },
+        statusPreferences.value.order,
+      ))
+      .map(row => ({ key: row.key, status: row.status, group: row.group, lane: row.lane, issueCount: row.issueCount, spaces: [...row.spaceKeys].sort().join(', ') }))
   })
 
   const teamMemberRows = computed<TeamMemberSettingsRow[]>(() => enabledSpaceItems.value.map((space) => {

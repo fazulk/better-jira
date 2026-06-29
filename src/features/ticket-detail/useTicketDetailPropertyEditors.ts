@@ -19,12 +19,6 @@ interface TicketDetailPropertyEditorsInput {
   ticketKey: Ref<string | null>
 }
 
-export const statusColors: Record<string, string> = {
-  new: 'bg-white/[0.035] text-slate-400 border border-white/[0.08]',
-  indeterminate: 'bg-amber-500/15 text-amber-300 border border-amber-500/20',
-  done: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20',
-}
-
 export const priorityConfig: Record<string, { color: string, bg: string }> = {
   Highest: { color: 'text-red-400', bg: 'bg-red-400' },
   High: { color: 'text-orange-400', bg: 'bg-orange-400' },

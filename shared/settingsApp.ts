@@ -14,6 +14,8 @@ import {
 import {
   normalizeLabelColors,
   normalizeSpaceKeyList,
+  normalizeStatusColors,
+  normalizeStatusOrder,
 } from './settingsNormalizers'
 import {
   normalizeAiInstructionPresetSettings,
@@ -30,6 +32,24 @@ import {
   reconcileSpaceSettings,
 } from './settingsSpaces'
 
+function getRecordValue(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const recordValue: Record<string, unknown> = value
+  return recordValue
+}
+
+function normalizeStatusPreferences(value: unknown): AppSettings['statusPreferences'] {
+  const recordValue = getRecordValue(value)
+
+  return {
+    colors: normalizeStatusColors(recordValue.colors),
+    order: normalizeStatusOrder(recordValue.order),
+  }
+}
+
 export function getDefaultAppSettings(): AppSettings {
   return {
     spaces: [],
@@ -43,6 +63,10 @@ export function getDefaultAppSettings(): AppSettings {
     ai: getDefaultAiConnectionSettings(),
     aiInstructionPresets: [],
     labelColors: {},
+    statusPreferences: {
+      colors: {},
+      order: [],
+    },
   }
 }
 
@@ -61,6 +85,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     ai: normalizeAiConnectionSettings(recordValue.ai),
     aiInstructionPresets: normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets),
     labelColors: normalizeLabelColors(recordValue.labelColors),
+    statusPreferences: normalizeStatusPreferences(recordValue.statusPreferences),
   })
 }
 
@@ -104,6 +129,17 @@ export function normalizeAppSettingsUpdate(value: unknown): UpdateAppSettingsInp
     nextSettings.labelColors = normalizeLabelColors(recordValue.labelColors)
   }
 
+  if ('statusPreferences' in recordValue) {
+    const statusPreferencesRecord = getRecordValue(recordValue.statusPreferences)
+    nextSettings.statusPreferences = {}
+    if ('colors' in statusPreferencesRecord) {
+      nextSettings.statusPreferences.colors = normalizeStatusColors(statusPreferencesRecord.colors)
+    }
+    if ('order' in statusPreferencesRecord) {
+      nextSettings.statusPreferences.order = normalizeStatusOrder(statusPreferencesRecord.order)
+    }
+  }
+
   return nextSettings
 }
 
@@ -131,5 +167,9 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
     }),
     aiInstructionPresets: reconcileAiInstructionPresets(settings.aiInstructionPresets),
     labelColors: normalizeLabelColors(settings.labelColors),
+    statusPreferences: {
+      colors: normalizeStatusColors(settings.statusPreferences.colors),
+      order: normalizeStatusOrder(settings.statusPreferences.order),
+    },
   }
 }

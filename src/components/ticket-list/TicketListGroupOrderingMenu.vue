@@ -47,6 +47,7 @@ export default defineComponent({
           <span
             class="h-3.5 w-3.5 shrink-0 rounded-full border"
             :class="getIssueGroupMarkerClass(row.label)"
+            :style="getIssueGroupMarkerStyle(row.label)"
           />
           <span class="min-w-0 flex-1 truncate">{{ row.label }}</span>
           <button

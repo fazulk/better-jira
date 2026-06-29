@@ -1,4 +1,4 @@
-import type { LabelColors } from './settingsTypes'
+import type { LabelColors, StatusColors } from './settingsTypes'
 
 export function normalizeSpaceKey(value: unknown): string | null {
   if (typeof value !== 'string') {
@@ -29,13 +29,17 @@ function normalizeLabelColorKey(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : ''
 }
 
-function normalizeLabelColorValue(value: unknown): string | null {
+function normalizeHexColorValue(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null
   }
 
   const normalizedValue = value.trim().toLowerCase()
   return /^#[0-9a-f]{6}$/.test(normalizedValue) ? normalizedValue : null
+}
+
+function normalizeStatusPreferenceKey(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
 }
 
 export function normalizeLabelColors(value: unknown): LabelColors {
@@ -48,7 +52,7 @@ export function normalizeLabelColors(value: unknown): LabelColors {
 
   for (const [label, color] of Object.entries(recordValue)) {
     const normalizedLabel = normalizeLabelColorKey(label)
-    const normalizedColor = normalizeLabelColorValue(color)
+    const normalizedColor = normalizeHexColorValue(color)
 
     if (normalizedLabel && normalizedColor) {
       normalizedColors[normalizedLabel] = normalizedColor
@@ -56,6 +60,43 @@ export function normalizeLabelColors(value: unknown): LabelColors {
   }
 
   return normalizedColors
+}
+
+export function normalizeStatusColors(value: unknown): StatusColors {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const recordValue: Record<string, unknown> = value
+  const normalizedColors: StatusColors = {}
+
+  for (const [statusKey, color] of Object.entries(recordValue)) {
+    const normalizedStatusKey = normalizeStatusPreferenceKey(statusKey)
+    const normalizedColor = normalizeHexColorValue(color)
+
+    if (normalizedStatusKey && normalizedColor) {
+      normalizedColors[normalizedStatusKey] = normalizedColor
+    }
+  }
+
+  return normalizedColors
+}
+
+export function normalizeStatusOrder(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const normalizedValues = new Set<string>()
+
+  for (const entry of value) {
+    const normalizedEntry = normalizeStatusPreferenceKey(entry)
+    if (normalizedEntry) {
+      normalizedValues.add(normalizedEntry)
+    }
+  }
+
+  return [...normalizedValues]
 }
 
 export function normalizeSpaceKeyList(value: unknown): string[] {

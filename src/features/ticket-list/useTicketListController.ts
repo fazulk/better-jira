@@ -56,6 +56,7 @@ import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { useJiraTickets } from '@/composables/useJiraTickets'
 import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { compareStatusesByPreference, createStatusBadgeStyle, useStatusPreferences } from '@/composables/useStatusPreferences'
 import { getStatusGroup } from '@/types/jira'
 import { isLocalTicketKey } from '~/shared/localTickets'
 import {
@@ -146,6 +147,10 @@ export function useTicketListController() {
     isLoading: isLoadingSpaceSettings,
     deleteSpace,
   } = useSpaceSettings()
+  const {
+    getStatusColor,
+    statusPreferences,
+  } = useStatusPreferences()
   const { favoriteViews, isFavoriteView, getFavoriteView, toggleFavoriteView } = useFavoriteViews()
   const { customViews, getCustomView, customViewsForContext, upsertCustomView, removeCustomView }
     = useCustomViews()
@@ -1695,9 +1700,24 @@ export function useTicketListController() {
         return -1
       return leftManualIndex - rightManualIndex
     }
+    if (listGrouping.value === 'status') {
+      const statusComparison = compareStatusGroupLabels(left[0], right[0])
+      return listGroupingDirection.value === 'desc' ? -statusComparison : statusComparison
+    }
+
     return listGroupingDirection.value === 'desc'
       ? getRank(right[0]) - getRank(left[0]) || right[0].localeCompare(left[0])
       : getRank(left[0]) - getRank(right[0]) || left[0].localeCompare(right[0])
+  }
+  function getStatusCategoryForGroupLabel(label: string): string {
+    return searchedTickets.value.find(ticket => (ticket.status || 'No status') === label)?.statusCategory ?? ''
+  }
+  function compareStatusGroupLabels(leftLabel: string, rightLabel: string): number {
+    return compareStatusesByPreference(
+      { status: leftLabel, statusCategory: getStatusCategoryForGroupLabel(leftLabel) },
+      { status: rightLabel, statusCategory: getStatusCategoryForGroupLabel(rightLabel) },
+      statusPreferences.value.order,
+    )
   }
   function getIssueGroupingLabels(ticket: JiraTicket, fieldId: IssueGroupingFieldId): string[] {
     if (fieldId === 'status')
@@ -1735,6 +1755,13 @@ export function useTicketListController() {
     if (fieldId === 'status')
       return 0
     return 0
+  }
+  function getIssueGroupMarkerStyle(label: string): Record<string, string> {
+    if (listGrouping.value !== 'status') {
+      return {}
+    }
+
+    return createStatusBadgeStyle(getStatusColor(label, getStatusCategoryForGroupLabel(label)))
   }
   function sortTickets(nextTickets: JiraTicket[]): JiraTicket[] {
     const direction = listOrderingDirection.value === 'desc' ? -1 : 1
@@ -1803,7 +1830,7 @@ export function useTicketListController() {
       if (listOrdering.value === 'priority') {
         return (
           direction * (getPriorityRank(left.priority) - getPriorityRank(right.priority))
-          || getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory)
+          || compareStatusesByPreference(left, right, statusPreferences.value.order)
           || left.key.localeCompare(right.key, undefined, {
             numeric: true,
             sensitivity: 'base',
@@ -1814,7 +1841,7 @@ export function useTicketListController() {
         return 0
       }
       return (
-        direction * (getStatusRank(left.statusCategory) - getStatusRank(right.statusCategory))
+        direction * compareStatusesByPreference(left, right, statusPreferences.value.order)
         || getPriorityRank(left.priority) - getPriorityRank(right.priority)
         || left.key.localeCompare(right.key, undefined, {
           numeric: true,
@@ -4131,6 +4158,8 @@ export function useTicketListController() {
     getProgressBarClass,
     getInsightBarClass,
     getIssueGroupMarkerClass,
+    getIssueGroupMarkerStyle,
+    getStatusCategoryForGroupLabel,
     isIssueRowFieldVisible,
     toggleIssueRowField,
     resetIssueDisplayOptions,

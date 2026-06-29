@@ -1,3 +1,4 @@
+import type { StatusLane } from '@/composables/useStatusPreferences'
 import type { StatusGroup } from '@/types/jira'
 
 export type SettingsSectionId
@@ -26,8 +27,10 @@ export interface SettingsDetailRow {
 }
 
 export interface TeamStatusSettingsRow {
+  key: string
   status: string
   group: StatusGroup
+  lane: StatusLane
   issueCount: number
   spaces: string
 }

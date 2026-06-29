@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { JiraTicket } from '@/types/jira'
-import { statusColors } from '@/features/ticket-detail/useTicketDetailPropertyEditors'
+import StatusIcon from '@/components/StatusIcon.vue'
 
 defineProps<{
   actionLabel: string
@@ -16,9 +16,6 @@ const emit = defineEmits<{
   select: [key: string]
 }>()
 
-function childStatusClass(category: string) {
-  return statusColors[category] || statusColors.indeterminate
-}
 </script>
 
 <template>
@@ -43,7 +40,7 @@ function childStatusClass(category: string) {
         @click="emit('select', child.key)"
         @mouseenter="emit('prefetch', child.key)"
       >
-        <span class="h-2.5 w-2.5 shrink-0 rounded-full border" :class="childStatusClass(child.statusCategory)" />
+        <StatusIcon :status="child.status" :status-category="child.statusCategory" :size="14" />
         <span class="w-20 shrink-0 text-xs text-slate-500">{{ child.key }}</span>
         <span class="min-w-0 flex-1 truncate text-sm text-slate-300 group-hover:text-slate-100">{{ child.summary }}</span>
         <span class="hidden shrink-0 text-xs text-slate-600 md:inline">{{ child.status }}</span>

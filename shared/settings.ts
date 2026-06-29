@@ -23,8 +23,11 @@ export type {
   SidebarSettings,
   SidebarSortBy,
   SidebarTicketScope,
+  StatusColors,
+  StatusPreferences,
   UpdateAiConnectionInput,
   UpdateAppSettingsInput,
   UpdateJiraConnectionInput,
   UpdateSidebarSettingsInput,
+  UpdateStatusPreferencesInput,
 } from './settingsTypes'

@@ -32,6 +32,7 @@ interface StoredAppSettings {
   ai: StoredAiSettings
   aiInstructionPresets: AppSettings['aiInstructionPresets']
   labelColors: AppSettings['labelColors']
+  statusPreferences: AppSettings['statusPreferences']
 }
 
 function ensureSettingsDirectoryExists(): void {
@@ -101,6 +102,7 @@ function normalizeStoredSettings(value: unknown): StoredAppSettings {
     ai: normalizeStoredAiSettings(recordValue.ai),
     aiInstructionPresets: normalizedAppSettings.aiInstructionPresets,
     labelColors: normalizedAppSettings.labelColors,
+    statusPreferences: normalizedAppSettings.statusPreferences,
   }
 }
 
@@ -121,6 +123,7 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
     },
     aiInstructionPresets: settings.aiInstructionPresets,
     labelColors: settings.labelColors,
+    statusPreferences: settings.statusPreferences,
   })
 }
 
@@ -177,6 +180,10 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     },
     aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
     labelColors: input.labelColors ?? currentSettings.labelColors,
+    statusPreferences: {
+      colors: input.statusPreferences?.colors ?? currentSettings.statusPreferences.colors,
+      order: input.statusPreferences?.order ?? currentSettings.statusPreferences.order,
+    },
   })
   const storedSettings: StoredAppSettings = {
     spaces: nextSettings.spaces,
@@ -194,6 +201,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
     },
     aiInstructionPresets: nextSettings.aiInstructionPresets,
     labelColors: nextSettings.labelColors,
+    statusPreferences: nextSettings.statusPreferences,
   }
 
   writeSettingsFile(storedSettings)

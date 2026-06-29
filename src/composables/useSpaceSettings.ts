@@ -1,4 +1,4 @@
-import type { AiInstructionPresetSetting, AppSettings, AppSpaceSetting, LabelColors, UpdateAiConnectionInput, UpdateJiraConnectionInput, UpdateSidebarSettingsInput } from '~/shared/settings'
+import type { AiInstructionPresetSetting, AppSettings, AppSpaceSetting, LabelColors, StatusPreferences, UpdateAiConnectionInput, UpdateJiraConnectionInput, UpdateSidebarSettingsInput, UpdateStatusPreferencesInput } from '~/shared/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import {
@@ -114,6 +114,17 @@ export function useSpaceSettings() {
   async function setLabelColors(labelColors: LabelColors): Promise<void> {
     await updateSettings({
       labelColors,
+    }, false)
+  }
+
+  async function setStatusPreferences(statusPreferences: UpdateStatusPreferencesInput): Promise<void> {
+    const nextStatusPreferences: StatusPreferences = {
+      colors: statusPreferences.colors ?? settings.value.statusPreferences.colors,
+      order: statusPreferences.order ?? settings.value.statusPreferences.order,
+    }
+
+    await updateSettings({
+      statusPreferences: nextStatusPreferences,
     }, false)
   }
 
@@ -263,6 +274,7 @@ export function useSpaceSettings() {
     setSidebarSettings,
     setAiInstructionPresets,
     setLabelColors,
+    setStatusPreferences,
     addOrEnableSpace,
     disableSpace,
     deleteSpace,

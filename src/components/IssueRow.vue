@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { JiraTicket } from '@/types/jira'
 import { computed } from 'vue'
-import { getStatusGroup } from '@/types/jira'
+import StatusIcon from '@/components/StatusIcon.vue'
 
 const props = defineProps<{
   ticket: JiraTicket
@@ -35,17 +35,6 @@ const priorityClasses: Record<string, string> = {
 }
 
 const MAX_VISIBLE_LABELS = 3
-
-const statusClass = computed(() => {
-  const group = getStatusGroup(props.ticket.statusCategory)
-  if (group === 'done') {
-    return 'border-[#4dbb83] text-[#4dbb83]'
-  }
-  if (group === 'new') {
-    return 'border-[#8f9198] text-[#8f9198]'
-  }
-  return 'border-[#3f9fd6] text-[#3f9fd6]'
-})
 
 const priorityClass = computed(() => {
   const normalized = props.ticket.priority.trim().toLowerCase()
@@ -143,8 +132,8 @@ function formatDate(value: string | undefined): string {
       <span v-if="checked" class="text-[10px] leading-none">✓</span>
     </span>
 
-    <span v-if="showStatus !== false" class="flex h-4 w-4 items-center justify-center rounded-full border" :class="statusClass">
-      <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+    <span v-if="showStatus !== false" class="flex h-4 w-4 items-center justify-center">
+      <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="14" />
     </span>
 
     <span v-if="showId !== false" class="truncate font-medium text-[#8f9198]">{{ rowIssueKey }}</span>

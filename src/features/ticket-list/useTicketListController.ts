@@ -1402,7 +1402,18 @@ export function useTicketListController() {
     const [scope, key, section] = viewId.split(':')
     if (scope === 'team' && key) {
       const teamName = enabledSpaces.value.find(space => space.key === key)?.name || key
-      return `${teamName} · ${getTeamSectionLabel(section)}`
+      const sectionLabel = getTeamSectionLabel(section)
+      const kind = section === 'projects' || section === 'project-views'
+        ? 'projects'
+        : section === 'views'
+          ? null
+          : 'issues'
+      const parts = [sectionLabel]
+      if (kind && !sectionLabel.toLowerCase().includes(kind)) {
+        parts.push(kind)
+      }
+      parts.push(teamName)
+      return parts.join(' ')
     }
     const savedView = savedViewRows.value.find(row => row.viewId === viewId)
     return savedView?.name ?? viewId

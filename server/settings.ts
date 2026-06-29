@@ -185,6 +185,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
       provider: input.assistant?.provider ?? currentSettings.assistant.provider,
       model: input.assistant?.model ?? currentSettings.assistant.model,
       reasoning: input.assistant?.reasoning ?? currentSettings.assistant.reasoning,
+      systemPrompt: input.assistant?.systemPrompt ?? currentSettings.assistant.systemPrompt,
     },
     aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
     labelColors: input.labelColors ?? currentSettings.labelColors,

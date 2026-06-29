@@ -3,7 +3,6 @@ import type { StatusGroup } from '@/types/jira'
 
 export type SettingsSectionId
   = | 'workspace'
-    | 'ai'
     | 'assistant'
     | 'instructions'
     | 'team-overview'
@@ -13,7 +12,6 @@ export type SettingsSectionId
     | 'team-triage'
     | 'team-cycles'
     | 'team-ai'
-    | 'danger'
 
 export interface SettingsSummaryRow {
   label: string

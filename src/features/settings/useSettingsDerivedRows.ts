@@ -122,11 +122,6 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
     { label: 'Provider', value: getProviderLabel(input.aiSettings.value.provider), detail: input.aiSettings.value.model },
     { label: 'Agent chat', value: 'Out of scope', detail: 'Linear-style agent chat is intentionally excluded from the first pass.' },
   ])
-  const dangerRows = computed<SettingsDetailRow[]>(() => [
-    { label: 'Credential storage', value: '.data/settings.json', detail: 'Jira and AI credentials stay in the existing local settings boundary.' },
-    { label: 'Local issue state', value: 'Browser storage', detail: 'Pinned tickets, inbox read state, and archived notifications remain local to this workspace.' },
-    { label: 'Destructive actions', value: 'Not exposed', detail: 'No reset or delete workspace action is available from this first-pass settings shell.' },
-  ])
   const constrainedSettingsSectionTitle = computed(() => {
     if (input.activeSettingsSection.value === 'team-workflows')
       return 'Workflows'
@@ -136,7 +131,7 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
       return 'Cycles'
     if (input.activeSettingsSection.value === 'team-ai')
       return 'AI & Agents'
-    return 'Danger zone'
+    return ''
   })
   const constrainedSettingsSectionDescription = computed(() => {
     if (input.activeSettingsSection.value === 'team-workflows')
@@ -147,7 +142,7 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
       return 'Sprint-backed metadata without full Linear cycle planning.'
     if (input.activeSettingsSection.value === 'team-ai')
       return 'Assistant capabilities available in this first pass.'
-    return 'Local storage and destructive action boundaries.'
+    return ''
   })
   const constrainedSettingsRows = computed<SettingsDetailRow[]>(() => {
     if (input.activeSettingsSection.value === 'team-workflows')
@@ -158,7 +153,7 @@ export function useSettingsDerivedRows(input: SettingsDerivedRowsInput) {
       return teamCycleRows.value
     if (input.activeSettingsSection.value === 'team-ai')
       return teamAiRows.value
-    return dangerRows.value
+    return []
   })
 
   return {

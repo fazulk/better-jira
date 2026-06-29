@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AssistantProvider, AssistantReasoning } from '~/shared/assistant'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAssistantSettings } from '@/composables/useAssistantSettings'
 import {
   ASSISTANT_REASONING_LEVELS,
@@ -17,12 +17,56 @@ const {
   isProviderAvailable,
   isLoadingProviders,
   availableModels,
+  defaultSystemPrompt,
   setProvider,
   setModel,
   setReasoning,
+  setSystemPrompt,
 } = useAssistantSettings()
 
 const feedback = ref<string | null>(null)
+
+const promptDraft = ref(settings.value.systemPrompt)
+const promptFeedback = ref<{ kind: 'success' | 'error', message: string } | null>(null)
+const isSavingPrompt = ref(false)
+
+// Keep the draft in sync with the persisted value (it loads asynchronously and may be
+// updated elsewhere). The persisted prompt only changes on save, so this won't clobber edits.
+watch(() => settings.value.systemPrompt, (value) => {
+  promptDraft.value = value
+})
+
+const isPromptDirty = computed(() => promptDraft.value !== settings.value.systemPrompt)
+const isPromptDefault = computed(() => promptDraft.value.trim() === defaultSystemPrompt.trim())
+
+async function savePrompt(): Promise<void> {
+  isSavingPrompt.value = true
+  try {
+    await setSystemPrompt(promptDraft.value)
+    promptFeedback.value = { kind: 'success', message: 'Saved assistant prompt.' }
+  }
+  catch (error) {
+    promptFeedback.value = { kind: 'error', message: error instanceof Error ? error.message : 'Failed to save assistant prompt.' }
+  }
+  finally {
+    isSavingPrompt.value = false
+  }
+}
+
+async function resetPrompt(): Promise<void> {
+  promptDraft.value = defaultSystemPrompt
+  isSavingPrompt.value = true
+  try {
+    await setSystemPrompt(defaultSystemPrompt)
+    promptFeedback.value = { kind: 'success', message: 'Restored the default prompt.' }
+  }
+  catch (error) {
+    promptFeedback.value = { kind: 'error', message: error instanceof Error ? error.message : 'Failed to reset assistant prompt.' }
+  }
+  finally {
+    isSavingPrompt.value = false
+  }
+}
 
 function getAvailabilityDetail(provider: AssistantProvider): string {
   return providerAvailability.value.find(entry => entry.provider === provider)?.detail
@@ -131,6 +175,47 @@ async function handleReasoningChange(reasoning: AssistantReasoning): Promise<voi
       <p class="mt-2 text-[11px] text-slate-600">
         Higher effort spends more time reasoning before responding.
       </p>
+    </div>
+
+    <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+      <div class="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-medium text-slate-200">
+            System prompt
+          </h3>
+          <p class="mt-0.5 text-xs text-slate-500">
+            Behaviour and tone for both the home chat and the per-ticket chat. The current ticket and the acli reference are added automatically.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-md border border-white/[0.08] px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="isSavingPrompt || (isPromptDefault && !isPromptDirty)"
+          @click="resetPrompt"
+        >
+          Reset to default
+        </button>
+      </div>
+      <textarea
+        v-model="promptDraft"
+        rows="7"
+        spellcheck="false"
+        class="w-full resize-y rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 font-mono text-[12px] leading-relaxed text-slate-200 outline-none transition focus:border-white/[0.16] focus:bg-white/[0.06]"
+      />
+      <div class="mt-3 flex items-center justify-between gap-3">
+        <p v-if="promptFeedback" class="text-xs" :class="promptFeedback.kind === 'error' ? 'text-rose-300' : 'text-emerald-300'">
+          {{ promptFeedback.message }}
+        </p>
+        <span v-else />
+        <button
+          type="button"
+          class="shrink-0 rounded-md bg-accent-indigo px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-indigo/90 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-slate-600"
+          :disabled="isSavingPrompt || !isPromptDirty"
+          @click="savePrompt"
+        >
+          {{ isSavingPrompt ? 'Saving…' : 'Save prompt' }}
+        </button>
+      </div>
     </div>
 
     <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">

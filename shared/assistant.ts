@@ -16,10 +16,25 @@ export interface AssistantSettings {
   provider: AssistantProvider
   model: string
   reasoning: AssistantReasoning
+  /** Editable behaviour/persona block prepended to the assistant's system prompt. */
+  systemPrompt: string
 }
 
 export const DEFAULT_ASSISTANT_PROVIDER: AssistantProvider = 'claude'
 export const DEFAULT_ASSISTANT_REASONING: AssistantReasoning = 'medium'
+
+/**
+ * Default behaviour/persona block for the "Ask" assistant. The ticket context and the
+ * acli Jira reference are appended automatically server-side, so this only covers tone
+ * and ground rules. Editable from Settings → Assistant.
+ */
+export const DEFAULT_ASSISTANT_SYSTEM_PROMPT: string = [
+  'You are the BetterJira assistant, embedded inside the BetterJira desktop app.',
+  'You help the user read and manage Jira tickets by running the acli command-line tool.',
+  'Use the acli reference below. Prefer acli over guessing; run read commands to ground your answers in live data.',
+  'Be concise and conversational. When you change a ticket, state exactly what you changed and include the issue link.',
+  'You are running with full permissions and no confirmation prompts, so double-check destructive actions before running them.',
+].join('\n')
 
 export interface AssistantChatMessage {
   role: 'user' | 'assistant'
@@ -87,10 +102,22 @@ export function getAssistantReasoningLabel(reasoning: AssistantReasoning): strin
   return 'Medium'
 }
 
+/** Keeps a stored prompt as-is (preserving user formatting); falls back to the default. */
+export function normalizeAssistantSystemPrompt(value: unknown): string {
+  return typeof value === 'string' ? value : DEFAULT_ASSISTANT_SYSTEM_PROMPT
+}
+
+/** Resolves the effective prompt at request time: a blank value means "use the built-in". */
+export function resolveAssistantSystemPrompt(value: string | null | undefined): string {
+  const trimmed = (value ?? '').trim()
+  return trimmed.length > 0 ? trimmed : DEFAULT_ASSISTANT_SYSTEM_PROMPT
+}
+
 export function normalizeAssistantSettings(
   provider: unknown,
   model: unknown,
   reasoning: unknown,
+  systemPrompt?: unknown,
 ): AssistantSettings {
   const normalizedProvider = isAssistantProvider(provider) ? provider : DEFAULT_ASSISTANT_PROVIDER
   const normalizedModel = typeof model === 'string' && isSupportedAssistantModel(normalizedProvider, model)
@@ -102,6 +129,7 @@ export function normalizeAssistantSettings(
     provider: normalizedProvider,
     model: normalizedModel,
     reasoning: normalizedReasoning,
+    systemPrompt: normalizeAssistantSystemPrompt(systemPrompt),
   }
 }
 
@@ -110,6 +138,7 @@ export function getDefaultAssistantSettings(): AssistantSettings {
     provider: DEFAULT_ASSISTANT_PROVIDER,
     model: getDefaultAssistantModel(DEFAULT_ASSISTANT_PROVIDER),
     reasoning: DEFAULT_ASSISTANT_REASONING,
+    systemPrompt: DEFAULT_ASSISTANT_SYSTEM_PROMPT,
   }
 }
 

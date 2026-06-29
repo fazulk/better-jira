@@ -11,7 +11,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
-import { getAssistantProviderLabel } from '../../shared/assistant'
+import { resolveAssistantSystemPrompt } from '../../shared/assistant'
+import { getAppSettings } from '../settings'
 import { getLocalAiCommandPathEnv, resolveLocalAiCommand } from './localProviders'
 import { ACLI_JIRA_SKILL } from './skills/acliJiraSkill'
 
@@ -30,7 +31,9 @@ function getCommandPath(provider: AssistantProvider): string {
 }
 
 function buildSystemInstructions(request: AssistantChatRequest): string {
-  const providerLabel = getAssistantProviderLabel(request.provider)
+  // The persona block is user-editable (Settings → Assistant); the ticket context and
+  // the acli reference are appended automatically so tool wiring can't be edited away.
+  const persona = resolveAssistantSystemPrompt(getAppSettings().assistant.systemPrompt)
   const ticketContext = request.ticketKey
     ? [
         '',
@@ -42,11 +45,7 @@ function buildSystemInstructions(request: AssistantChatRequest): string {
     : ''
 
   return [
-    `You are "Ask ${providerLabel}", an assistant embedded inside the BetterJira desktop app.`,
-    'You help the user read and manage Jira tickets by running the acli command-line tool.',
-    'Use the acli reference below. Prefer acli over guessing; run read commands to ground your answers in live data.',
-    'Be concise and conversational. When you change a ticket, state exactly what you changed and include the issue link.',
-    'You are running with full permissions and no confirmation prompts, so double-check destructive actions before running them.',
+    persona,
     ticketContext,
     '',
     '---',

@@ -12,6 +12,7 @@ import { AI_PROVIDER_AVAILABILITY_QUERY_KEY } from '@/composables/useAiSettings'
 import { APP_SETTINGS_QUERY_KEY } from '@/composables/useSpaceSettings'
 import {
   ASSISTANT_PROVIDERS,
+  DEFAULT_ASSISTANT_SYSTEM_PROMPT,
   getAssistantModelsForProvider,
   getDefaultAssistantModel,
   isSupportedAssistantModel,
@@ -32,6 +33,7 @@ function mergeAssistantSettings(currentSettings: AppSettings | undefined, input:
       input.provider ?? appSettings.assistant.provider,
       input.model ?? appSettings.assistant.model,
       input.reasoning ?? appSettings.assistant.reasoning,
+      input.systemPrompt ?? appSettings.assistant.systemPrompt,
     ),
   })
 }
@@ -57,6 +59,7 @@ export function useAssistantSettings() {
     appSettingsQuery.data.value?.assistant.provider,
     appSettingsQuery.data.value?.assistant.model,
     appSettingsQuery.data.value?.assistant.reasoning,
+    appSettingsQuery.data.value?.assistant.systemPrompt,
   ))
 
   const providerAvailability = computed<AiProviderAvailability[]>(() => (
@@ -110,6 +113,10 @@ export function useAssistantSettings() {
     await persistAssistantSettings({ reasoning })
   }
 
+  async function setSystemPrompt(systemPrompt: string): Promise<void> {
+    await persistAssistantSettings({ systemPrompt })
+  }
+
   return {
     settings,
     providers: ASSISTANT_PROVIDERS,
@@ -117,8 +124,10 @@ export function useAssistantSettings() {
     isProviderAvailable,
     isLoadingProviders: computed(() => providerAvailabilityQuery.isLoading.value),
     availableModels,
+    defaultSystemPrompt: DEFAULT_ASSISTANT_SYSTEM_PROMPT,
     setProvider,
     setModel,
     setReasoning,
+    setSystemPrompt,
   }
 }

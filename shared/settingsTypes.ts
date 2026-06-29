@@ -27,6 +27,7 @@ export interface UpdateAssistantSettingsInput {
   provider?: AssistantProvider
   model?: string
   reasoning?: AssistantReasoning
+  systemPrompt?: string
 }
 
 export interface AiInstructionPresetSetting {

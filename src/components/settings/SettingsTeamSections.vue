@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
     </Teleport>
   </section>
 
-  <section v-show="activeSettingsSection === 'team-workflows' || activeSettingsSection === 'team-triage' || activeSettingsSection === 'team-cycles' || activeSettingsSection === 'team-ai' || activeSettingsSection === 'danger'" class="mx-auto max-w-3xl space-y-5">
+  <section v-show="activeSettingsSection === 'team-workflows' || activeSettingsSection === 'team-triage' || activeSettingsSection === 'team-cycles' || activeSettingsSection === 'team-ai'" class="mx-auto max-w-3xl space-y-5">
     <div>
       <h2 class="text-xl font-semibold text-slate-100">
         {{ constrainedSettingsSectionTitle }}

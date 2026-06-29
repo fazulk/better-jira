@@ -15,7 +15,7 @@ export function normalizeAssistantConnectionSettings(value: unknown): AssistantS
   }
 
   const recordValue: Record<string, unknown> = value
-  return normalizeAssistantSettings(recordValue.provider, recordValue.model, recordValue.reasoning)
+  return normalizeAssistantSettings(recordValue.provider, recordValue.model, recordValue.reasoning, recordValue.systemPrompt)
 }
 
 export function normalizeAssistantConnectionUpdate(value: unknown): UpdateAssistantSettingsInput | undefined {
@@ -36,6 +36,10 @@ export function normalizeAssistantConnectionUpdate(value: unknown): UpdateAssist
 
   if ('reasoning' in recordValue && isAssistantReasoning(recordValue.reasoning)) {
     nextAssistant.reasoning = recordValue.reasoning
+  }
+
+  if ('systemPrompt' in recordValue && typeof recordValue.systemPrompt === 'string') {
+    nextAssistant.systemPrompt = recordValue.systemPrompt
   }
 
   return Object.keys(nextAssistant).length > 0 ? nextAssistant : undefined

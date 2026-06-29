@@ -101,7 +101,7 @@ function handleKeydown(event: KeyboardEvent): void {
             v-model="draft"
             rows="1"
             :placeholder="`Ask ${providerLabel}…`"
-            class="max-h-40 min-h-[1.75rem] flex-1 resize-none bg-transparent text-[14px] text-slate-200 outline-none placeholder:text-slate-600"
+            class="max-h-40 min-h-[2rem] flex-1 resize-none bg-transparent text-[17px] text-slate-200 outline-none placeholder:text-slate-600"
             @keydown="handleKeydown"
           />
           <button

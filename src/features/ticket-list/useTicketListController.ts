@@ -163,7 +163,53 @@ export function useTicketListController() {
   const maxSidebarWidth = 360
   const collapsedSidebarWidth = 48
   const sidebarWidth = useLocalStorage('jira2.sidebar.width', defaultSidebarWidth)
-  const currentView = useLocalStorage('jira2.currentView', 'my-issues')
+  const router = useRouter()
+  // The active view is encoded in the URL (`?view=<id>`) so that switching views
+  // creates real browser/Electron history entries. `persistedView` mirrors the active
+  // view synchronously: it's the authoritative value within a tick (the route only
+  // updates after the async navigation resolves) and restores the last view across
+  // app restarts.
+  const persistedView = useLocalStorage('jira2.currentView', 'my-issues')
+  const currentView = computed<string>({
+    get() {
+      const viewParam = route.query.view
+      if (typeof viewParam === 'string' && viewParam.length > 0) {
+        return viewParam
+      }
+      return persistedView.value
+    },
+    set(view) {
+      persistedView.value = view
+      void navigateTo({ path: '/', query: { view } })
+    },
+  })
+  // Keep `persistedView` aligned with the route after navigations and back/forward,
+  // so synchronous reads (e.g. when opening/closing a ticket) never see a stale view.
+  watch(
+    () => route.query.view,
+    (viewParam) => {
+      if (typeof viewParam === 'string' && viewParam.length > 0) {
+        persistedView.value = viewParam
+      }
+    },
+  )
+  const canGoBack = ref(false)
+  const canGoForward = ref(false)
+  function syncNavigationHistoryState(): void {
+    const state = window.history.state as { back?: unknown, forward?: unknown } | null
+    canGoBack.value = Boolean(state && state.back != null)
+    canGoForward.value = Boolean(state && state.forward != null)
+  }
+  function goBack(): void {
+    if (canGoBack.value) {
+      router.back()
+    }
+  }
+  function goForward(): void {
+    if (canGoForward.value) {
+      router.forward()
+    }
+  }
   const issueSearch = ref('')
   const displayOptionsOpen = ref(false)
   const groupOrderingOpen = ref(false)
@@ -413,11 +459,14 @@ export function useTicketListController() {
       return typeof route.params.key === 'string' ? route.params.key : null
     },
     set(key) {
+      // Read from `persistedView` (not `currentView`/the route) so that a view switch
+      // queued in the same tick isn't overwritten by a stale route value.
+      const view = persistedView.value
       if (key) {
-        void navigateTo(`/${key}`)
+        void navigateTo({ path: `/${key}`, query: { view } })
         return
       }
-      void navigateTo('/')
+      void navigateTo({ path: '/', query: { view } })
     },
   })
   const enabledSpaceKeys = computed(() => new Set(enabledSpaces.value.map(space => space.key)))
@@ -3884,12 +3933,24 @@ export function useTicketListController() {
       stopSidebarResize()
     }
   })
+  let stopNavigationHistoryAfterEach: (() => void) | null = null
   onMounted(() => {
     window.addEventListener('pointermove', handleSidebarResize)
     window.addEventListener('pointerup', handleSidebarResizeEnd)
     window.addEventListener('pointercancel', handleSidebarResizeEnd)
     document.addEventListener('pointerdown', handleDocumentPointerDown, true)
     document.addEventListener('keydown', handleGlobalKeydown, true)
+    window.addEventListener('popstate', syncNavigationHistoryState)
+    stopNavigationHistoryAfterEach = router.afterEach(syncNavigationHistoryState)
+    // Ensure the initial entry carries an explicit `?view=` so back/forward restore
+    // the exact view rather than falling back to the latest persisted value.
+    if (typeof route.query.view !== 'string' || route.query.view.length === 0) {
+      void navigateTo(
+        { path: route.path, query: { ...route.query, view: persistedView.value } },
+        { replace: true },
+      )
+    }
+    syncNavigationHistoryState()
   })
   onBeforeUnmount(() => {
     if (!suppressViewDisplaySync.value) {
@@ -3901,6 +3962,8 @@ export function useTicketListController() {
     window.removeEventListener('pointercancel', handleSidebarResizeEnd)
     document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
     document.removeEventListener('keydown', handleGlobalKeydown, true)
+    window.removeEventListener('popstate', syncNavigationHistoryState)
+    stopNavigationHistoryAfterEach?.()
   })
   return {
     tickets,
@@ -3930,6 +3993,10 @@ export function useTicketListController() {
     collapsedSidebarWidth,
     sidebarWidth,
     currentView,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
     issueSearch,
     displayOptionsOpen,
     groupOrderingOpen,

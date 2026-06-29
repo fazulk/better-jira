@@ -174,6 +174,25 @@ export function useSidebarNavigation(
     }
   }
 
+  function syncFetchedPinnedTicketsFromCache(keys = pinnedKeys.value): void {
+    const nextFetchedPinnedTickets = { ...fetchedPinnedTickets.value }
+    let changed = false
+
+    for (const key of keys) {
+      const cachedTicket = getCachedPinnedTicket(key)
+      if (!cachedTicket || nextFetchedPinnedTickets[key] === cachedTicket) {
+        continue
+      }
+
+      nextFetchedPinnedTickets[key] = cachedTicket
+      changed = true
+    }
+
+    if (changed) {
+      fetchedPinnedTickets.value = nextFetchedPinnedTickets
+    }
+  }
+
   function loadMissingPinnedTickets(keys: string[]): void {
     for (const key of keys) {
       if (ticketByKey.value.has(key) || fetchedPinnedTickets.value[key]) {
@@ -193,8 +212,11 @@ export function useSidebarNavigation(
   }
 
   watch(pinnedKeys, (keys) => {
+    syncFetchedPinnedTicketsFromCache(keys)
     loadMissingPinnedTickets(keys)
   }, { immediate: true })
+
+  let unsubscribeQueryCache: (() => void) | null = null
 
   const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map((space) => {
     const tickets = issueTickets.value.filter(ticket => ticket.spaceKey === space.key)
@@ -323,11 +345,18 @@ export function useSidebarNavigation(
   }
 
   onMounted(() => {
+    unsubscribeQueryCache = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === 'updated') {
+        syncFetchedPinnedTicketsFromCache()
+      }
+    })
     window.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('keydown', handleKeydown)
   })
 
   onUnmounted(() => {
+    unsubscribeQueryCache?.()
+    unsubscribeQueryCache = null
     window.removeEventListener('pointerdown', handlePointerDown)
     window.removeEventListener('keydown', handleKeydown)
   })

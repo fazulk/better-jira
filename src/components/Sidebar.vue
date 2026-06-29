@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { FavoriteViewNavItem } from '@/features/sidebar/useSidebarNavigation'
 import type { JiraTicket } from '@/types/jira'
+import StatusIcon from '@/components/StatusIcon.vue'
 import { useSidebarNavigation } from '@/features/sidebar/useSidebarNavigation'
 
 const props = defineProps<{
@@ -10,6 +11,8 @@ const props = defineProps<{
   refreshing: boolean
   currentView: string
   favoriteViews: FavoriteViewNavItem[]
+  canGoBack: boolean
+  canGoForward: boolean
 }>()
 
 const emit = defineEmits<{
@@ -24,6 +27,8 @@ const emit = defineEmits<{
   'favoriteView': [viewId: string]
   'addSpace': []
   'leave-space': [spaceKey: string]
+  'back': []
+  'forward': []
 }>()
 
 const {
@@ -63,6 +68,28 @@ const {
       >
         <img src="/favicon.svg" alt="" class="h-5 w-5 shrink-0 rounded" aria-hidden="true">
         <span v-if="!collapsed" class="truncate font-medium">BetterJira!</span>
+      </button>
+
+      <button
+        v-if="!collapsed"
+        type="button"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#8f9198] transition enabled:hover:bg-white/[0.05] enabled:hover:text-[#e6e7ea] disabled:cursor-default disabled:opacity-30"
+        title="Go back"
+        :disabled="!canGoBack"
+        @click="emit('back')"
+      >
+        <Icon name="lucide:chevron-left" class="h-4 w-4" aria-hidden="true" />
+      </button>
+
+      <button
+        v-if="!collapsed"
+        type="button"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#8f9198] transition enabled:hover:bg-white/[0.05] enabled:hover:text-[#e6e7ea] disabled:cursor-default disabled:opacity-30"
+        title="Go forward"
+        :disabled="!canGoForward"
+        @click="emit('forward')"
+      >
+        <Icon name="lucide:chevron-right" class="h-4 w-4" aria-hidden="true" />
       </button>
 
       <button
@@ -184,10 +211,13 @@ const {
               type="button"
               class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition"
               :class="selectedKey === ticket.key ? 'bg-white/[0.08] text-[#f0f1f4]' : 'text-[#a9abb3] hover:bg-white/[0.045] hover:text-[#e6e7ea]'"
+              :title="`${ticket.key}: ${ticket.status}`"
               @mouseenter="emit('prefetch', ticket.key)"
               @click="emit('select', ticket.key)"
             >
-              <span class="w-4 shrink-0 text-center text-[12px] text-[#d7a543]">◆</span>
+              <span class="flex h-4 w-4 shrink-0 items-center justify-center">
+                <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="16" />
+              </span>
               <span class="min-w-0 flex-1 truncate">{{ ticket.summary }}</span>
             </button>
           </template>

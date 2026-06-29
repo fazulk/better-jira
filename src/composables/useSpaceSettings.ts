@@ -21,6 +21,16 @@ import {
 
 export const APP_SETTINGS_QUERY_KEY = ['app-settings'] as const
 const TICKETS_QUERY_KEY = ['tickets'] as const
+let appSettingsMutationRevision = 0
+
+function beginAppSettingsMutation(): number {
+  appSettingsMutationRevision += 1
+  return appSettingsMutationRevision
+}
+
+function isLatestAppSettingsMutation(revision: number): boolean {
+  return revision === appSettingsMutationRevision
+}
 
 interface SpaceMutationInput {
   key: string
@@ -67,6 +77,7 @@ export function useSpaceSettings() {
   const hasJiraCredentialsConfigured = computed(() => hasConfiguredJiraCredentials(settings.value))
 
   async function updateSettings(nextSettings: Partial<AppSettings>, invalidateTickets: boolean): Promise<void> {
+    const mutationRevision = beginAppSettingsMutation()
     const previousSettings = settings.value
     const mergedSettings = reconcileAppSettings({
       ...previousSettings,
@@ -76,8 +87,10 @@ export function useSpaceSettings() {
     queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, mergedSettings)
 
     try {
-      const persistedSettings = await settingsMutation.mutateAsync(mergedSettings)
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      const persistedSettings = await settingsMutation.mutateAsync(nextSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      }
 
       if (invalidateTickets) {
         await queryClient.invalidateQueries({
@@ -86,7 +99,9 @@ export function useSpaceSettings() {
       }
     }
     catch (error) {
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      }
       throw error
     }
   }
@@ -235,6 +250,7 @@ export function useSpaceSettings() {
   }
 
   async function updateJiraCredentials(input: UpdateJiraConnectionInput): Promise<void> {
+    const mutationRevision = beginAppSettingsMutation()
     const previousSettings = settings.value
     const mergedSettings = reconcileAppSettings({
       ...previousSettings,
@@ -251,7 +267,9 @@ export function useSpaceSettings() {
 
     try {
       const persistedSettings = await jiraConnectionMutation.mutateAsync(input)
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      }
       resetAvailableSpacesBootstrap()
       queryClient.removeQueries({
         queryKey: jiraSpaceDirectoryQueryKey,
@@ -264,12 +282,15 @@ export function useSpaceSettings() {
       })
     }
     catch (error) {
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      }
       throw error
     }
   }
 
   async function updateAiCredentials(input: UpdateAiConnectionInput): Promise<void> {
+    const mutationRevision = beginAppSettingsMutation()
     const previousSettings = settings.value
     const mergedSettings = reconcileAppSettings({
       ...previousSettings,
@@ -286,10 +307,14 @@ export function useSpaceSettings() {
 
     try {
       const persistedSettings = await aiConnectionMutation.mutateAsync(input)
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, persistedSettings)
+      }
     }
     catch (error) {
-      queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      if (isLatestAppSettingsMutation(mutationRevision)) {
+        queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, previousSettings)
+      }
       throw error
     }
   }

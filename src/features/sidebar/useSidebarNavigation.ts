@@ -1,10 +1,15 @@
 import type { JiraTicket } from '@/types/jira'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useLocalStorage } from '@vueuse/core'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { fetchTicket } from '@/api/jira'
+import { fetchLocalTicket } from '@/api/localTickets'
+import { ticketQueryKey } from '@/composables/useJiraTicket'
+import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { getStatusGroup } from '@/types/jira'
-import { LOCAL_SPACE_KEY } from '~/shared/localTickets'
+import { isLocalTicketKey, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 export interface FavoriteViewNavItem {
   id: string
@@ -67,12 +72,18 @@ function isEpicIssueType(issueType: string): boolean {
   return issueType.toLowerCase().includes('epic')
 }
 
+function isInitiativeIssue(ticket: JiraTicket): boolean {
+  return ticket.issueType.toLowerCase().includes('initiative')
+}
+
 export function useSidebarNavigation(
   props: SidebarNavigationProps,
   emit: SidebarNavigationEmit,
 ) {
   const { pinnedKeys } = usePinnedTickets()
   const { enabledSpaces } = useSpaceSettings()
+  const queryClient = useQueryClient()
+  const fetchedPinnedTickets = ref<Record<string, JiraTicket>>({})
 
   const enabledSpaceKeys = computed(() => new Set(enabledSpaces.value.map(space => space.key)))
   const currentViewId = computed(() => props.currentView)
@@ -87,7 +98,18 @@ export function useSidebarNavigation(
     }
     return keys
   })
-  const issueTickets = computed(() => visibleTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)))
+  const initiativeTicketKeySet = computed(() => {
+    const keys = new Set<string>()
+    for (const ticket of visibleTickets.value) {
+      if (isInitiativeIssue(ticket)) {
+        keys.add(ticket.key)
+      }
+    }
+    return keys
+  })
+  const issueTickets = computed(() => visibleTickets.value.filter(
+    ticket => !projectTicketKeySet.value.has(ticket.key) && !initiativeTicketKeySet.value.has(ticket.key),
+  ))
   const activeTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done'))
   const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
   const workspaceExpanded = ref(true)
@@ -118,15 +140,51 @@ export function useSidebarNavigation(
   ])
 
   const workspaceItems = computed<NavItem[]>(() => [
+    { id: 'initiatives', label: 'Initiatives', icon: 'initiative' },
     { id: 'projects', label: 'Projects', icon: 'project' },
     { id: 'views', label: 'Views', icon: 'view' },
   ])
 
-  const ticketByKey = computed(() => new Map(visibleTickets.value.map<readonly [string, JiraTicket]>(ticket => [ticket.key, ticket])))
+  const ticketByKey = computed(() => new Map(props.tickets.map<readonly [string, JiraTicket]>(ticket => [ticket.key, ticket])))
   const pinnedTickets = computed(() => pinnedKeys.value
-    .map(key => ticketByKey.value.get(key))
+    .map(key => ticketByKey.value.get(key) ?? fetchedPinnedTickets.value[key])
     .filter((ticket): ticket is JiraTicket => ticket !== undefined)
     .slice(0, 6))
+
+  function getCachedPinnedTicket(key: string): JiraTicket | null {
+    return isLocalTicketKey(key)
+      ? queryClient.getQueryData<JiraTicket>(localTicketQueryKey(key)) ?? null
+      : queryClient.getQueryData<JiraTicket>(ticketQueryKey(key)) ?? null
+  }
+
+  function storeFetchedPinnedTicket(ticket: JiraTicket): void {
+    fetchedPinnedTickets.value = {
+      ...fetchedPinnedTickets.value,
+      [ticket.key]: ticket,
+    }
+  }
+
+  function loadMissingPinnedTickets(keys: string[]): void {
+    for (const key of keys) {
+      if (ticketByKey.value.has(key) || fetchedPinnedTickets.value[key]) {
+        continue
+      }
+
+      const cachedTicket = getCachedPinnedTicket(key)
+      if (cachedTicket) {
+        storeFetchedPinnedTicket(cachedTicket)
+        continue
+      }
+
+      const queryKey = isLocalTicketKey(key) ? localTicketQueryKey(key) : ticketQueryKey(key)
+      const queryFn = () => isLocalTicketKey(key) ? fetchLocalTicket(key) : fetchTicket(key)
+      void queryClient.fetchQuery({ queryKey, queryFn }).then(storeFetchedPinnedTicket).catch(() => {})
+    }
+  }
+
+  watch(pinnedKeys, (keys) => {
+    loadMissingPinnedTickets(keys)
+  }, { immediate: true })
 
   const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map((space) => {
     const tickets = issueTickets.value.filter(ticket => ticket.spaceKey === space.key)

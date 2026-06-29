@@ -8,7 +8,7 @@ import type {
   JiraTicket,
 } from '@/types/jira'
 import { watch } from 'vue'
-import { isLocalPriorityName, LOCAL_ISSUE_TYPE, LOCAL_SPACE_KEY } from '~/shared/localTickets'
+import { isLocalPriorityName, isLocalTicketKey, LOCAL_ISSUE_TYPE, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 import { getDefaultIssueType } from './issueTypePolicy'
 import { focusElementById } from './useCreateTicketShortcuts'
 
@@ -53,17 +53,38 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
     return input.createSpaceOptions.value.some(space => space.key === spaceKey)
   }
 
+  function selectedParentLocksSpace(): boolean {
+    const parentIssueType = input.selectedParentTicket.value?.issueType.toLowerCase() ?? ''
+    return Boolean(input.selectedParentTicket.value?.spaceKey) && !parentIssueType.includes('initiative')
+  }
+
+  function selectedParentRequiresJiraSpace(): boolean {
+    const parentKey = input.parentKey.value ?? input.initialParentKey.value
+    return Boolean(parentKey && !isLocalTicketKey(parentKey))
+  }
+
   function getDefaultCreateSpaceKey(): string | null {
-    const parentSpaceKey = input.selectedParentTicket.value?.spaceKey ?? null
+    const parentSpaceKey = selectedParentLocksSpace()
+      ? input.selectedParentTicket.value?.spaceKey ?? null
+      : null
     if (parentSpaceKey)
       return parentSpaceKey
-    if (isAvailableCreateSpace(input.lastCreatedSpaceKey.value))
+    if (
+      isAvailableCreateSpace(input.lastCreatedSpaceKey.value)
+      && (!selectedParentRequiresJiraSpace() || input.lastCreatedSpaceKey.value !== LOCAL_SPACE_KEY)
+    ) {
       return input.lastCreatedSpaceKey.value
+    }
+    if (selectedParentRequiresJiraSpace()) {
+      return input.createSpaceOptions.value.find(space => space.key !== LOCAL_SPACE_KEY)?.key ?? null
+    }
     return input.createSpaceOptions.value[0]?.key ?? null
   }
 
   function syncSelectedSpaceKey() {
-    const parentSpaceKey = input.selectedParentTicket.value?.spaceKey ?? null
+    const parentSpaceKey = selectedParentLocksSpace()
+      ? input.selectedParentTicket.value?.spaceKey ?? null
+      : null
     if (parentSpaceKey) {
       input.selectedSpaceKey.value = parentSpaceKey
       return
@@ -79,7 +100,9 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
       ? input.tickets.value.find(ticket => ticket.key === input.initialParentKey.value) ?? null
       : null
 
-    input.selectedSpaceKey.value = initialParentTicket?.spaceKey ?? getDefaultCreateSpaceKey()
+    input.selectedSpaceKey.value = initialParentTicket?.issueType.toLowerCase().includes('initiative')
+      ? getDefaultCreateSpaceKey()
+      : initialParentTicket?.spaceKey ?? getDefaultCreateSpaceKey()
     input.parentKey.value = input.initialParentKey.value
 
     const spaceIsLocal = input.selectedSpaceKey.value === LOCAL_SPACE_KEY
@@ -110,7 +133,7 @@ export function useCreateTicketFormSync(input: CreateTicketFormSyncInput) {
   }
 
   function syncParentForIssueType() {
-    if (!input.selectedIssueType.value || input.selectedIssueType.value.toLowerCase().includes('epic')) {
+    if (!input.selectedIssueType.value) {
       input.parentKey.value = null
       input.stopEditingParent()
       return

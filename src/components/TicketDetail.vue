@@ -82,19 +82,41 @@ const childTickets = computed<JiraTicket[]>(() => {
 const isProjectDetail = computed(() => (
   issueType.value.includes('epic')
 ))
-const detailBreadcrumbRoot = computed(() => (isProjectDetail.value ? 'Projects' : 'Issues'))
+const isInitiativeDetail = computed(() => (
+  issueType.value.includes('initiative')
+))
+const detailBreadcrumbRoot = computed(() => {
+  if (isInitiativeDetail.value)
+    return 'Initiatives'
+  return isProjectDetail.value ? 'Projects' : 'Issues'
+})
 const detailBreadcrumbSpace = computed(() => (
   ticket.value?.spaceName || ticket.value?.spaceKey || 'Workspace'
 ))
 const detailBreadcrumbViewId = computed(() => {
+  if (isInitiativeDetail.value)
+    return 'initiatives'
+
   const spaceKey = ticket.value?.spaceKey
   if (!spaceKey)
     return isProjectDetail.value ? 'projects' : 'my-issues'
   return isProjectDetail.value ? `team:${spaceKey}:projects` : `team:${spaceKey}:all`
 })
-const detailChildActionLabel = computed(() => (isProjectDetail.value ? 'Add issue' : 'Add sub-issue'))
-const detailChildSectionLabel = computed(() => (isProjectDetail.value ? 'Issues' : 'Sub-issues'))
-const detailEmptyChildLabel = computed(() => (isProjectDetail.value ? 'No issues linked' : 'No sub-issues'))
+const detailChildActionLabel = computed(() => {
+  if (isInitiativeDetail.value)
+    return 'Add epic'
+  return isProjectDetail.value ? 'Add issue' : 'Add sub-issue'
+})
+const detailChildSectionLabel = computed(() => {
+  if (isInitiativeDetail.value)
+    return 'Epics'
+  return isProjectDetail.value ? 'Issues' : 'Sub-issues'
+})
+const detailEmptyChildLabel = computed(() => {
+  if (isInitiativeDetail.value)
+    return 'No epics linked'
+  return isProjectDetail.value ? 'No issues linked' : 'No sub-issues'
+})
 
 const imagePreview = ref<{ src: string, alt: string } | null>(null)
 

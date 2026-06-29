@@ -162,6 +162,8 @@ export interface ProjectRow {
   progress: number
   status: string
   updatedAt?: string
+  initiativeKey?: string
+  initiativeName?: string
 }
 
 export interface ProjectSection {
@@ -237,6 +239,8 @@ export interface ProjectAccumulator {
   targetDate?: string
   status: string
   updatedAt?: string
+  initiativeKey?: string
+  initiativeName?: string
   issues: JiraTicket[]
 }
 

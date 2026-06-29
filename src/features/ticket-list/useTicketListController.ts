@@ -94,6 +94,8 @@ import {
   isEditableTarget,
   isEpicIssue,
   isEpicIssueType,
+  isInitiativeIssue,
+  isInitiativeIssueType,
   isRecentlyUpdated,
   isSubIssueTicket,
   normalizeFilterValue,
@@ -424,8 +426,19 @@ export function useTicketListController() {
     }
     return keys
   })
+  const initiativeTicketKeySet = computed(() => {
+    const keys = new Set<string>()
+    for (const ticket of enabledTickets.value) {
+      if (isInitiativeIssue(ticket)) {
+        keys.add(ticket.key)
+      }
+    }
+    return keys
+  })
   const issueTickets = computed(() =>
-    enabledTickets.value.filter(ticket => !projectTicketKeySet.value.has(ticket.key)),
+    enabledTickets.value.filter(
+      ticket => !projectTicketKeySet.value.has(ticket.key) && !initiativeTicketKeySet.value.has(ticket.key),
+    ),
   )
   const backlogTickets = computed(() => issueTickets.value.filter(isBacklogIssueTicket))
   const currentUserName = computed(() => jiraMeQuery.data.value?.displayName.trim() ?? '')
@@ -1054,6 +1067,7 @@ export function useTicketListController() {
         continue
       const existing = projects.get(projectKey)
       const sourceTicket = getProjectSourceTicket(ticket, projectKey)
+      const initiativeParent = getInitiativeParent(sourceTicket ?? ticket)
       const nextProject = existing ?? {
         key: projectKey,
         name: sourceTicket?.summary ?? ticket.parent?.summary ?? ticket.summary,
@@ -1064,6 +1078,8 @@ export function useTicketListController() {
         targetDate: sourceTicket?.dueDate ?? ticket.dueDate,
         status: sourceTicket?.status ?? ticket.status,
         updatedAt: sourceTicket?.updatedAt ?? ticket.updatedAt,
+        initiativeKey: initiativeParent?.key,
+        initiativeName: initiativeParent?.summary,
         issues: [],
       }
       if (!existing && sourceTicket) {
@@ -1072,6 +1088,10 @@ export function useTicketListController() {
         nextProject.targetDate = sourceTicket.dueDate
         nextProject.status = sourceTicket.status
         nextProject.updatedAt = sourceTicket.updatedAt
+      }
+      if (initiativeParent && !nextProject.initiativeKey) {
+        nextProject.initiativeKey = initiativeParent.key
+        nextProject.initiativeName = initiativeParent.summary
       }
       if (ticket.key !== projectKey) {
         nextProject.issues = [...nextProject.issues, ticket]
@@ -1106,6 +1126,8 @@ export function useTicketListController() {
           progress,
           status: project.status,
           updatedAt: project.updatedAt,
+          initiativeKey: project.initiativeKey,
+          initiativeName: project.initiativeName,
         }
       })
       .sort(
@@ -1150,37 +1172,53 @@ export function useTicketListController() {
     projectSections.value.reduce((count, section) => count + section.projects.length, 0),
   )
   const baseInitiativeRows = computed<InitiativeRow[]>(() => {
-    const groups: Array<{
-      id: string
-      name: string
-      description: string
-      health: ProjectRow['health']
-      projects: ProjectRow[]
-    }> = [
+    const groups = new Map<
+      string,
       {
-        id: 'at-risk',
-        name: 'At risk delivery',
-        description: 'Project groups that are blocked or have very low completion',
-        health: 'At risk',
-        projects: projectRows.value.filter(project => project.health === 'At risk'),
-      },
-      {
-        id: 'on-track',
-        name: 'Active delivery',
-        description: 'Project groups progressing without an at-risk signal',
-        health: 'On track',
-        projects: projectRows.value.filter(project => project.health === 'On track'),
-      },
-      {
-        id: 'completed',
-        name: 'Completed delivery',
-        description: 'Project groups marked complete or fully delivered',
-        health: 'Completed',
-        projects: projectRows.value.filter(project => project.health === 'Completed'),
-      },
-    ]
-    return groups
-      .filter(group => group.projects.length > 0)
+        key: string
+        name: string
+        ticket: JiraTicket | null
+        projects: ProjectRow[]
+      }
+    >()
+
+    for (const ticket of enabledTickets.value) {
+      if (!isInitiativeIssue(ticket)) {
+        continue
+      }
+
+      groups.set(ticket.key, {
+        key: ticket.key,
+        name: ticket.summary,
+        ticket,
+        projects: [],
+      })
+    }
+
+    for (const project of projectRows.value) {
+      if (!project.initiativeKey) {
+        continue
+      }
+
+      const ticket = getInitiativeSourceTicket(project.initiativeKey)
+      const existing = groups.get(project.initiativeKey)
+      const group = existing ?? {
+        key: project.initiativeKey,
+        name: ticket?.summary ?? project.initiativeName ?? project.initiativeKey,
+        ticket,
+        projects: [],
+      }
+
+      if (ticket && !group.ticket) {
+        group.ticket = ticket
+        group.name = ticket.summary
+      }
+
+      group.projects.push(project)
+      groups.set(group.key, group)
+    }
+
+    return [...groups.values()]
       .map((group) => {
         const issueCount = group.projects.reduce((count, project) => count + project.issueCount, 0)
         const completedCount = group.projects.reduce(
@@ -1188,21 +1226,33 @@ export function useTicketListController() {
           0,
         )
         const progress = issueCount > 0 ? Math.round((completedCount / issueCount) * 100) : 0
+        const lead = group.ticket?.assignee && group.ticket.assignee !== 'Unassigned'
+          ? group.ticket.assignee
+          : getMostCommonLead(group.projects)
+
         return {
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          health: group.health,
+          id: group.key,
+          name: group.ticket?.summary ?? group.name,
+          description: getInitiativeDescription(group.ticket, group.projects.length),
+          health: getInitiativeHealth(group.ticket, group.projects, progress),
           projectCount: group.projects.length,
           issueCount,
           completedCount,
           progress,
-          lead: getMostCommonLead(group.projects),
-          updatedAt: group.projects
-            .map(project => project.updatedAt)
+          lead,
+          updatedAt: [group.ticket?.updatedAt, ...group.projects.map(project => project.updatedAt)]
             .sort((left, right) => getTimeValue(right) - getTimeValue(left))[0],
         }
       })
+      .sort(
+        (left, right) =>
+          getProjectHealthRank(left.health) - getProjectHealthRank(right.health)
+          || getTimeValue(right.updatedAt) - getTimeValue(left.updatedAt)
+          || left.id.localeCompare(right.id, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          }),
+      )
   })
   const initiativeRows = computed(() => applyViewFiltersToInitiatives(baseInitiativeRows.value))
   const savedViewRows = computed<SavedViewRow[]>(() =>
@@ -2130,12 +2180,7 @@ export function useTicketListController() {
       )
         .map(option => ({
           ...option,
-          count: baseProjects.filter(project =>
-            baseInitiativeRows.value.some(
-              initiative =>
-                initiative.id === option.value && initiative.health === project.health,
-            ),
-          ).length,
+          count: baseProjects.filter(project => project.initiativeKey === option.value).length,
         }))
         .filter(option => option.count > 0)
     }
@@ -2362,14 +2407,12 @@ export function useTicketListController() {
     return projectRows.value.find(project => project.key === projectKey) ?? null
   }
   function getTicketInitiativeIds(ticket: JiraTicket): string[] {
+    if (isInitiativeIssue(ticket)) {
+      return [ticket.key]
+    }
+
     const project = getTicketProject(ticket)
-    if (!project)
-      return []
-    return baseInitiativeRows.value
-      .filter(
-        initiative => initiative.name === project.health || initiative.health === project.health,
-      )
-      .map(initiative => initiative.id)
+    return project?.initiativeKey ? [project.initiativeKey] : []
   }
   function applyViewFiltersToProjects(nextProjects: ProjectRow[]): ProjectRow[] {
     const filters = currentViewFilters.value
@@ -2396,9 +2439,7 @@ export function useTicketListController() {
     if (filter.fieldId === 'project')
       return project.key === filter.value
     if (filter.fieldId === 'initiative') {
-      return baseInitiativeRows.value.some(
-        initiative => initiative.id === filter.value && initiative.health === project.health,
-      )
+      return project.initiativeKey === filter.value
     }
     if (filter.fieldId === 'externalSource')
       return filter.value === 'jira'
@@ -2697,6 +2738,8 @@ export function useTicketListController() {
     )
   }
   function getProjectKey(ticket: JiraTicket): string | null {
+    if (isInitiativeIssue(ticket))
+      return null
     if (isEpicIssue(ticket))
       return ticket.key
     let currentParent = ticket.parent
@@ -2716,6 +2759,67 @@ export function useTicketListController() {
     if (ticket.key === projectKey)
       return ticket
     return enabledTickets.value.find(candidate => candidate.key === projectKey) ?? null
+  }
+  function getInitiativeParent(ticket: JiraTicket): NonNullable<JiraTicket['parent']> | null {
+    if (isInitiativeIssue(ticket)) {
+      return {
+        key: ticket.key,
+        summary: ticket.summary,
+        issueType: ticket.issueType,
+      }
+    }
+
+    let currentParent = ticket.parent
+    const visitedKeys = new Set<string>()
+    while (currentParent?.key && !visitedKeys.has(currentParent.key)) {
+      const parentKey = currentParent.key
+      visitedKeys.add(parentKey)
+      if (isInitiativeIssueType(currentParent.issueType)) {
+        return currentParent
+      }
+
+      const parentTicket = enabledTickets.value.find(candidate => candidate.key === parentKey)
+      if (parentTicket && isInitiativeIssue(parentTicket)) {
+        return {
+          key: parentTicket.key,
+          summary: parentTicket.summary,
+          issueType: parentTicket.issueType,
+        }
+      }
+      currentParent = parentTicket?.parent
+    }
+
+    return null
+  }
+  function getInitiativeSourceTicket(initiativeKey: string): JiraTicket | null {
+    return enabledTickets.value.find(
+      ticket => ticket.key === initiativeKey && isInitiativeIssue(ticket),
+    ) ?? null
+  }
+  function getInitiativeDescription(ticket: JiraTicket | null, projectCount: number): string {
+    if (ticket) {
+      return `${ticket.spaceName || ticket.spaceKey || 'Jira'} initiative`
+    }
+
+    return projectCount === 1
+      ? 'Parent of 1 epic from Jira hierarchy'
+      : `Parent of ${projectCount} epics from Jira hierarchy`
+  }
+  function getInitiativeHealth(
+    ticket: JiraTicket | null,
+    projects: ProjectRow[],
+    progress: number,
+  ): ProjectRow['health'] {
+    if (ticket) {
+      return getProjectHealth(ticket.status, progress)
+    }
+    if (projects.some(project => project.health === 'At risk')) {
+      return 'At risk'
+    }
+    if (projects.length > 0 && projects.every(project => project.health === 'Completed')) {
+      return 'Completed'
+    }
+    return 'On track'
   }
   function getProjectHealthRank(health: ProjectRow['health']): number {
     if (health === 'At risk')

@@ -361,6 +361,14 @@ export function isEpicIssueType(issueType: string): boolean {
   return issueType.toLowerCase().includes('epic')
 }
 
+export function isInitiativeIssue(ticket: JiraTicket): boolean {
+  return isInitiativeIssueType(ticket.issueType)
+}
+
+export function isInitiativeIssueType(issueType: string): boolean {
+  return issueType.toLowerCase().includes('initiative')
+}
+
 export function isRecentlyUpdated(value?: string | null): boolean {
   if (!value)
     return false

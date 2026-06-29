@@ -7,6 +7,10 @@ export function getAllowedIssueTypesForParent(parentIssueType: string | null): J
   }
 
   const normalizedParentIssueType = parentIssueType.toLowerCase()
+  if (normalizedParentIssueType.includes('initiative')) {
+    return ['Epic']
+  }
+
   if (normalizedParentIssueType.includes('epic')) {
     return ['Story', 'Task', 'Bug', 'Feature']
   }
@@ -43,7 +47,7 @@ export function canIssueTypeUseParent(childIssueType: string, parentIssueType: s
   const normalizedParentIssueType = parentIssueType.toLowerCase()
 
   if (normalizedChildIssueType.includes('epic')) {
-    return false
+    return normalizedParentIssueType.includes('initiative')
   }
 
   if (normalizedChildIssueType.includes('feature')) {

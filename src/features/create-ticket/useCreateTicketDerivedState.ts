@@ -47,8 +47,14 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
     name: space.name || space.key,
   })))
 
+  const selectedParentIsInitiative = computed(() => (
+    selectedParentTicket.value?.issueType.toLowerCase().includes('initiative') === true
+  ))
+
   const effectiveSpaceKey = computed<string | null>(() => (
-    selectedParentTicket.value?.spaceKey ?? input.selectedSpaceKey.value
+    selectedParentIsInitiative.value
+      ? input.selectedSpaceKey.value
+      : selectedParentTicket.value?.spaceKey ?? input.selectedSpaceKey.value
   ))
 
   const isLocalSpace = computed(() => effectiveSpaceKey.value === LOCAL_SPACE_KEY)
@@ -66,22 +72,26 @@ export function useCreateTicketDerivedState(input: CreateTicketDerivedStateInput
   const jiraFieldQueriesEnabled = computed(() => (
     input.open.value && !isLocalSpace.value && input.hasJiraCredentialsConfigured.value
   ))
-  const isSpaceLocked = computed(() => Boolean(selectedParentTicket.value?.spaceKey))
-
-  const supportedParentType = computed(() => (
-    effectiveParentKey.value || (input.selectedIssueType.value && !input.selectedIssueType.value.toLowerCase().includes('epic'))
-      ? 'Issue'
-      : null
+  const isSpaceLocked = computed(() => (
+    Boolean(selectedParentTicket.value?.spaceKey) && !selectedParentIsInitiative.value
   ))
+
+  const supportedParentType = computed(() => {
+    if (!effectiveParentKey.value && !input.selectedIssueType.value)
+      return null
+    return input.selectedIssueType.value.toLowerCase().includes('epic') ? 'Initiative' : 'Issue'
+  })
   const selectedParentIsProject = computed(() => (
     selectedParentTicket.value?.issueType.toLowerCase().includes('epic') === true
   ))
-  const supportedParentDisplayLabel = computed(() => (
-    selectedParentIsProject.value ? 'Project' : supportedParentType.value
-  ))
+  const supportedParentDisplayLabel = computed(() => {
+    if (selectedParentIsInitiative.value)
+      return 'Initiative'
+    return selectedParentIsProject.value ? 'Project' : supportedParentType.value
+  })
 
   const supportedParentTickets = computed(() => {
-    if (!input.selectedIssueType.value || input.selectedIssueType.value.toLowerCase().includes('epic'))
+    if (!input.selectedIssueType.value)
       return []
 
     const base = [...input.tickets.value]

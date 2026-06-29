@@ -65,6 +65,7 @@ const BACKEND_HOST = '127.0.0.1'
 // Nuxt/Nitro's graceful shutdown can take a few seconds — we SIGTERM the whole
 // process group (so bun → nuxt → nitro all see it), then hard-kill after this.
 const SHUTDOWN_GRACE_MS = 5_000
+const DEBUG_MOUSE_NAVIGATION_PREFIX = '[DEBUG-mouse-navigation]'
 
 let backendProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
@@ -160,7 +161,13 @@ async function startBackend(): Promise<string> {
   return url
 }
 
+function logMouseNavigation(message: string): void {
+  logLine(`${DEBUG_MOUSE_NAVIGATION_PREFIX} ${message}`)
+}
+
 function navigateWindowHistory(window: BrowserWindow, direction: 'back' | 'forward'): void {
+  logMouseNavigation(`navigate direction=${direction} canGoBack=${String(window.webContents.canGoBack())} canGoForward=${String(window.webContents.canGoForward())} url=${window.webContents.getURL()}`)
+
   if (direction === 'back') {
     if (window.webContents.canGoBack()) {
       window.webContents.goBack()
@@ -175,6 +182,8 @@ function navigateWindowHistory(window: BrowserWindow, direction: 'back' | 'forwa
 
 function installHardwareNavigation(window: BrowserWindow): void {
   window.on('app-command', (event, command) => {
+    logMouseNavigation(`app-command command=${command}`)
+
     if (command !== 'browser-backward' && command !== 'browser-forward') {
       return
     }
@@ -184,12 +193,22 @@ function installHardwareNavigation(window: BrowserWindow): void {
   })
 
   window.on('swipe', (event, direction) => {
+    logMouseNavigation(`swipe direction=${direction}`)
+
     if (direction !== 'right' && direction !== 'left') {
       return
     }
 
     event.preventDefault()
     navigateWindowHistory(window, direction === 'right' ? 'back' : 'forward')
+  })
+
+  window.webContents.on('before-mouse-event', (_event, mouse) => {
+    if (mouse.type === 'mouseMove') {
+      return
+    }
+
+    logMouseNavigation(`before-mouse-event type=${mouse.type} button=${mouse.button ?? 'none'} x=${mouse.x} y=${mouse.y}`)
   })
 }
 
@@ -213,6 +232,20 @@ function createWindow(url: string): BrowserWindow {
     }
     void shell.openExternal(targetUrl)
     return { action: 'deny' }
+  })
+
+  window.webContents.on('console-message', (details) => {
+    if (details.message.includes(DEBUG_MOUSE_NAVIGATION_PREFIX)) {
+      logLine(`[renderer] ${details.message}`)
+    }
+  })
+
+  window.webContents.on('did-navigate', (_event, navigatedUrl) => {
+    logMouseNavigation(`did-navigate url=${navigatedUrl} canGoBack=${String(window.webContents.canGoBack())} canGoForward=${String(window.webContents.canGoForward())}`)
+  })
+
+  window.webContents.on('did-navigate-in-page', (_event, navigatedUrl, isMainFrame) => {
+    logMouseNavigation(`did-navigate-in-page url=${navigatedUrl} isMainFrame=${String(isMainFrame)} canGoBack=${String(window.webContents.canGoBack())} canGoForward=${String(window.webContents.canGoForward())}`)
   })
 
   void window.loadURL(url)

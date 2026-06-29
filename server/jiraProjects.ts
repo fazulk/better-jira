@@ -96,11 +96,30 @@ export async function resolveProjectKey(
       throw new Error(`Invalid parent key: ${parentKey}`)
     }
 
-    if (normalizedSpaceKey && normalizedSpaceKey !== parentProjectKey) {
-      throw new Error(`Parent ${parentKey} belongs to ${parentProjectKey}; choose that space or remove the parent`)
+    if (normalizedSpaceKey) {
+      if (normalizedSpaceKey !== parentProjectKey && !matchesIssueType(issueType, 'Epic')) {
+        throw new Error(`Parent ${parentKey} belongs to ${parentProjectKey}; choose that space or remove the parent`)
+      }
+
+      const project = await getProject(normalizedSpaceKey)
+      if (!project?.key) {
+        throw new Error(`Space ${normalizedSpaceKey} is not available in Jira`)
+      }
+
+      if (!(await projectSupportsIssueType(normalizedSpaceKey, issueType))) {
+        throw new Error(`Issue type ${issueType} is not available for project ${normalizedSpaceKey}`)
+      }
+
+      return normalizedSpaceKey
     }
 
-    return parentProjectKey
+    if (await projectSupportsIssueType(parentProjectKey, issueType)) {
+      return parentProjectKey
+    }
+
+    if (!matchesIssueType(issueType, 'Epic')) {
+      return parentProjectKey
+    }
   }
 
   if (normalizedSpaceKey) {

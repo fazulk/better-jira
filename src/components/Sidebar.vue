@@ -135,7 +135,7 @@ const {
               @click="selectView(item.id)"
             >
               <Icon
-                :name="item.icon === 'project' ? 'lucide:box' : item.icon === 'view' ? 'lucide:layers' : 'lucide:circle-dashed'"
+                :name="item.icon === 'initiative' ? 'lucide:flag' : item.icon === 'project' ? 'lucide:box' : item.icon === 'view' ? 'lucide:layers' : 'lucide:circle-dashed'"
                 class="h-3.5 w-3.5 shrink-0 text-[#8f9198]"
                 aria-hidden="true"
               />

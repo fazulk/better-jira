@@ -39,8 +39,11 @@ export function useParentPicker(input: ParentPickerInput) {
 
   function getSelectedParentLabel(): string {
     const ticket = getSelectedParentTicket()
-    if (!ticket)
+    if (!ticket) {
+      if (input.effectiveParentKey.value)
+        return input.effectiveParentKey.value
       return input.selectedParentIsProject.value ? 'No project' : `No parent ${input.supportedParentType.value ?? ''}`.trim()
+    }
     if (ticket.issueType.toLowerCase().includes('epic'))
       return ticket.summary
     return `${ticket.key} · ${ticket.summary}`

@@ -15,6 +15,10 @@ export function matchesIssueType(value: string | undefined, expected: JiraCreate
 function getAllowedChildIssueTypesForParent(parentIssueType: string): string[] {
   const normalizedParentIssueType = normalizeIssueType(parentIssueType)
 
+  if (normalizedParentIssueType.includes('initiative')) {
+    return ['Epic']
+  }
+
   if (normalizedParentIssueType.includes('epic')) {
     return ['Task', 'Bug', 'Story', 'Feature']
   }

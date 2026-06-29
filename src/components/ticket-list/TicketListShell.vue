@@ -77,7 +77,7 @@ export default defineComponent({
       <div
         class="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.055] bg-issue-detail-bg"
       >
-        <TicketListToolbarArea v-if="!selectedTicket" :controller="controller" />
+        <TicketListToolbarArea v-if="!selectedKey" :controller="controller" />
         <div v-if="selectedKey" class="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           <TicketDetail
             :ticket-key="selectedKey"
@@ -98,7 +98,7 @@ export default defineComponent({
           :get-health-class="getProjectHealthClass"
           :get-progress-bar-class="getProgressBarClass"
           :get-relative-time-label="getRelativeTimeLabel"
-          @open-projects="handleViewChange('projects')"
+          @open="openTicket"
         /><TicketListProjectView
           v-else-if="isProjectDisplayView"
           :sections="projectSections"

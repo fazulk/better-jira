@@ -129,7 +129,8 @@ export default defineComponent({
             :key="initiative.id"
             type="button"
             class="linear-row grid min-h-12 w-full grid-cols-[minmax(220px,1fr)_108px_120px_132px] items-center px-4 py-2 text-left"
-            @click="handleViewChange('initiatives')"
+            @mouseenter="prefetchTicket(initiative.id)"
+            @click="openTicket(initiative.id)"
           >
             <span class="min-w-0 pr-4">
               <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{
@@ -227,7 +228,8 @@ export default defineComponent({
             :key="initiative.id"
             type="button"
             class="linear-row grid min-h-12 w-full grid-cols-[minmax(220px,1fr)_108px_120px_132px] items-center px-4 py-2 text-left"
-            @click="handleViewChange('initiatives')"
+            @mouseenter="prefetchTicket(initiative.id)"
+            @click="openTicket(initiative.id)"
           >
             <span class="min-w-0 pr-4">
               <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{

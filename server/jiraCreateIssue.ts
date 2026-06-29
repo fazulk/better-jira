@@ -92,19 +92,42 @@ async function getCreateIssueTypeOptions(projectKey: string): Promise<JiraCreate
 }
 
 async function getParentValidatedCreateIssueTypeOptions(parentKey: string): Promise<JiraCreateIssueTypeOption[]> {
-  const projectKey = getProjectKeyFromIssueKey(parentKey)
-  if (!projectKey) {
+  const parentProjectKey = getProjectKeyFromIssueKey(parentKey)
+  if (!parentProjectKey) {
     throw new Error(`Invalid parent key: ${parentKey}`)
   }
 
-  const [parent, issueTypeOptions] = await Promise.all([
-    getTicket(parentKey),
-    getCreateIssueTypeOptions(projectKey),
-  ])
+  const parent = await getTicket(parentKey)
+  const projects = await getCandidateProjects()
+  const seenIssueTypes = new Set<string>()
+  const childIssueTypes: JiraCreateIssueTypeOption[] = []
 
-  return issueTypeOptions.filter(issueType => (
-    issueType.parentSupported
-    && isAvailableChildIssueTypeForParent(parent.issueType, issueType, issueTypeOptions)
+  for (const project of projects) {
+    if (!project.key) {
+      continue
+    }
+
+    const issueTypeOptions = await getCreateIssueTypeOptions(project.key)
+    for (const issueType of issueTypeOptions) {
+      const normalizedIssueTypeName = normalizeIssueType(issueType.name)
+      if (seenIssueTypes.has(normalizedIssueTypeName)) {
+        continue
+      }
+      if (
+        !issueType.parentSupported
+        || !isAvailableChildIssueTypeForParent(parent.issueType, issueType, issueTypeOptions)
+      ) {
+        continue
+      }
+
+      seenIssueTypes.add(normalizedIssueTypeName)
+      childIssueTypes.push(issueType)
+    }
+  }
+
+  return childIssueTypes.sort((left, right) => (
+    right.hierarchyLevel - left.hierarchyLevel
+    || left.name.localeCompare(right.name)
   ))
 }
 
@@ -286,10 +309,6 @@ async function validateParent(
   }
 
   const parent = await getTicket(parentKey)
-  if (matchesIssueType(issueType, 'Epic')) {
-    throw new Error('Epic cannot be added as a child')
-  }
-
   if (!isAllowedChildIssueTypeForParent(parent.issueType, issueType)) {
     throw new Error(`${issueType} cannot be added under ${parent.issueType}`)
   }

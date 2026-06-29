@@ -11,7 +11,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  openProjects: []
+  open: [key: string]
 }>()
 </script>
 
@@ -36,7 +36,7 @@ const emit = defineEmits<{
         type="button"
         class="linear-row grid min-h-12 w-full items-center px-4 py-2 text-left"
         :style="{ gridTemplateColumns: gridTemplate }"
-        @click="emit('openProjects')"
+        @click="emit('open', initiative.id)"
       >
         <span class="min-w-0 pr-4">
           <span class="block truncate text-[13px] font-medium text-[#e6e7ea]">{{

@@ -20,9 +20,26 @@ export default defineComponent({
     class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4"
   >
     <div class="min-w-0">
-      <div class="flex min-w-0 items-baseline gap-2">
-        <h1 class="truncate text-[20px] font-semibold text-[#f0f1f4]">
-          {{ viewTitle }}
+      <div class="flex min-w-0 items-center gap-2">
+        <h1
+          class="flex min-w-0 items-center gap-1.5 truncate text-[#f0f1f4]"
+          :class="currentTeamAppearance ? 'text-[14px] font-medium' : 'text-[20px] font-semibold'"
+        >
+          <template v-if="currentTeamAppearance">
+            <span
+              class="flex h-4.5 w-4.5 shrink-0 items-center justify-center text-[13px] font-semibold"
+              :style="{ color: currentTeamAppearance.color }"
+            >
+              <Icon v-if="currentTeamAppearance.icon" :name="`lucide:${currentTeamAppearance.icon}`" class="h-4.5 w-4.5" aria-hidden="true" />
+              <template v-else>{{ currentTeamAppearance.initial }}</template>
+            </span>
+            <span class="truncate">{{ currentTeamName }}</span>
+            <span v-if="currentTeamSectionLabel" class="shrink-0 text-[#6f727b]">›</span>
+            <span v-if="currentTeamSectionLabel" class="shrink-0">{{ currentTeamSectionLabel }}</span>
+          </template>
+          <template v-else>
+            {{ viewTitle }}
+          </template>
         </h1>
         <span v-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
           {{ initiativeRows.length }}

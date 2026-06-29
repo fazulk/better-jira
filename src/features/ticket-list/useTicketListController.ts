@@ -58,6 +58,7 @@ import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { compareStatusesByPreference, createStatusBadgeStyle, useStatusPreferences } from '@/composables/useStatusPreferences'
 import { getStatusGroup } from '@/types/jira'
+import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
 import { isLocalTicketKey } from '~/shared/localTickets'
 import {
   clausesToCustomViewFilters,
@@ -536,6 +537,32 @@ export function useTicketListController() {
   const currentTeamSection = computed(() => {
     const [scope, , section] = activeBaseViewId.value.split(':')
     return scope === 'team' ? (section ?? 'active') : null
+  })
+  const currentTeamAppearance = computed(() => {
+    const key = currentTeamKey.value
+    if (!key)
+      return null
+    const space = enabledSpaces.value.find(entry => entry.key === key)
+    return resolveSpaceAppearance(space ?? { key, name: key })
+  })
+  const currentTeamSectionLabel = computed(() => {
+    switch (currentTeamSection.value) {
+      case 'triage':
+        return 'Triage'
+      case 'projects':
+        return 'Projects'
+      case 'views':
+      case 'project-views':
+        return 'Views'
+      case 'settings':
+        return 'Settings'
+      case 'all':
+      case 'active':
+      case 'backlog':
+        return 'Issues'
+      default:
+        return null
+    }
   })
   const isViewsDirectory = computed(
     () => getViewsDirectoryTabFromViewId(currentView.value) !== null,
@@ -3992,6 +4019,8 @@ export function useTicketListController() {
     currentTeamKey,
     currentTeamName,
     currentTeamSection,
+    currentTeamAppearance,
+    currentTeamSectionLabel,
     getViewsDirectoryTabFromViewId,
     isViewsDirectory,
     activeViewsDirectoryTab,

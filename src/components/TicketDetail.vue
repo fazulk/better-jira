@@ -4,18 +4,21 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { fetchTicket } from '@/api/jira'
 import { fetchLocalTicket } from '@/api/localTickets'
+import AskAssistantPanel from '@/components/AskAssistantPanel.vue'
 import TicketDetailActivity from '@/components/ticket-detail/TicketDetailActivity.vue'
 import TicketDetailChildren from '@/components/ticket-detail/TicketDetailChildren.vue'
 import TicketDetailDescription from '@/components/ticket-detail/TicketDetailDescription.vue'
 import TicketDetailHeader from '@/components/ticket-detail/TicketDetailHeader.vue'
 import TicketDetailSidebar from '@/components/ticket-detail/TicketDetailSidebar.vue'
 import ViewHeaderBreadcrumb from '@/components/ViewHeaderBreadcrumb.vue'
+import { useAssistantSettings } from '@/composables/useAssistantSettings'
 import { ticketQueryKey, useJiraTicket } from '@/composables/useJiraTicket'
 import { getCachedTickets } from '@/composables/useJiraTickets'
 import { localTicketQueryKey, useLocalTicket } from '@/composables/useLocalTicket'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
+import { getAssistantActionLabel } from '~/shared/assistant'
 import {
   isLocalTicketKey,
 } from '~/shared/localTickets'
@@ -35,6 +38,9 @@ const emit = defineEmits<{
 
 const { isPinned, togglePinnedTicket } = usePinnedTickets()
 const { enabledSpaces, hasJiraCredentialsConfigured } = useSpaceSettings()
+const { settings: assistantSettings } = useAssistantSettings()
+const isAssistantOpen = ref(false)
+const assistantActionLabel = computed(() => getAssistantActionLabel(assistantSettings.value.provider))
 const ticketKey = computed(() => props.ticketKey)
 const isLocalTicket = computed(() => isLocalTicketKey(ticketKey.value))
 const jiraDataEnabled = computed(() => (
@@ -328,6 +334,23 @@ onMounted(() => {
           @select="$emit('select', $event)"
         />
       </div>
+
+      <button
+        v-if="!isAssistantOpen"
+        type="button"
+        class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-white/[0.1] bg-[#16171b] px-4 py-2.5 text-sm font-medium text-slate-100 shadow-2xl shadow-black/50 transition hover:border-white/[0.2] hover:bg-[#1c1d22]"
+        @click="isAssistantOpen = true"
+      >
+        <Icon name="lucide:sparkles" class="h-4 w-4 text-accent-indigo" aria-hidden="true" />
+        {{ assistantActionLabel }}
+      </button>
+
+      <AskAssistantPanel
+        v-if="isAssistantOpen"
+        :ticket-key="ticket.key"
+        :ticket-summary="ticket.summary"
+        @close="isAssistantOpen = false"
+      />
     </div>
 
     <div

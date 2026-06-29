@@ -4,6 +4,7 @@ import type {
   JiraSpaceDirectoryEntry,
   UpdateAiConnectionInput,
   UpdateAppSettingsInput,
+  UpdateAssistantSettingsInput,
   UpdateJiraConnectionInput,
 } from '~/shared/settings'
 
@@ -48,6 +49,12 @@ export async function updateJiraConnection(input: UpdateJiraConnectionInput): Pr
 export async function updateAiConnection(input: UpdateAiConnectionInput): Promise<AppSettings> {
   return updateAppSettings({
     ai: input,
+  })
+}
+
+export async function updateAssistantConnection(input: UpdateAssistantSettingsInput): Promise<AppSettings> {
+  return updateAppSettings({
+    assistant: input,
   })
 }
 

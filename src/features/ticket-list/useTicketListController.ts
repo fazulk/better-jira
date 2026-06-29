@@ -158,7 +158,7 @@ export function useTicketListController() {
     = useCustomViews()
   const jiraMeQuery = useJiraCurrentUser(hasJiraCredentialsConfigured)
   const sidebarCollapsed = useLocalStorage('jira2.sidebar.collapsed', false)
-  const defaultSidebarWidth = 232
+  const defaultSidebarWidth = 260
   const minSidebarWidth = 208
   const maxSidebarWidth = 360
   const collapsedSidebarWidth = 48

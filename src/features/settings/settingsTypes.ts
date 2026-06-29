@@ -4,6 +4,7 @@ import type { StatusGroup } from '@/types/jira'
 export type SettingsSectionId
   = | 'workspace'
     | 'ai'
+    | 'assistant'
     | 'instructions'
     | 'team-overview'
     | 'team-members'

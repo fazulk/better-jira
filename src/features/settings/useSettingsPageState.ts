@@ -32,6 +32,7 @@ const settingsNavigationGroups: SettingsNavigationGroup[] = [
     label: 'Features',
     items: [
       { id: 'ai', label: 'AI provider', description: 'Models and local keys' },
+      { id: 'assistant', label: 'Assistant', description: 'Ask Claude / Ask Codex' },
       { id: 'instructions', label: 'AI instructions', description: 'Prompt presets' },
     ],
   },

@@ -27,6 +27,7 @@ export type {
   StatusPreferences,
   UpdateAiConnectionInput,
   UpdateAppSettingsInput,
+  UpdateAssistantSettingsInput,
   UpdateJiraConnectionInput,
   UpdateSidebarSettingsInput,
   UpdateStatusPreferencesInput,

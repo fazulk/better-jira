@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, getMethod, getRequestURL, readBody } from 'h3'
+import { handleAssistantApiRoute } from '../apiAssistantHandlers'
 import { handleGeneralApiRoute } from '../apiGeneralHandlers'
 import { handleLocalTicketApiRoute } from '../apiLocalTicketHandlers'
 import { handleRemoteTicketApiRoute } from '../apiRemoteTicketHandlers'
@@ -53,6 +54,10 @@ export default defineEventHandler(async (event) => {
     if (segments.length === 1 && segments[0] === 'events' && method === 'GET') {
       return eventStreamResponse(event)
     }
+
+    const assistantResponse = await handleAssistantApiRoute(event, segments, method)
+    if (assistantResponse)
+      return assistantResponse
 
     const generalResponse = await handleGeneralApiRoute(event, segments, method)
     if (generalResponse)

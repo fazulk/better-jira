@@ -1,4 +1,5 @@
 import type { AiProvider } from './ai'
+import type { AssistantProvider, AssistantReasoning, AssistantSettings } from './assistant'
 
 export interface AppSpaceSetting {
   key: string
@@ -20,6 +21,12 @@ export interface AiConnectionSettings {
   hasCerebrasApiKey: boolean
   provider: AiProvider
   model: string
+}
+
+export interface UpdateAssistantSettingsInput {
+  provider?: AssistantProvider
+  model?: string
+  reasoning?: AssistantReasoning
 }
 
 export interface AiInstructionPresetSetting {
@@ -141,6 +148,7 @@ export interface AppSettings {
   sidebar: SidebarSettings
   jira: JiraConnectionSettings
   ai: AiConnectionSettings
+  assistant: AssistantSettings
   aiInstructionPresets: AiInstructionPresetSetting[]
   labelColors: LabelColors
   statusPreferences: StatusPreferences
@@ -152,6 +160,7 @@ export interface UpdateAppSettingsInput {
   sidebar?: UpdateSidebarSettingsInput
   jira?: UpdateJiraConnectionInput
   ai?: UpdateAiConnectionInput
+  assistant?: UpdateAssistantSettingsInput
   aiInstructionPresets?: AiInstructionPresetSetting[]
   labelColors?: LabelColors
   statusPreferences?: UpdateStatusPreferencesInput

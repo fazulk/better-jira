@@ -4,6 +4,11 @@ import type {
 } from './settingsTypes'
 import { DEFAULT_AI_PROVIDER, getDefaultModelForProvider } from './ai'
 import {
+  getDefaultAssistantSettings,
+  normalizeAssistantConnectionSettings,
+  normalizeAssistantConnectionUpdate,
+} from './settingsAssistant'
+import {
   getDefaultAiConnectionSettings,
   normalizeAiConnectionSettings,
   normalizeAiConnectionUpdate,
@@ -61,6 +66,7 @@ export function getDefaultAppSettings(): AppSettings {
       hasApiToken: false,
     },
     ai: getDefaultAiConnectionSettings(),
+    assistant: getDefaultAssistantSettings(),
     aiInstructionPresets: [],
     labelColors: {},
     statusPreferences: {
@@ -83,6 +89,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     sidebar: normalizeSidebarSettings(recordValue.sidebar),
     jira: normalizeJiraConnectionSettings(recordValue.jira),
     ai: normalizeAiConnectionSettings(recordValue.ai),
+    assistant: normalizeAssistantConnectionSettings(recordValue.assistant),
     aiInstructionPresets: normalizeAiInstructionPresetSettings(recordValue.aiInstructionPresets),
     labelColors: normalizeLabelColors(recordValue.labelColors),
     statusPreferences: normalizeStatusPreferences(recordValue.statusPreferences),
@@ -119,6 +126,11 @@ export function normalizeAppSettingsUpdate(value: unknown): UpdateAppSettingsInp
   const nextAi = normalizeAiConnectionUpdate(recordValue.ai)
   if (nextAi) {
     nextSettings.ai = nextAi
+  }
+
+  const nextAssistant = normalizeAssistantConnectionUpdate(recordValue.assistant)
+  if (nextAssistant) {
+    nextSettings.assistant = nextAssistant
   }
 
   if ('aiInstructionPresets' in recordValue) {
@@ -165,6 +177,7 @@ export function reconcileAppSettings(settings: AppSettings): AppSettings {
       provider: settings.ai.provider ?? DEFAULT_AI_PROVIDER,
       model: settings.ai.model || getDefaultModelForProvider(DEFAULT_AI_PROVIDER),
     }),
+    assistant: normalizeAssistantConnectionSettings(settings.assistant),
     aiInstructionPresets: reconcileAiInstructionPresets(settings.aiInstructionPresets),
     labelColors: normalizeLabelColors(settings.labelColors),
     statusPreferences: {

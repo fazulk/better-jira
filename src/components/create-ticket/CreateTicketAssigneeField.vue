@@ -117,7 +117,7 @@ defineExpose({
           <span v-if="isFieldLoading" class="text-[11px] text-slate-500">Loading...</span>
           <span v-if="fieldError" class="text-[11px] text-rose-300">{{ fieldError }}</span>
         </div>
-        <div class="absolute left-0 top-full z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/40">
+        <div class="absolute left-0 bottom-full z-50 mb-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/[0.08] bg-surface-0 py-1 shadow-xl shadow-black/40">
           <template v-if="recentComboOptions.length">
             <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-600">
               Recent

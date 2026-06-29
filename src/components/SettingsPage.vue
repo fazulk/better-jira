@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SettingsAiSection from '@/components/settings/SettingsAiSection.vue'
+import SettingsAssistantSection from '@/components/settings/SettingsAssistantSection.vue'
 import SettingsInstructionsSection from '@/components/settings/SettingsInstructionsSection.vue'
 import SettingsTeamSections from '@/components/settings/SettingsTeamSections.vue'
 import SettingsWorkspaceSection from '@/components/settings/SettingsWorkspaceSection.vue'
@@ -93,6 +94,7 @@ const {
 
       <main class="min-w-0 overflow-y-auto px-5 py-8 lg:px-10">
         <SettingsAiSection v-show="activeSettingsSection === 'ai'" />
+        <SettingsAssistantSection v-show="activeSettingsSection === 'assistant'" />
         <SettingsWorkspaceSection v-show="activeSettingsSection === 'workspace'" />
         <SettingsTeamSections />
         <SettingsInstructionsSection v-show="activeSettingsSection === 'instructions'" />

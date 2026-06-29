@@ -30,6 +30,7 @@ interface StoredAppSettings {
   sidebar: AppSettings['sidebar']
   jira: StoredJiraSettings
   ai: StoredAiSettings
+  assistant: AppSettings['assistant']
   aiInstructionPresets: AppSettings['aiInstructionPresets']
   labelColors: AppSettings['labelColors']
   statusPreferences: AppSettings['statusPreferences']
@@ -100,6 +101,7 @@ function normalizeStoredSettings(value: unknown): StoredAppSettings {
     sidebar: normalizedAppSettings.sidebar,
     jira: normalizeStoredJiraSettings(recordValue.jira),
     ai: normalizeStoredAiSettings(recordValue.ai),
+    assistant: normalizedAppSettings.assistant,
     aiInstructionPresets: normalizedAppSettings.aiInstructionPresets,
     labelColors: normalizedAppSettings.labelColors,
     statusPreferences: normalizedAppSettings.statusPreferences,
@@ -121,6 +123,7 @@ function toPublicAppSettings(settings: StoredAppSettings): AppSettings {
       provider: settings.ai.provider,
       model: settings.ai.model,
     },
+    assistant: settings.assistant,
     aiInstructionPresets: settings.aiInstructionPresets,
     labelColors: settings.labelColors,
     statusPreferences: settings.statusPreferences,
@@ -178,6 +181,11 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
       provider: input.ai?.provider ?? currentSettings.ai.provider,
       model: input.ai?.model ?? currentSettings.ai.model,
     },
+    assistant: {
+      provider: input.assistant?.provider ?? currentSettings.assistant.provider,
+      model: input.assistant?.model ?? currentSettings.assistant.model,
+      reasoning: input.assistant?.reasoning ?? currentSettings.assistant.reasoning,
+    },
     aiInstructionPresets: input.aiInstructionPresets ?? currentSettings.aiInstructionPresets,
     labelColors: input.labelColors ?? currentSettings.labelColors,
     statusPreferences: {
@@ -199,6 +207,7 @@ export function updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
       provider: nextSettings.ai.provider,
       model: nextSettings.ai.model,
     },
+    assistant: nextSettings.assistant,
     aiInstructionPresets: nextSettings.aiInstructionPresets,
     labelColors: nextSettings.labelColors,
     statusPreferences: nextSettings.statusPreferences,

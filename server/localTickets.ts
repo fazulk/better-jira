@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path'
 import {
 
   normalizeDescriptionAdf,
+  normalizeLabels,
   normalizeLocalStatusId,
   normalizeLocalTicketKey,
   normalizePriorityInput,
@@ -46,6 +47,7 @@ function normalizeStoredTicket(value: unknown): StoredLocalTicket | null {
   const dueDate = typeof record.dueDate === 'string' && record.dueDate ? record.dueDate : null
   const completedAt = typeof record.completedAt === 'string' && record.completedAt ? record.completedAt : null
   const descriptionAdf = normalizeDescriptionAdf(record.descriptionAdf)
+  const labels = normalizeLabels(record.labels)
 
   return {
     numericId,
@@ -54,6 +56,7 @@ function normalizeStoredTicket(value: unknown): StoredLocalTicket | null {
     statusId,
     priority,
     assigneeName,
+    labels,
     parentKey,
     createdAt,
     updatedAt,
@@ -181,6 +184,7 @@ export function createLocalTicket(input: CreateLocalTicketInput): JiraTicketLike
     assigneeName: typeof input.assigneeName === 'string' && input.assigneeName.trim()
       ? input.assigneeName.trim()
       : null,
+    labels: [],
     parentKey,
     createdAt: now,
     updatedAt: now,
@@ -272,6 +276,14 @@ export function updateLocalTicketAssignee(key: string, assigneeName: string | nu
   return updateStored(key, stored => ({
     ...stored,
     assigneeName: normalized,
+    updatedAt: new Date().toISOString(),
+  }))
+}
+
+export function updateLocalTicketLabels(key: string, labels: string[]): JiraTicketLike {
+  return updateStored(key, stored => ({
+    ...stored,
+    labels: normalizeLabels(labels),
     updatedAt: new Date().toISOString(),
   }))
 }

@@ -22,6 +22,7 @@ import {
   getTransitions,
   updateTicketAssignee,
   updateTicketDescription,
+  updateTicketLabels,
   updateTicketPriority,
   updateTicketStatus,
   updateTicketTitle,
@@ -128,6 +129,24 @@ export async function handleRemoteTicketApiRoute(
     const body = await readBody<unknown>(event)
     const priorityId = isRecord(body) && typeof body.priorityId === 'string' ? body.priorityId : ''
     const ticket = await updateTicketPriority(ticketKey, priorityId)
+    return Response.json(ticket, { headers: API_HEADERS })
+  }
+
+  if (segments.length === 3 && segments[2] === 'labels' && method === 'PUT') {
+    const body = await readBody<unknown>(event)
+    if (!isRecord(body) || !Array.isArray(body.labels)) {
+      return badRequestResponse('labels must be an array of strings.')
+    }
+
+    const labels: string[] = []
+    for (const label of body.labels) {
+      if (typeof label !== 'string') {
+        return badRequestResponse('labels must be an array of strings.')
+      }
+      labels.push(label)
+    }
+
+    const ticket = await updateTicketLabels(ticketKey, labels)
     return Response.json(ticket, { headers: API_HEADERS })
   }
 

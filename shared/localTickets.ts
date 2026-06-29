@@ -75,6 +75,7 @@ export interface StoredLocalTicket {
   statusId: LocalStatusId
   priority: string
   assigneeName: string | null
+  labels: string[]
   parentKey: string | null
   createdAt: string
   updatedAt: string
@@ -139,7 +140,7 @@ export function storedLocalToJiraShape(
     completedAt: stored.completedAt ?? undefined,
     priority: stored.priority,
     issueType: LOCAL_ISSUE_TYPE,
-    labels: [],
+    labels: normalizeLabels(stored.labels),
     spaceKey: LOCAL_SPACE_KEY,
     spaceName: LOCAL_SPACE_NAME,
     assignee: stored.assigneeName?.trim() || 'Unassigned',
@@ -180,4 +181,29 @@ export function normalizePriorityInput(value: unknown): string {
     return 'Medium'
   const trimmed = value.trim()
   return isLocalPriorityName(trimmed) ? trimmed : 'Medium'
+}
+
+export function normalizeLabels(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const label of value) {
+    if (typeof label !== 'string') {
+      continue
+    }
+
+    const trimmed = label.trim()
+    const normalized = trimmed.toLowerCase()
+    if (!trimmed || seen.has(normalized)) {
+      continue
+    }
+
+    seen.add(normalized)
+    labels.push(trimmed)
+  }
+
+  return labels
 }

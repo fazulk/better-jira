@@ -310,6 +310,23 @@ export async function updateTicketPriority(key: string, priorityId: string): Pro
   return res.json()
 }
 
+export async function updateTicketLabels(key: string, labels: string[]): Promise<JiraTicket> {
+  const res = await fetch(`${BASE}/tickets/${encodeURIComponent(key)}/labels`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ labels }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Failed to update labels: ${res.status} ${res.statusText}${body ? ` - ${body}` : ''}`)
+  }
+
+  return res.json()
+}
+
 export async function fetchTransitions(key: string): Promise<JiraTransition[]> {
   const res = await fetch(`${BASE}/tickets/${key}/transitions`)
   if (!res.ok)

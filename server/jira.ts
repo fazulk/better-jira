@@ -388,3 +388,36 @@ export async function updateTicketPriority(key: string, priorityId: string): Pro
   broadcast('ticket-updated', updatedTicket)
   return updatedTicket
 }
+
+function normalizeLabels(labels: string[]): string[] {
+  const normalizedLabels: string[] = []
+  const seen = new Set<string>()
+
+  for (const label of labels) {
+    const trimmed = label.trim()
+    const normalized = trimmed.toLowerCase()
+    if (!trimmed || seen.has(normalized)) {
+      continue
+    }
+
+    seen.add(normalized)
+    normalizedLabels.push(trimmed)
+  }
+
+  return normalizedLabels
+}
+
+export async function updateTicketLabels(key: string, labels: string[]): Promise<JiraTicket> {
+  await jiraFetch(`/issue/${key}`, {
+    method: 'PUT',
+    body: {
+      fields: {
+        labels: normalizeLabels(labels),
+      },
+    },
+  })
+
+  const updatedTicket = await getTicket(key)
+  broadcast('ticket-updated', updatedTicket)
+  return updatedTicket
+}

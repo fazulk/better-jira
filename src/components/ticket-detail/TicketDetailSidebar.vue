@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { JiraTicket } from '@/types/jira'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import TicketDetailPropertiesSection from '@/components/ticket-detail/TicketDetailPropertiesSection.vue'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { useUpdateLocalTicketLabels } from '@/composables/useUpdateLocalTicketLabels'
+import { useUpdateTicketLabels } from '@/composables/useUpdateTicketLabels'
 import { buildJiraIssueUrl } from '@/utils/jiraIssueUrl'
 
 const props = defineProps<{
@@ -40,19 +42,42 @@ const detailProjectParent = computed(() => {
   return parent
 })
 const detailProjectParentLabel = computed(() => detailProjectParent.value?.summary ?? '')
-const detailLabels = computed(() => {
-  const labels: string[] = []
+const detailLabels = computed(() => normalizeLabels(props.ticket.labels ?? []))
+const updateTicketLabelsMutation = useUpdateTicketLabels()
+const updateLocalTicketLabelsMutation = useUpdateLocalTicketLabels()
+const isEditingLabels = ref(false)
+const labelsDraft = ref<string[]>([])
+const labelDraft = ref('')
+const labelError = ref('')
+const labelInputRef = ref<HTMLInputElement | null>(null)
+const canEditLabels = computed(() => props.isLocalTicket || props.jiraDataEnabled)
+const anyLabelsPending = computed(() => (
+  updateTicketLabelsMutation.isPending.value || updateLocalTicketLabelsMutation.isPending.value
+))
+
+function normalizeLabels(labels: string[]): string[] {
+  const nextLabels: string[] = []
   const seen = new Set<string>()
-  for (const label of props.ticket.labels ?? []) {
+
+  for (const label of labels) {
     const trimmed = label.trim()
     const normalized = trimmed.toLowerCase()
     if (!trimmed || seen.has(normalized))
       continue
+
     seen.add(normalized)
-    labels.push(trimmed)
+    nextLabels.push(trimmed)
   }
-  return labels
-})
+
+  return nextLabels
+}
+
+function labelsEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length)
+    return false
+
+  return left.every((label, index) => label === right[index])
+}
 
 function toggleSection(section: keyof typeof collapsedSections.value) {
   collapsedSections.value[section] = !collapsedSections.value[section]
@@ -78,6 +103,86 @@ async function copyTicketKey() {
     copiedKey.value = false
   }, 1500)
 }
+
+function startEditingLabels(): void {
+  if (!canEditLabels.value) {
+    return
+  }
+
+  labelsDraft.value = [...detailLabels.value]
+  labelDraft.value = ''
+  labelError.value = ''
+  isEditingLabels.value = true
+  nextTick(() => labelInputRef.value?.focus())
+}
+
+function cancelEditingLabels(): void {
+  isEditingLabels.value = false
+  labelsDraft.value = []
+  labelDraft.value = ''
+  labelError.value = ''
+}
+
+function addLabelDraft(): void {
+  const label = labelDraft.value.trim()
+  if (!label) {
+    return
+  }
+
+  labelsDraft.value = normalizeLabels([...labelsDraft.value, label])
+  labelDraft.value = ''
+  labelError.value = ''
+}
+
+function removeLabelDraft(labelToRemove: string): void {
+  const normalizedLabelToRemove = labelToRemove.toLowerCase()
+  labelsDraft.value = labelsDraft.value.filter(label => label.toLowerCase() !== normalizedLabelToRemove)
+}
+
+function handleLabelInputKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' || event.key === ',') {
+    event.preventDefault()
+    addLabelDraft()
+    return
+  }
+
+  if (event.key === 'Backspace' && !labelDraft.value && labelsDraft.value.length > 0) {
+    labelsDraft.value = labelsDraft.value.slice(0, -1)
+  }
+}
+
+async function saveLabels(): Promise<void> {
+  if (!canEditLabels.value || anyLabelsPending.value) {
+    return
+  }
+
+  addLabelDraft()
+  const nextLabels = normalizeLabels(labelsDraft.value)
+  labelsDraft.value = nextLabels
+
+  if (labelsEqual(nextLabels, detailLabels.value)) {
+    cancelEditingLabels()
+    return
+  }
+
+  try {
+    if (props.isLocalTicket) {
+      await updateLocalTicketLabelsMutation.mutateAsync({ key: props.ticket.key, labels: nextLabels })
+    }
+    else {
+      await updateTicketLabelsMutation.mutateAsync({ key: props.ticket.key, labels: nextLabels })
+    }
+    isEditingLabels.value = false
+    labelError.value = ''
+  }
+  catch (error) {
+    labelError.value = error instanceof Error ? error.message : 'Failed to update labels.'
+  }
+}
+
+watch(() => props.ticket.key, () => {
+  cancelEditingLabels()
+})
 
 function startEditingAssignee() {
   return propertiesRef.value?.startEditingAssignee()
@@ -161,22 +266,73 @@ defineExpose({
           <span class="text-[10px] text-slate-600 transition-transform" :class="{ '-rotate-90': collapsedSections.labels }">▼</span>
         </button>
 
-        <div v-show="!collapsedSections.labels" class="flex flex-wrap items-center gap-2">
-          <LabelPill
-            v-for="label in detailLabels"
-            :key="label"
-            :label="label"
-            show-dot
-          />
-          <span v-if="detailLabels.length === 0" class="text-sm text-slate-600">No labels</span>
-          <button
-            type="button"
-            class="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
-            title="Editing labels is not available yet"
-            aria-label="Add label"
-          >
-            +
-          </button>
+        <div v-show="!collapsedSections.labels" class="space-y-3">
+          <div v-if="isEditingLabels" class="space-y-2">
+            <div class="flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-1.5">
+              <span
+                v-for="label in labelsDraft"
+                :key="label"
+                class="inline-flex max-w-full items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-200"
+              >
+                <span class="truncate">{{ label }}</span>
+                <button
+                  type="button"
+                  class="text-slate-500 transition hover:text-slate-200"
+                  :aria-label="`Remove label ${label}`"
+                  @click="removeLabelDraft(label)"
+                >
+                  ×
+                </button>
+              </span>
+              <input
+                ref="labelInputRef"
+                v-model="labelDraft"
+                class="min-w-24 flex-1 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
+                placeholder="Add label..."
+                :disabled="anyLabelsPending"
+                @blur="addLabelDraft"
+                @keydown="handleLabelInputKeydown"
+              >
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                class="rounded-md bg-accent-indigo px-2 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="anyLabelsPending"
+                @click="saveLabels"
+              >
+                {{ anyLabelsPending ? '...' : 'Save' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="anyLabelsPending"
+                @click="cancelEditingLabels"
+              >
+                Cancel
+              </button>
+              <span v-if="labelError" class="text-[11px] text-rose-300">{{ labelError }}</span>
+            </div>
+          </div>
+          <div v-else class="flex flex-wrap items-center gap-2">
+            <LabelPill
+              v-for="label in detailLabels"
+              :key="label"
+              :label="label"
+              show-dot
+            />
+            <span v-if="detailLabels.length === 0" class="text-sm text-slate-600">No labels</span>
+            <button
+              type="button"
+              class="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+              :title="canEditLabels ? 'Edit labels' : 'Configure Jira credentials to edit labels'"
+              aria-label="Edit labels"
+              :disabled="!canEditLabels"
+              @click="startEditingLabels"
+            >
+              +
+            </button>
+          </div>
         </div>
       </section>
 

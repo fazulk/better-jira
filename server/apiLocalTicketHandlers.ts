@@ -15,6 +15,7 @@ import {
   listLocalTicketsAsJiraShape,
   updateLocalTicketAssignee,
   updateLocalTicketDescription,
+  updateLocalTicketLabels,
   updateLocalTicketPriority,
   updateLocalTicketStatus,
   updateLocalTicketTitle,
@@ -128,6 +129,30 @@ export async function handleLocalTicketApiRoute(
     }
     catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update assignee.'
+      return badRequestResponse(message)
+    }
+  }
+
+  if (segments.length === 4 && segments[3] === 'labels' && method === 'PUT') {
+    const body = await readBody<unknown>(event)
+    if (!isRecord(body) || !Array.isArray(body.labels)) {
+      return badRequestResponse('labels must be an array of strings.')
+    }
+
+    const labels: string[] = []
+    for (const label of body.labels) {
+      if (typeof label !== 'string') {
+        return badRequestResponse('labels must be an array of strings.')
+      }
+      labels.push(label)
+    }
+
+    try {
+      const ticket = updateLocalTicketLabels(ticketKey, labels)
+      return Response.json(ticket, { headers: API_HEADERS })
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update labels.'
       return badRequestResponse(message)
     }
   }

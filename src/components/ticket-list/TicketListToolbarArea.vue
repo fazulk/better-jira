@@ -2,11 +2,12 @@
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
 import ViewEditorCard from '../ViewEditorCard.vue'
+import ViewHeaderBreadcrumb from '../ViewHeaderBreadcrumb.vue'
 import TicketListDisplayOptionsMenu from './TicketListDisplayOptionsMenu.vue'
 import TicketListFilterMenu from './TicketListFilterMenu.vue'
 
 export default defineComponent({
-  components: { ViewEditorCard, TicketListDisplayOptionsMenu, TicketListFilterMenu },
+  components: { ViewHeaderBreadcrumb, ViewEditorCard, TicketListDisplayOptionsMenu, TicketListFilterMenu },
   props: ['controller'],
   setup(props: { controller: TicketListController }) {
     return { ...props.controller, controller: props.controller }
@@ -17,29 +18,24 @@ export default defineComponent({
 <template>
   <header
     v-if="!selectedTicket"
-    class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4"
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-2"
   >
     <div class="min-w-0">
       <div class="flex min-w-0 items-center gap-2">
-        <h1
-          class="flex min-w-0 items-center gap-1.5 truncate text-[#f0f1f4]"
-          :class="currentTeamAppearance ? 'text-[14px] font-normal' : 'text-[20px] font-semibold'"
-        >
-          <template v-if="currentTeamAppearance">
-            <span
-              class="flex h-4.5 w-4.5 shrink-0 items-center justify-center text-[13px] font-semibold"
-              :style="{ color: currentTeamAppearance.color }"
-            >
-              <Icon v-if="currentTeamAppearance.icon" :name="`lucide:${currentTeamAppearance.icon}`" class="h-4.5 w-4.5" aria-hidden="true" />
-              <template v-else>{{ currentTeamAppearance.initial }}</template>
-            </span>
-            <span class="truncate">{{ currentTeamName }}</span>
+        <h1 class="min-w-0 truncate">
+          <ViewHeaderBreadcrumb
+            v-if="currentTeamAppearance"
+            :icon="currentTeamAppearance.icon"
+            :icon-color="currentTeamAppearance.color"
+            :fallback="currentTeamAppearance.initial"
+          >
+            <span class="min-w-0 truncate">{{ currentTeamName }}</span>
             <span v-if="currentTeamSectionLabel" class="shrink-0 text-[#6f727b]">›</span>
             <span v-if="currentTeamSectionLabel" class="shrink-0">{{ currentTeamSectionLabel }}</span>
-          </template>
-          <template v-else>
+          </ViewHeaderBreadcrumb>
+          <span v-else class="truncate text-[20px] font-semibold text-[#f0f1f4]">
             {{ viewTitle }}
-          </template>
+          </span>
         </h1>
         <span v-if="currentView === 'initiatives'" class="shrink-0 text-[12px] text-[#777a83]">
           {{ initiativeRows.length }}

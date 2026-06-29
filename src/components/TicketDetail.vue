@@ -9,11 +9,13 @@ import TicketDetailChildren from '@/components/ticket-detail/TicketDetailChildre
 import TicketDetailDescription from '@/components/ticket-detail/TicketDetailDescription.vue'
 import TicketDetailHeader from '@/components/ticket-detail/TicketDetailHeader.vue'
 import TicketDetailSidebar from '@/components/ticket-detail/TicketDetailSidebar.vue'
+import ViewHeaderBreadcrumb from '@/components/ViewHeaderBreadcrumb.vue'
 import { ticketQueryKey, useJiraTicket } from '@/composables/useJiraTicket'
 import { getCachedTickets } from '@/composables/useJiraTickets'
 import { localTicketQueryKey, useLocalTicket } from '@/composables/useLocalTicket'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
 import {
   isLocalTicketKey,
 } from '~/shared/localTickets'
@@ -32,7 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const { isPinned, togglePinnedTicket } = usePinnedTickets()
-const { hasJiraCredentialsConfigured } = useSpaceSettings()
+const { enabledSpaces, hasJiraCredentialsConfigured } = useSpaceSettings()
 const ticketKey = computed(() => props.ticketKey)
 const isLocalTicket = computed(() => isLocalTicketKey(ticketKey.value))
 const jiraDataEnabled = computed(() => (
@@ -58,6 +60,17 @@ const ticket = computed(() => {
   }
 
   return ticketQuery.data.value ?? cachedTicket.value
+})
+const detailSpaceAppearance = computed(() => {
+  const currentTicket = ticket.value
+  if (!currentTicket)
+    return null
+
+  const space = enabledSpaces.value.find(entry => entry.key === currentTicket.spaceKey)
+  return resolveSpaceAppearance(space ?? {
+    key: currentTicket.spaceKey,
+    name: currentTicket.spaceName || currentTicket.spaceKey,
+  })
 })
 const ticketIsPinned = computed(() => (
   ticket.value ? isPinned(ticket.value.key) : false
@@ -217,46 +230,51 @@ onMounted(() => {
   <div v-if="ticketKey && mode === 'inline'" class="min-h-full bg-issue-detail-bg lg:flex lg:h-full lg:min-h-0 lg:flex-col">
     <div v-if="ticket" class="min-h-full animate-fade-in bg-issue-detail-bg lg:flex lg:h-full lg:min-h-0 lg:flex-col">
       <div class="sticky top-0 z-20 border-b border-white/[0.06] bg-issue-detail-bg backdrop-blur lg:static lg:shrink-0">
-        <div class="flex min-h-12 items-center justify-between gap-4 px-6">
-          <div class="flex min-w-0 items-center gap-2 text-xs text-slate-500">
-            <span class="truncate">{{ detailBreadcrumbSpace }}</span>
-            <span class="text-slate-700">›</span>
+        <div class="flex min-h-12 items-center justify-between gap-4 px-6 py-2">
+          <ViewHeaderBreadcrumb
+            v-if="detailSpaceAppearance"
+            :icon="detailSpaceAppearance.icon"
+            :icon-color="detailSpaceAppearance.color"
+            :fallback="detailSpaceAppearance.initial"
+          >
+            <span class="min-w-0 truncate">{{ detailBreadcrumbSpace }}</span>
+            <span class="shrink-0 text-[#6f727b]">›</span>
             <button
               type="button"
-              class="shrink-0 rounded px-1 py-0.5 text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
+              class="shrink-0 rounded px-1 py-0.5 text-[#f0f1f4] transition hover:bg-white/[0.04]"
               @click="emit('navigateView', detailBreadcrumbViewId)"
             >
               {{ detailBreadcrumbRoot }}
             </button>
             <template v-if="ticket.parent">
-              <span class="text-slate-700">›</span>
+              <span class="shrink-0 text-[#6f727b]">›</span>
               <button
                 type="button"
-                class="shrink-0 rounded px-1 py-0.5 font-medium text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
+                class="shrink-0 rounded px-1 py-0.5 text-[#f0f1f4] transition hover:bg-white/[0.04]"
                 @click="$emit('select', ticket.parent.key)"
                 @mouseenter="prefetchTicket(ticket.parent.key)"
               >
                 {{ ticket.parent.key }}
               </button>
             </template>
-            <span class="text-slate-700">›</span>
+            <span class="shrink-0 text-[#6f727b]">›</span>
             <button
               type="button"
-              class="min-w-0 truncate rounded px-1 py-0.5 text-left font-medium text-slate-300 transition hover:bg-white/[0.04] hover:text-slate-100"
+              class="min-w-0 truncate rounded px-1 py-0.5 text-left text-[#f0f1f4] transition hover:bg-white/[0.04]"
               @click="$emit('select', ticket.key)"
             >
               {{ ticket.summary }}
             </button>
             <button
               type="button"
-              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition hover:bg-white/[0.04]"
-              :class="ticketIsPinned ? 'text-[#d7a543] hover:text-[#d7a543]' : 'text-slate-500 hover:text-[#d7a543]'"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition hover:bg-white/[0.04] hover:text-[#f0f1f4]"
+              :class="ticketIsPinned ? 'text-[#d7a543] hover:text-[#d7a543]' : 'text-[#8f9198]'"
               :aria-label="ticketIsPinned ? `Unpin ${ticket.key}` : `Pin ${ticket.key}`"
               @click="togglePinnedTicket(ticket.key)"
             >
               <span class="text-[14px] leading-none">★</span>
             </button>
-          </div>
+          </ViewHeaderBreadcrumb>
         </div>
       </div>
 

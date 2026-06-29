@@ -207,14 +207,14 @@ const {
             >
               <button
                 type="button"
-                class="flex h-full min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 text-left"
+                class="flex h-full min-w-0 flex-1 items-center gap-1 rounded-l-md px-2 text-left"
                 @click="selectView(getTeamViewId(team.key, 'settings'))"
               >
                 <span
-                  class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-[9px] text-white"
-                  :style="{ backgroundColor: team.color }"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center text-[14px] font-semibold"
+                  :style="{ color: team.color }"
                 >
-                  <Icon v-if="team.icon" :name="`lucide:${team.icon}`" class="h-2.5 w-2.5" aria-hidden="true" />
+                  <Icon v-if="team.icon" :name="`lucide:${team.icon}`" class="h-6 w-6" aria-hidden="true" />
                   <template v-else>{{ team.initial }}</template>
                 </span>
                 <span class="min-w-0 flex-1 truncate">{{ team.name }}</span>

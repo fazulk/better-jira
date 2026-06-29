@@ -24,13 +24,27 @@ bun run dev
 
 ## Build for your OS
 
-Install for your system below, then go to `release/` directory and run the app.
+Install for your system below. Packaged artifacts are written to `release/` unless noted otherwise.
 
 ### macOS
 
+Build an unpacked macOS app directory in `dist/`:
 
 ```bash
 bun run app:build
+```
+
+Build a macOS DMG for your current architecture:
+
+```bash
+bun run dist:desktop:dmg
+```
+
+For architecture-specific DMG builds:
+
+```bash
+bun run dist:desktop:dmg:arm64
+bun run dist:desktop:dmg:x64
 ```
 
 ### Linux

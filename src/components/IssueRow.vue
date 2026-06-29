@@ -22,8 +22,6 @@ defineEmits<{
   select: [key: string]
   prefetch: [key: string]
   toggleCheck: [key: string]
-  copyKey: [key: string]
-  createChild: [key: string]
 }>()
 
 const priorityClasses: Record<string, string> = {
@@ -166,32 +164,6 @@ function formatDate(value: string | undefined): string {
       <span v-if="showCreated !== false && createdLabel" class="hidden sm:inline">{{ createdLabel }}</span>
       <span v-if="showUpdated === true && updatedLabel" class="hidden sm:inline">{{ updatedLabel }}</span>
       <span v-if="showDue === true && dueLabel" class="hidden sm:inline">Due {{ dueLabel }}</span>
-    </span>
-
-    <span class="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 bg-gradient-to-l from-[#111215] via-[#111215] to-transparent pl-8 group-hover:flex group-focus-within:flex">
-      <button
-        type="button"
-        class="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-[#15161a] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
-        :aria-label="`Copy issue ID ${rowIssueKey}`"
-        title="Copy issue ID"
-        @click.stop="$emit('copyKey', rowIssueKey)"
-      >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
-          <path stroke-linecap="round" d="M8 10h4.5M8 14h8" />
-          <circle cx="16.5" cy="10" r="1.25" fill="currentColor" stroke="none" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        class="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-[#15161a] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
-        :aria-label="`Add child issue to ${rowIssueKey}`"
-        @click.stop="$emit('createChild', rowIssueKey)"
-      >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" d="M12 5v14M5 12h14" />
-        </svg>
-      </button>
     </span>
   </div>
 </template>

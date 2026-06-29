@@ -1,4 +1,4 @@
-import type { AiProviderAvailability } from '~/shared/ai'
+import type { AiProviderAvailability, CliToolAvailability } from '~/shared/ai'
 import type { AssistantProvider, AssistantReasoning, AssistantSettings } from '~/shared/assistant'
 import type { AppSettings, UpdateAssistantSettingsInput } from '~/shared/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -67,6 +67,10 @@ export function useAssistantSettings() {
       .filter(entry => entry.provider === 'claude' || entry.provider === 'codex')
   ))
 
+  const acliAvailability = computed<CliToolAvailability | null>(() => (
+    providerAvailabilityQuery.data.value?.tools?.find(entry => entry.tool === 'acli') ?? null
+  ))
+
   function isProviderAvailable(provider: AssistantProvider): boolean {
     return providerAvailability.value.find(entry => entry.provider === provider)?.available ?? false
   }
@@ -121,6 +125,7 @@ export function useAssistantSettings() {
     settings,
     providers: ASSISTANT_PROVIDERS,
     providerAvailability,
+    acliAvailability,
     isProviderAvailable,
     isLoadingProviders: computed(() => providerAvailabilityQuery.isLoading.value),
     availableModels,

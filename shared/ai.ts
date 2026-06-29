@@ -17,8 +17,20 @@ export interface AiProviderAvailability {
   commandPath?: string
 }
 
+export type CliTool = 'acli'
+
+export interface CliToolAvailability {
+  tool: CliTool
+  label: string
+  available: boolean
+  detail: string
+  commandPath?: string
+  installInstructions?: string[]
+}
+
 export interface AiProviderAvailabilityResponse {
   providers: AiProviderAvailability[]
+  tools?: CliToolAvailability[]
 }
 
 export interface AiSettings {

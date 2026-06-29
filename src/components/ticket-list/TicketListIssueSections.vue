@@ -27,8 +27,6 @@ const emit = defineEmits<{
   select: [key: string]
   prefetch: [key: string]
   toggleCheck: [key: string]
-  copyKey: [key: string]
-  createChild: [key: string]
 }>()
 </script>
 
@@ -82,8 +80,6 @@ const emit = defineEmits<{
             @select="emit('select', $event)"
             @prefetch="emit('prefetch', $event)"
             @toggle-check="emit('toggleCheck', $event)"
-            @copy-key="emit('copyKey', $event)"
-            @create-child="emit('createChild', $event)"
           />
         </template>
       </section>

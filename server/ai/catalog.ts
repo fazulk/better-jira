@@ -1,4 +1,4 @@
-import type { AiProvider, AiProviderAvailability } from '../../shared/ai'
+import type { AiProvider, AiProviderAvailability, CliToolAvailability } from '../../shared/ai'
 import {
   AI_PROVIDERS,
 
@@ -8,7 +8,7 @@ import {
   isSupportedModel,
 } from '../../shared/ai'
 import { env } from '../config'
-import { assertLocalAiProviderConfigured, getLocalAiProviderAvailability } from './localProviders'
+import { assertLocalAiProviderConfigured, getAcliAvailability, getLocalAiProviderAvailability } from './localProviders'
 
 export function getConfiguredDefaultProvider(): AiProvider {
   return env.AI_DEFAULT_PROVIDER
@@ -102,6 +102,10 @@ export function getAiProviderAvailability(): AiProviderAvailability[] {
     const localProvider = localAvailability.get(provider)
     return localProvider ?? getCloudProviderAvailability(provider)
   })
+}
+
+export function getCliToolAvailability(): CliToolAvailability[] {
+  return [getAcliAvailability()]
 }
 
 export function getAvailableModels(provider: AiProvider) {

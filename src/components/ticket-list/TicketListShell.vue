@@ -153,8 +153,6 @@ export default defineComponent({
           @select="openTicket"
           @prefetch="prefetchTicket"
           @toggle-check="toggleCheckedIssue"
-          @copy-key="copyIssueKey"
-          @create-child="openChildCreate"
         />
       </div>
     </main>

@@ -14,6 +14,7 @@ const {
   settings,
   providers,
   providerAvailability,
+  acliAvailability,
   isProviderAvailable,
   isLoadingProviders,
   availableModels,
@@ -72,6 +73,10 @@ function getAvailabilityDetail(provider: AssistantProvider): string {
   return providerAvailability.value.find(entry => entry.provider === provider)?.detail
     ?? `${getAssistantProviderLabel(provider)} CLI detection pending.`
 }
+
+const isAcliAvailable = computed(() => acliAvailability.value?.available ?? false)
+const acliAvailabilityDetail = computed(() => acliAvailability.value?.detail ?? 'Atlassian CLI detection pending.')
+const acliInstallInstructions = computed(() => acliAvailability.value?.installInstructions ?? [])
 
 async function handleProviderChange(event: Event): Promise<void> {
   if (!(event.target instanceof HTMLSelectElement) || !isAssistantProvider(event.target.value)) {
@@ -246,6 +251,37 @@ async function handleReasoningChange(reasoning: AssistantReasoning): Promise<voi
           <p class="mt-1 text-[11px] leading-relaxed opacity-80">
             {{ getAvailabilityDetail(provider) }}
           </p>
+        </div>
+      </div>
+      <div
+        class="mt-2 rounded-md border px-3 py-2 text-xs"
+        :class="isAcliAvailable
+          ? 'border-white/[0.08] bg-white/[0.035] text-slate-300'
+          : 'border-amber-400/20 bg-amber-500/10 text-amber-100'"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <span class="font-medium" :class="isAcliAvailable ? 'text-slate-200' : 'text-amber-100'">Atlassian CLI (acli)</span>
+          <span class="text-[10px] uppercase tracking-[0.16em]">{{ isAcliAvailable ? 'Available' : 'Unavailable' }}</span>
+        </div>
+        <p class="mt-1 text-[11px] leading-relaxed opacity-80">
+          {{ acliAvailabilityDetail }}
+        </p>
+        <div v-if="!isAcliAvailable && acliInstallInstructions.length" class="mt-2 space-y-1 text-[11px] leading-relaxed">
+          <p>Install and authenticate with:</p>
+          <ol class="list-decimal space-y-1 pl-4">
+            <li v-for="instruction in acliInstallInstructions" :key="instruction">
+              <a
+                v-if="instruction.startsWith('https://')"
+                :href="instruction"
+                target="_blank"
+                rel="noreferrer"
+                class="underline decoration-amber-200/40 underline-offset-2 hover:text-amber-50"
+              >
+                Atlassian CLI install guide
+              </a>
+              <code v-else class="rounded bg-black/20 px-1 py-0.5">{{ instruction }}</code>
+            </li>
+          </ol>
         </div>
       </div>
       <p class="mt-3 text-[11px] text-slate-600">

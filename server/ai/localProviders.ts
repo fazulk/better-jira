@@ -1,4 +1,4 @@
-import type { AiProvider, AiProviderAvailability } from '../../shared/ai'
+import type { AiProvider, AiProviderAvailability, CliToolAvailability } from '../../shared/ai'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -21,6 +21,8 @@ const LOCAL_PROVIDER_COMMANDS: LocalProviderCommandConfig[] = [
 const LOCAL_PROVIDER_CACHE_TTL_MS = 15_000
 let cachedProviderAvailability: AiProviderAvailability[] | null = null
 let cachedProviderAvailabilityAt = 0
+let cachedAcliAvailability: CliToolAvailability | null = null
+let cachedAcliAvailabilityAt = 0
 
 function isLocalAiProvider(provider: AiProvider): provider is LocalAiProvider {
   return provider === 'codex' || provider === 'claude'
@@ -131,6 +133,32 @@ function createAvailability(config: LocalProviderCommandConfig): AiProviderAvail
   }
 }
 
+function createAcliAvailability(): CliToolAvailability {
+  const commandPath = resolveCommandPath('acli')
+
+  if (!commandPath) {
+    return {
+      tool: 'acli',
+      label: 'Atlassian CLI',
+      available: false,
+      detail: 'Atlassian CLI was not found on this computer. Jira actions will not work until it is installed and authenticated.',
+      installInstructions: [
+        'brew tap atlassian/homebrew-acli && brew install acli',
+        'acli jira auth login --web',
+        'https://developer.atlassian.com/cloud/acli/guides/install-acli/',
+      ],
+    }
+  }
+
+  return {
+    tool: 'acli',
+    label: 'Atlassian CLI',
+    available: true,
+    detail: `Atlassian CLI detected at ${commandPath}.`,
+    commandPath,
+  }
+}
+
 export function getLocalAiCommandPathEnv(): string {
   return getPathEntries().join(delimiter)
 }
@@ -144,6 +172,17 @@ export function getLocalAiProviderAvailability(): AiProviderAvailability[] {
   cachedProviderAvailability = LOCAL_PROVIDER_COMMANDS.map(createAvailability)
   cachedProviderAvailabilityAt = now
   return cachedProviderAvailability
+}
+
+export function getAcliAvailability(): CliToolAvailability {
+  const now = Date.now()
+  if (cachedAcliAvailability && now - cachedAcliAvailabilityAt < LOCAL_PROVIDER_CACHE_TTL_MS) {
+    return cachedAcliAvailability
+  }
+
+  cachedAcliAvailability = createAcliAvailability()
+  cachedAcliAvailabilityAt = now
+  return cachedAcliAvailability
 }
 
 export function resolveLocalAiCommand(provider: LocalAiProvider): string | null {

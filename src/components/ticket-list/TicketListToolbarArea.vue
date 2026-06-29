@@ -23,7 +23,7 @@ export default defineComponent({
       <div class="flex min-w-0 items-center gap-2">
         <h1
           class="flex min-w-0 items-center gap-1.5 truncate text-[#f0f1f4]"
-          :class="currentTeamAppearance ? 'text-[14px] font-medium' : 'text-[20px] font-semibold'"
+          :class="currentTeamAppearance ? 'text-[14px] font-normal' : 'text-[20px] font-semibold'"
         >
           <template v-if="currentTeamAppearance">
             <span

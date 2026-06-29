@@ -1437,7 +1437,7 @@ export function useTicketListController() {
       return undefined
     }
 
-    const filters = toViewFilterClauses(view.filters)
+    const filters = getFavoriteViewFilterClauses(view)
     if (context === 'issues') {
       return getFavoriteViewIssueTickets(view.id)
         .filter(ticket => favoriteTicketMatchesDisplay(view.id, ticket))
@@ -1485,6 +1485,14 @@ export function useTicketListController() {
       return null
     }
     return 'issues'
+  }
+
+  function getFavoriteViewFilterClauses(view: FavoriteView): ViewFilterClause[] {
+    if (getCustomView(view.id)) {
+      const override = getViewOverride(view.id)
+      return override ? customViewFiltersToClauses(override.filters) : getDefaultFiltersForView(view.id)
+    }
+    return toViewFilterClauses(view.filters)
   }
 
   function getFavoriteViewBaseId(viewId: string): string {
@@ -1739,7 +1747,7 @@ export function useTicketListController() {
   }
   function restoreFavoriteViewFilters(viewId: string) {
     const favoriteView = getFavoriteView(viewId)
-    if (!favoriteView)
+    if (!favoriteView || getCustomView(viewId))
       return
     persistViewStateForView(
       viewId,

@@ -75,6 +75,65 @@ const JiraMention = TiptapNode.create({
   },
 })
 
+function unsupportedContentLabel(value: unknown): string {
+  return typeof value === 'string' && value.length > 0 ? value : 'Unsupported Jira content'
+}
+
+const JiraUnsupportedInline = TiptapNode.create({
+  name: 'jiraUnsupportedInline',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      adfNode: { default: null },
+      label: { default: 'Unsupported Jira content' },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-jira-unsupported-inline]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      {
+        'class': 'jira-description-unsupported jira-description-unsupported-inline',
+        'data-jira-unsupported-inline': '',
+        'contenteditable': 'false',
+      },
+      unsupportedContentLabel(HTMLAttributes.label),
+    ]
+  },
+})
+
+const JiraUnsupportedBlock = TiptapNode.create({
+  name: 'jiraUnsupportedBlock',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      adfNode: { default: null },
+      label: { default: 'Unsupported Jira content' },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-jira-unsupported-block]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'div',
+      {
+        'class': 'jira-description-unsupported jira-description-unsupported-block',
+        'data-jira-unsupported-block': '',
+        'contenteditable': 'false',
+      },
+      unsupportedContentLabel(HTMLAttributes.label),
+    ]
+  },
+})
+
 const editorTick = ref(0)
 const linkMenuOpen = ref(false)
 const linkDraft = ref('')
@@ -132,6 +191,8 @@ const editor = useEditor({
     }),
     Underline,
     JiraMention,
+    JiraUnsupportedInline,
+    JiraUnsupportedBlock,
     JiraMedia,
     JiraMediaSingle,
     JiraMediaGroup,

@@ -55,7 +55,7 @@ function isSupportedMark(mark: JiraAdfMark): boolean {
   return typeof mark.attrs?.href === 'string' && mark.attrs.href.length > 0
 }
 
-function isSupportedNode(node: JiraAdfNode): boolean {
+export function isSupportedEditorAdfNodeShallow(node: JiraAdfNode): boolean {
   if (typeof node.type !== 'string' || !SUPPORTED_NODE_TYPES.has(node.type))
     return false
   if (node.marks && !node.marks.every(isSupportedMark))
@@ -77,8 +77,15 @@ function isSupportedNode(node: JiraAdfNode): boolean {
   }
 
   if (node.type === 'mediaSingle' || node.type === 'mediaGroup') {
-    return !!node.content?.length && node.content.every(isSupportedNode)
+    return !!node.content?.length
   }
+
+  return true
+}
+
+function isSupportedNode(node: JiraAdfNode): boolean {
+  if (!isSupportedEditorAdfNodeShallow(node))
+    return false
 
   if (!node.content?.length)
     return true

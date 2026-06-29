@@ -5,7 +5,7 @@ import JiraDescriptionEditor from '@/components/JiraDescriptionEditor.vue'
 import { useUpdateLocalTicketDescription } from '@/composables/useUpdateLocalTicketDescription'
 import { useUpdateTicketDescription } from '@/composables/useUpdateTicketDescription'
 import { useUploadTicketAttachment } from '@/composables/useUploadTicketAttachment'
-import { coerceDescriptionToAdf, isSupportedEditorAdf, simplifyUnsupportedAdfForEditor } from '~/shared/jiraAdf'
+import { coerceDescriptionToAdf, isSupportedEditorAdf } from '~/shared/jiraAdf'
 import { isLocalTicketKey } from '~/shared/localTickets'
 
 const props = defineProps<{
@@ -43,17 +43,9 @@ const descriptionHasUnsupportedContent = computed(() => {
   return !!descriptionAdf && !isSupportedEditorAdf(descriptionAdf)
 })
 
-function hasUnsupportedEditorContent(nextTicket: JiraTicket | null): boolean {
-  const descriptionAdf = nextTicket?.descriptionAdf
-  return !!descriptionAdf && !isSupportedEditorAdf(descriptionAdf)
-}
-
 function getEditableDescriptionAdf(nextTicket: JiraTicket | null): JiraAdfDocument | null {
   if (!nextTicket)
     return null
-  if (nextTicket.descriptionAdf && hasUnsupportedEditorContent(nextTicket)) {
-    return simplifyUnsupportedAdfForEditor(nextTicket.descriptionAdf)
-  }
 
   return coerceDescriptionToAdf(nextTicket.description, nextTicket.descriptionAdf)
 }
@@ -329,7 +321,7 @@ defineExpose({
         v-if="descriptionHasUnsupportedContent && descriptionEditorActive"
         class="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
       >
-        This description uses Jira formatting the editor does not preserve yet. Saving here will simplify it to supported rich text.
+        This description uses Jira formatting the editor cannot edit yet. Unsupported items are preserved unless you delete their placeholder.
       </div>
     </div>
   </section>

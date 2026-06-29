@@ -1,6 +1,10 @@
 import type { JSONContent } from '@tiptap/core'
 import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from '@/types/jira'
-import { isRecord, normalizeAdf } from '~/shared/jiraAdf'
+import { isJiraAdfNode, isRecord, isSupportedEditorAdfNodeShallow, normalizeAdf } from '~/shared/jiraAdf'
+
+const UNSUPPORTED_INLINE_NODE_TYPE = 'jiraUnsupportedInline'
+const UNSUPPORTED_BLOCK_NODE_TYPE = 'jiraUnsupportedBlock'
+const INLINE_PARENT_NODE_TYPES = new Set(['paragraph', 'heading'])
 
 function toEditorMark(mark: JiraAdfMark): { type: string, attrs?: Record<string, unknown> } | null {
   if (typeof mark.type !== 'string' || !mark.type)
@@ -59,10 +63,83 @@ function copyAdfAttrs(nodeType: string, attrs: JSONContent['attrs']): Record<str
   return Object.keys(copiedAttrs).length ? copiedAttrs : undefined
 }
 
+function copyAdfNode(node: JiraAdfNode): JiraAdfNode {
+  const copiedNode: JiraAdfNode = {}
+
+  if (typeof node.type === 'string')
+    copiedNode.type = node.type
+  if (typeof node.text === 'string')
+    copiedNode.text = node.text
+  if (node.attrs)
+    copiedNode.attrs = { ...node.attrs }
+  if (node.marks?.length) {
+    copiedNode.marks = node.marks.map((mark) => {
+      const copiedMark: JiraAdfMark = {}
+      if (typeof mark.type === 'string')
+        copiedMark.type = mark.type
+      if (mark.attrs)
+        copiedMark.attrs = { ...mark.attrs }
+      return copiedMark
+    })
+  }
+  if (node.content?.length)
+    copiedNode.content = node.content.map(copyAdfNode)
+
+  return copiedNode
+}
+
+function unsupportedNodeLabel(node: JiraAdfNode): string {
+  const url = node.attrs?.url
+  if (typeof url === 'string' && url.length > 0)
+    return url
+
+  const text = node.attrs?.text
+  if (typeof text === 'string' && text.length > 0)
+    return text
+
+  if (typeof node.text === 'string' && node.text.length > 0)
+    return node.text
+
+  return typeof node.type === 'string' && node.type.length > 0
+    ? `Unsupported Jira ${node.type}`
+    : 'Unsupported Jira content'
+}
+
+function unsupportedEditorNodeType(node: JiraAdfNode, parentType: string | undefined): string {
+  if (node.type === 'text' || (parentType && INLINE_PARENT_NODE_TYPES.has(parentType)))
+    return UNSUPPORTED_INLINE_NODE_TYPE
+  return UNSUPPORTED_BLOCK_NODE_TYPE
+}
+
+function toUnsupportedEditorNode(node: JiraAdfNode, parentType: string | undefined): JSONContent {
+  return {
+    type: unsupportedEditorNodeType(node, parentType),
+    attrs: {
+      adfNode: copyAdfNode(node),
+      label: unsupportedNodeLabel(node),
+    },
+  }
+}
+
+function readUnsupportedAdfNode(attrs: JSONContent['attrs']): JiraAdfNode | null {
+  if (!isRecord(attrs))
+    return null
+
+  const rawNode = attrs.adfNode
+  if (!isJiraAdfNode(rawNode))
+    return null
+
+  return copyAdfNode(rawNode)
+}
+
 function toEditorNode(
   node: JiraAdfNode,
   resolveMediaSrc: (attrs: Record<string, unknown> | undefined) => string | null,
+  parentType?: string,
 ): JSONContent | null {
+  if (!isSupportedEditorAdfNodeShallow(node))
+    return toUnsupportedEditorNode(node, parentType)
+
   if (typeof node.type !== 'string' || !node.type)
     return null
 
@@ -89,7 +166,7 @@ function toEditorNode(
 
   if (node.content?.length) {
     const content = node.content
-      .map(child => toEditorNode(child, resolveMediaSrc))
+      .map(child => toEditorNode(child, resolveMediaSrc, node.type))
       .filter((child): child is JSONContent => child !== null)
     if (content.length)
       editorNode.content = content
@@ -99,6 +176,9 @@ function toEditorNode(
 }
 
 function toAdfNode(node: JSONContent): JiraAdfNode | null {
+  if (node.type === UNSUPPORTED_INLINE_NODE_TYPE || node.type === UNSUPPORTED_BLOCK_NODE_TYPE)
+    return readUnsupportedAdfNode(node.attrs)
+
   if (typeof node.type !== 'string' || !node.type)
     return null
 

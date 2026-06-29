@@ -1,6 +1,31 @@
 import type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from './jiraAdfTypes'
 import { plainTextToAdf } from './jiraAdfBuild'
-import { isJiraAdfDocument } from './jiraAdfTypes'
+import { isJiraAdfDocument, isRecord } from './jiraAdfTypes'
+
+const NODE_TYPES_WITH_NORMALIZED_ATTRS = new Set([
+  'paragraph',
+  'heading',
+  'orderedList',
+  'bulletList',
+  'listItem',
+  'blockquote',
+  'codeBlock',
+  'media',
+  'mediaSingle',
+  'mediaGroup',
+  'mention',
+  'hardBreak',
+  'text',
+])
+
+const MARK_TYPES_WITH_NORMALIZED_ATTRS = new Set([
+  'strong',
+  'em',
+  'underline',
+  'strike',
+  'code',
+  'link',
+])
 
 function normalizeMark(mark: JiraAdfMark): JiraAdfMark | null {
   if (typeof mark.type !== 'string' || !mark.type)
@@ -8,14 +33,24 @@ function normalizeMark(mark: JiraAdfMark): JiraAdfMark | null {
 
   if (mark.type === 'link') {
     const href = mark.attrs?.href
-    if (typeof href !== 'string' || !href)
-      return null
+    if (typeof href === 'string' && href) {
+      return {
+        type: 'link',
+        attrs: {
+          href,
+        },
+      }
+    }
+  }
 
+  if (MARK_TYPES_WITH_NORMALIZED_ATTRS.has(mark.type))
+    return { type: mark.type }
+
+  const normalizedAttrs = normalizeUnsupportedNodeAttrs(mark.attrs)
+  if (normalizedAttrs) {
     return {
-      type: 'link',
-      attrs: {
-        href,
-      },
+      type: mark.type,
+      attrs: normalizedAttrs,
     }
   }
 
@@ -44,6 +79,42 @@ function normalizePrimitiveAttrs(attrs: Record<string, unknown> | undefined): Re
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       normalizedAttrs[key] = value
     }
+  }
+
+  return Object.keys(normalizedAttrs).length ? normalizedAttrs : undefined
+}
+
+function copySerializableAttrValue(value: unknown): unknown {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null)
+    return value
+
+  if (Array.isArray(value))
+    return value.map(copySerializableAttrValue).filter(item => item !== undefined)
+
+  if (isRecord(value)) {
+    const copiedValue: Record<string, unknown> = {}
+    for (const [key, childValue] of Object.entries(value)) {
+      const copiedChildValue = copySerializableAttrValue(childValue)
+      if (copiedChildValue !== undefined)
+        copiedValue[key] = copiedChildValue
+    }
+    return copiedValue
+  }
+
+  return undefined
+}
+
+function normalizeUnsupportedNodeAttrs(attrs: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!attrs)
+    return undefined
+
+  const normalizedAttrs: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === 'src')
+      continue
+    const copiedValue = copySerializableAttrValue(value)
+    if (copiedValue !== undefined)
+      normalizedAttrs[key] = copiedValue
   }
 
   return Object.keys(normalizedAttrs).length ? normalizedAttrs : undefined
@@ -87,6 +158,10 @@ function normalizeNodeAttrs(node: JiraAdfNode): Record<string, unknown> | undefi
 
   if (node.type === 'mention') {
     return normalizeMentionAttrs(node.attrs)
+  }
+
+  if (typeof node.type === 'string' && !NODE_TYPES_WITH_NORMALIZED_ATTRS.has(node.type)) {
+    return normalizeUnsupportedNodeAttrs(node.attrs)
   }
 
   return undefined

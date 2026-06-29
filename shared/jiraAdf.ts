@@ -1,6 +1,6 @@
 export { plainTextToAdf } from './jiraAdfBuild'
 export { normalizeAdf } from './jiraAdfNormalize'
 export { adfToPlainText } from './jiraAdfPlainText'
-export { coerceDescriptionToAdf, isSupportedEditorAdf, parseStringifiedAdf, simplifyUnsupportedAdfForEditor } from './jiraAdfSupport'
+export { coerceDescriptionToAdf, isSupportedEditorAdf, isSupportedEditorAdfNodeShallow, parseStringifiedAdf, simplifyUnsupportedAdfForEditor } from './jiraAdfSupport'
 export type { JiraAdfDocument, JiraAdfMark, JiraAdfNode } from './jiraAdfTypes'
 export { isJiraAdfDocument, isJiraAdfNode, isRecord } from './jiraAdfTypes'

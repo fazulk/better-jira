@@ -31,7 +31,7 @@ export default defineComponent({
           >
             <span class="min-w-0 truncate">{{ currentTeamName }}</span>
             <span v-if="currentTeamSectionLabel" class="shrink-0 text-[#6f727b]">›</span>
-            <span v-if="currentTeamSectionLabel" class="shrink-0">{{ currentTeamSectionLabel }}</span>
+            <span v-if="currentTeamSectionLabel" class="shrink-0 px-1 py-0.5">{{ currentTeamSectionLabel }}</span>
           </ViewHeaderBreadcrumb>
           <span v-else class="truncate text-[20px] font-semibold text-[#f0f1f4]">
             {{ viewTitle }}

@@ -1,8 +1,10 @@
 <script lang="ts">
 import type { TicketListController } from '@/features/ticket-list/useTicketListController'
 import { defineComponent } from 'vue'
+import StatusIcon from '@/components/StatusIcon.vue'
 
 export default defineComponent({
+  components: { StatusIcon },
   props: ['controller'],
   setup(props: { controller: TicketListController }) {
     return props.controller
@@ -44,10 +46,16 @@ export default defineComponent({
           @dragend="finishIssueGroupDrag"
         >
           <span class="cursor-grab text-[14px] text-[#555861] active:cursor-grabbing">⁝⁝</span>
+          <StatusIcon
+            v-if="listGrouping === 'status'"
+            :status="row.label"
+            :status-category="getStatusCategoryForGroupLabel(row.label)"
+            :size="16"
+          />
           <span
+            v-else
             class="h-3.5 w-3.5 shrink-0 rounded-full border"
             :class="getIssueGroupMarkerClass(row.label)"
-            :style="getIssueGroupMarkerStyle(row.label)"
           />
           <span class="min-w-0 flex-1 truncate">{{ row.label }}</span>
           <button

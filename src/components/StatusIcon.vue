@@ -7,7 +7,7 @@ const props = withDefaults(defineProps<{
   statusCategory: string
   size?: number
 }>(), {
-  size: 14,
+  size: 16,
 })
 
 const { getStatusColor } = useStatusPreferences()

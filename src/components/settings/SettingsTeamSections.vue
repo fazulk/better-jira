@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
             title="Change color"
             @click="openColorMenu(statusRow, $event)"
           >
-            <StatusIcon :status="statusRow.status" :status-category="statusRow.group" :size="16" />
+            <StatusIcon :status="statusRow.status" :status-category="statusRow.group" :size="18" />
           </button>
 
           <div class="min-w-0 flex-1">

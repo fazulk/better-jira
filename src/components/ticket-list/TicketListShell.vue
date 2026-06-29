@@ -133,6 +133,8 @@ export default defineComponent({
           :show-headers="shouldShowIssueSectionHeader()"
           :get-row-key="getDisplayedIssueRowKey"
           :is-collapsed="isIssueSectionCollapsed"
+          :is-status-grouping="listGrouping === 'status'"
+          :get-status-category-for-group-label="getStatusCategoryForGroupLabel"
           empty-title="No issues match this view"
           empty-description="Adjust filters or create a new issue."
           @show-completed="completedRange = 'all'"

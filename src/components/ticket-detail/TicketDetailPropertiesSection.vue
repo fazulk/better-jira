@@ -148,7 +148,7 @@ defineExpose({
           <span
             class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-xs font-medium text-slate-200"
           >
-            <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="14" />
+            <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="16" />
             <span class="truncate">{{ ticket.status }}</span>
           </span>
         </button>

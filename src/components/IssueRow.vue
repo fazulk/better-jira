@@ -133,7 +133,7 @@ function formatDate(value: string | undefined): string {
     </span>
 
     <span v-if="showStatus !== false" class="flex h-4 w-4 items-center justify-center">
-      <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="14" />
+      <StatusIcon :status="ticket.status" :status-category="ticket.statusCategory" :size="16" />
     </span>
 
     <span v-if="showId !== false" class="truncate font-medium text-[#8f9198]">{{ rowIssueKey }}</span>

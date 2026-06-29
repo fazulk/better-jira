@@ -2,6 +2,7 @@
 import type { IssueRowDisplayProps, IssueSection } from '@/features/ticket-list/types'
 import type { JiraTicket } from '@/types/jira'
 import IssueRow from '@/components/IssueRow.vue'
+import StatusIcon from '@/components/StatusIcon.vue'
 
 defineProps<{
   sections: IssueSection[]
@@ -16,6 +17,8 @@ defineProps<{
   showHeaders: boolean
   getRowKey: (ticket: JiraTicket) => string
   isCollapsed: (section: IssueSection) => boolean
+  isStatusGrouping?: boolean
+  getStatusCategoryForGroupLabel?: (label: string) => string
 }>()
 
 const emit = defineEmits<{
@@ -57,6 +60,12 @@ const emit = defineEmits<{
               class="h-3 w-3 shrink-0 text-[#777a83] transition-transform"
               :class="isCollapsed(section) ? '-rotate-90' : ''"
               aria-hidden="true"
+            />
+            <StatusIcon
+              v-if="isStatusGrouping && getStatusCategoryForGroupLabel"
+              :status="section.label"
+              :status-category="getStatusCategoryForGroupLabel(section.label)"
+              :size="16"
             />
             <span class="truncate">{{ section.label }}</span>
             <span class="text-[#6f727b]">{{ section.tickets.length }}</span>

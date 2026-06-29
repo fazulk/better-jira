@@ -44,8 +44,8 @@ export const DEFAULT_STATUS_NAME_ORDER: readonly string[] = [
   'to do',
   'todo',
   'approved for development',
-  'in progress',
   'blocked',
+  'in progress',
   'code review',
   'ready for qa',
   'in qa',
@@ -60,7 +60,6 @@ export const DEFAULT_STATUS_NAME_ORDER: readonly string[] = [
 // proportionally as work advances, mimicking Linear's status icons.
 const STARTED_PROGRESS_ORDER: readonly string[] = [
   'in progress',
-  'blocked',
   'code review',
   'ready for qa',
   'in qa',
@@ -136,6 +135,9 @@ export function getStatusLane(status: string, statusCategory: string): StatusLan
   if (normalizedStatus.includes('backlog')) {
     return 'backlog'
   }
+  if (normalizedStatus.includes('blocked')) {
+    return 'unstarted'
+  }
 
   const group = getStatusGroup(statusCategory)
   if (group === 'done') {
@@ -163,35 +165,8 @@ export function getStatusLaneRank(lane: StatusLane): number {
   return laneRanks[lane]
 }
 
-export function getStatusLaneIcon(lane: StatusLane): string {
-  if (lane === 'triage')
-    return '↔'
-  if (lane === 'backlog')
-    return '◌'
-  if (lane === 'unstarted')
-    return '○'
-  if (lane === 'completed')
-    return '✓'
-  return '◔'
-}
-
 export function getFallbackStatusColor(status: string, statusCategory: string): string {
   return fallbackLaneColors[getStatusLane(status, statusCategory)]
-}
-
-export function createStatusIconStyle(color: string): Record<string, string> {
-  return {
-    backgroundColor: `${color}22`,
-    borderColor: `${color}33`,
-    color,
-  }
-}
-
-export function createStatusMarkerStyle(color: string): Record<string, string> {
-  return {
-    borderColor: color,
-    color,
-  }
 }
 
 export function createStatusBadgeStyle(color: string): Record<string, string> {

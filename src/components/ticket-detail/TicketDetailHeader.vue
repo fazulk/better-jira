@@ -40,6 +40,19 @@ const detailIssueParent = computed(() => {
   return parent
 })
 
+const detailIssueParentRelationLabel = computed(() => {
+  const parent = detailIssueParent.value
+  if (!parent)
+    return null
+
+  const ticketIssueType = props.ticket.issueType.toLowerCase()
+  const parentIssueType = parent.issueType.toLowerCase()
+  if (ticketIssueType.includes('epic') && parentIssueType.includes('initiative'))
+    return 'Epic of'
+
+  return 'Sub-issue of'
+})
+
 const detailIssueParentProgressLabel = computed(() => {
   const parent = detailIssueParent.value
   if (!parent)
@@ -283,7 +296,7 @@ defineExpose({
         <span v-if="titleError" class="text-xs text-rose-300">{{ titleError }}</span>
       </div>
       <div v-if="detailIssueParent" class="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
-        <span>Sub-issue of</span>
+        <span>{{ detailIssueParentRelationLabel }}</span>
         <button
           type="button"
           class="inline-flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left transition hover:bg-white/[0.04]"

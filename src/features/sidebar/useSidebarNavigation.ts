@@ -8,6 +8,7 @@ import { ticketQueryKey } from '@/composables/useJiraTicket'
 import { localTicketQueryKey } from '@/composables/useLocalTicket'
 import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
+import { isSubIssueTicket } from '@/features/ticket-list/helpers'
 import { getStatusGroup } from '@/types/jira'
 import { isLocalTicketKey, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
@@ -37,7 +38,6 @@ interface NavItem {
 interface TeamNavItem {
   key: string
   name: string
-  activeCount: number
   triageCount: number
 }
 
@@ -76,6 +76,10 @@ function isInitiativeIssue(ticket: JiraTicket): boolean {
   return ticket.issueType.toLowerCase().includes('initiative')
 }
 
+function isBacklogIssueTicket(ticket: JiraTicket): boolean {
+  return ticket.status.trim().toLowerCase() === 'backlog'
+}
+
 export function useSidebarNavigation(
   props: SidebarNavigationProps,
   emit: SidebarNavigationEmit,
@@ -111,7 +115,7 @@ export function useSidebarNavigation(
     ticket => !projectTicketKeySet.value.has(ticket.key) && !initiativeTicketKeySet.value.has(ticket.key),
   ))
   const activeTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done'))
-  const triageTickets = computed(() => issueTickets.value.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new'))
+  const triageTickets = computed(() => issueTickets.value.filter(ticket => isBacklogIssueTicket(ticket) && !isSubIssueTicket(ticket)))
   const workspaceExpanded = ref(true)
   const favoritesExpanded = ref(true)
   const expandedTeamKeys = useLocalStorage<string[]>('jira2.expandedTeams', [])
@@ -188,13 +192,11 @@ export function useSidebarNavigation(
 
   const teamItems = computed<TeamNavItem[]>(() => enabledSpaces.value.map((space) => {
     const tickets = issueTickets.value.filter(ticket => ticket.spaceKey === space.key)
-    const activeCount = tickets.filter(ticket => getStatusGroup(ticket.statusCategory) !== 'done').length
-    const triageCount = tickets.filter(ticket => getStatusGroup(ticket.statusCategory) === 'new').length
+    const triageCount = tickets.filter(ticket => isBacklogIssueTicket(ticket) && !isSubIssueTicket(ticket)).length
 
     return {
       key: space.key,
       name: space.name || space.key,
-      activeCount,
       triageCount,
     }
   }))

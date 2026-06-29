@@ -212,7 +212,6 @@ const {
               >
                 <span class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-[#d65d5d] text-[9px] text-white">{{ team.key.slice(0, 1) }}</span>
                 <span class="min-w-0 flex-1 truncate">{{ team.name }}</span>
-                <span v-if="team.activeCount > 0" class="text-[11px] text-[#6f727b]">{{ team.activeCount }}</span>
               </button>
               <button
                 type="button"

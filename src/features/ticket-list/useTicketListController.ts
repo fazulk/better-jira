@@ -548,11 +548,13 @@ export function useTicketListController() {
   )
   const isInitiativeDisplayView = computed(() => currentView.value === 'initiatives')
   const isSavedViewDisplayView = computed(() => isViewsDirectory.value)
+  const isTeamSettingsView = computed(() => currentTeamSection.value === 'settings')
   const isIssueDisplayView = computed(
     () =>
       !isProjectDisplayView.value
       && !isInitiativeDisplayView.value
       && !isSavedViewDisplayView.value
+      && !isTeamSettingsView.value
       && currentView.value !== 'inbox',
   )
   const currentTeamTickets = computed(() => {
@@ -3996,6 +3998,7 @@ export function useTicketListController() {
     isProjectDisplayView,
     isInitiativeDisplayView,
     isSavedViewDisplayView,
+    isTeamSettingsView,
     isIssueDisplayView,
     currentTeamTickets,
     isMyIssuesView,

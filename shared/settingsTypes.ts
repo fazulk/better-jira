@@ -4,6 +4,10 @@ export interface AppSpaceSetting {
   key: string
   name: string
   enabled: boolean
+  /** Lucide icon name (without the `lucide:` prefix). When absent the key initial is shown. */
+  icon?: string
+  /** Hex color (e.g. `#d65d5d`) used for the team avatar. */
+  color?: string
 }
 
 export interface JiraConnectionSettings {

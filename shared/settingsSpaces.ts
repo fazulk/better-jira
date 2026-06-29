@@ -1,10 +1,24 @@
 import type { AppSpaceSetting } from './settingsTypes'
 import { LOCAL_SPACE_KEY, LOCAL_SPACE_NAME } from './localTickets'
 import {
+  normalizeSpaceColor,
+  normalizeSpaceIcon,
   normalizeSpaceKey,
   normalizeSpaceKeyList,
   normalizeSpaceName,
 } from './settingsNormalizers'
+
+function withAppearance(
+  base: AppSpaceSetting,
+  icon: string | undefined,
+  color: string | undefined,
+): AppSpaceSetting {
+  return {
+    ...base,
+    ...(icon ? { icon } : {}),
+    ...(color ? { color } : {}),
+  }
+}
 
 function normalizeSpaceSetting(value: unknown): AppSpaceSetting | null {
   if (typeof value !== 'object' || value === null) {
@@ -18,11 +32,15 @@ function normalizeSpaceSetting(value: unknown): AppSpaceSetting | null {
     return null
   }
 
-  return {
-    key,
-    name: normalizeSpaceName(recordValue.name),
-    enabled: recordValue.enabled !== false,
-  }
+  return withAppearance(
+    {
+      key,
+      name: normalizeSpaceName(recordValue.name),
+      enabled: recordValue.enabled !== false,
+    },
+    normalizeSpaceIcon(recordValue.icon),
+    normalizeSpaceColor(recordValue.color),
+  )
 }
 
 function normalizeSpaceSettings(value: unknown): AppSpaceSetting[] {
@@ -69,19 +87,27 @@ export function reconcileSpaceSettings(spaces: AppSpaceSetting[]): AppSpaceSetti
     const existingSpace = dedupedSpaces.get(space.key)
 
     if (!existingSpace) {
-      dedupedSpaces.set(space.key, {
-        key: space.key,
-        name: space.name,
-        enabled: space.enabled,
-      })
+      dedupedSpaces.set(space.key, withAppearance(
+        {
+          key: space.key,
+          name: space.name,
+          enabled: space.enabled,
+        },
+        space.icon,
+        space.color,
+      ))
       continue
     }
 
-    dedupedSpaces.set(space.key, {
-      key: existingSpace.key,
-      name: existingSpace.name || space.name,
-      enabled: existingSpace.enabled || space.enabled,
-    })
+    dedupedSpaces.set(space.key, withAppearance(
+      {
+        key: existingSpace.key,
+        name: existingSpace.name || space.name,
+        enabled: existingSpace.enabled || space.enabled,
+      },
+      existingSpace.icon ?? space.icon,
+      existingSpace.color ?? space.color,
+    ))
   }
 
   const sorted = [...dedupedSpaces.values()].sort(sortSpaceSettings)

@@ -5,6 +5,7 @@ import AddSpaceModal from '../AddSpaceModal.vue'
 import CreateTicketModal from '../CreateTicketModal.vue'
 import Sidebar from '../Sidebar.vue'
 import TicketDetail from '../TicketDetail.vue'
+import TeamSettingsView from './TeamSettingsView.vue'
 import TicketListCommandMenu from './TicketListCommandMenu.vue'
 import TicketListInboxView from './TicketListInboxView.vue'
 import TicketListInitiativesView from './TicketListInitiativesView.vue'
@@ -30,6 +31,7 @@ export default defineComponent({
     TicketListProjectView,
     TicketListSavedViewsView,
     TicketListSelectionBar,
+    TeamSettingsView,
   },
   props: ['controller'],
   setup(props: { controller: TicketListController }) {
@@ -77,7 +79,7 @@ export default defineComponent({
       <div
         class="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.055] bg-issue-detail-bg"
       >
-        <TicketListToolbarArea v-if="!selectedKey" :controller="controller" />
+        <TicketListToolbarArea v-if="!selectedKey && !isTeamSettingsView" :controller="controller" />
         <div v-if="selectedKey" class="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
           <TicketDetail
             :ticket-key="selectedKey"
@@ -88,6 +90,7 @@ export default defineComponent({
             @create-child="openChildCreate"
           />
         </div>
+        <TeamSettingsView v-else-if="isTeamSettingsView && currentTeamKey" :space-key="currentTeamKey" />
         <TicketListSearchView v-else-if="currentView === 'search'" :controller="controller" />
         <TicketListInboxView v-else-if="currentView === 'inbox'" :controller="controller" />
         <TicketListInitiativesView

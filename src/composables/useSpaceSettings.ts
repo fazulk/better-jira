@@ -27,6 +27,11 @@ interface SpaceMutationInput {
   name?: string
 }
 
+interface SpaceAppearanceInput {
+  icon?: string | null
+  color?: string | null
+}
+
 function normalizeSpaceKey(value: string): string {
   return value.trim().toUpperCase()
 }
@@ -144,7 +149,7 @@ export function useSpaceSettings() {
           }
 
           return {
-            key: currentSpace.key,
+            ...currentSpace,
             name: nextName || currentSpace.name || currentSpace.key,
             enabled: true,
           }
@@ -165,14 +170,47 @@ export function useSpaceSettings() {
     }, true)
   }
 
+  async function updateSpaceAppearance(spaceKey: string, appearance: SpaceAppearanceInput): Promise<void> {
+    const normalizedSpaceKey = normalizeSpaceKey(spaceKey)
+
+    const nextSpaces = settings.value.spaces.map((space): AppSpaceSetting => {
+      if (space.key !== normalizedSpaceKey) {
+        return space
+      }
+
+      const nextSpace: AppSpaceSetting = { ...space }
+
+      if (appearance.icon !== undefined) {
+        if (appearance.icon) {
+          nextSpace.icon = appearance.icon
+        }
+        else {
+          delete nextSpace.icon
+        }
+      }
+
+      if (appearance.color !== undefined) {
+        if (appearance.color) {
+          nextSpace.color = appearance.color
+        }
+        else {
+          delete nextSpace.color
+        }
+      }
+
+      return nextSpace
+    })
+
+    await updateSettings({ spaces: nextSpaces }, false)
+  }
+
   async function disableSpace(spaceKey: string): Promise<void> {
     const normalizedSpaceKey = normalizeSpaceKey(spaceKey)
 
     const nextSpaces = settings.value.spaces.map((space): AppSpaceSetting => (
       space.key === normalizedSpaceKey
         ? {
-            key: space.key,
-            name: space.name,
+            ...space,
             enabled: false,
           }
         : space
@@ -276,6 +314,7 @@ export function useSpaceSettings() {
     setLabelColors,
     setStatusPreferences,
     addOrEnableSpace,
+    updateSpaceAppearance,
     disableSpace,
     deleteSpace,
     updateJiraCredentials,

@@ -10,6 +10,7 @@ import { usePinnedTickets } from '@/composables/usePinnedTickets'
 import { useSpaceSettings } from '@/composables/useSpaceSettings'
 import { isSubIssueTicket } from '@/features/ticket-list/helpers'
 import { getStatusGroup } from '@/types/jira'
+import { resolveSpaceAppearance } from '@/utils/spaceAppearance'
 import { isLocalTicketKey, LOCAL_SPACE_KEY } from '~/shared/localTickets'
 
 export interface FavoriteViewNavItem {
@@ -39,6 +40,9 @@ interface TeamNavItem {
   key: string
   name: string
   triageCount: number
+  icon: string | null
+  color: string
+  initial: string
 }
 
 interface TeamMenuState {
@@ -49,7 +53,7 @@ interface TeamMenuState {
   y: number
 }
 
-type TeamViewSection = 'triage' | 'all' | 'active' | 'backlog' | 'projects' | 'views' | 'project-views'
+type TeamViewSection = 'triage' | 'all' | 'active' | 'backlog' | 'projects' | 'views' | 'project-views' | 'settings'
 
 export function getTeamViewId(spaceKey: string, section: TeamViewSection): string {
   return `team:${spaceKey}:${section}`
@@ -194,10 +198,15 @@ export function useSidebarNavigation(
     const tickets = issueTickets.value.filter(ticket => ticket.spaceKey === space.key)
     const triageCount = tickets.filter(ticket => isBacklogIssueTicket(ticket) && !isSubIssueTicket(ticket)).length
 
+    const appearance = resolveSpaceAppearance(space)
+
     return {
       key: space.key,
       name: space.name || space.key,
       triageCount,
+      icon: appearance.icon,
+      color: appearance.color,
+      initial: appearance.initial,
     }
   }))
 

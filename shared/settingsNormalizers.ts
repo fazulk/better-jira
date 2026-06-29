@@ -13,6 +13,24 @@ export function normalizeSpaceName(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+export function normalizeSpaceIcon(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const trimmed = value.trim().toLowerCase()
+  return /^[a-z0-9-]+$/.test(trimmed) ? trimmed : undefined
+}
+
+export function normalizeSpaceColor(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const trimmed = value.trim().toLowerCase()
+  return /^#[0-9a-f]{6}$/.test(trimmed) ? trimmed : undefined
+}
+
 export function normalizeJiraValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }

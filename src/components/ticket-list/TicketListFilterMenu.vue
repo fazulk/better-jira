@@ -17,7 +17,7 @@ export default defineComponent({
     data-ticket-list-menu="filters"
     class="absolute right-10 top-10 z-30 flex max-h-[35rem] w-[34rem] overflow-hidden rounded-lg border border-white/[0.08] bg-[#15161a] shadow-xl shadow-black/40"
   >
-    <div class="w-[15rem] shrink-0 border-r border-white/[0.06] py-1.5">
+    <div class="flex w-[15rem] shrink-0 flex-col border-r border-white/[0.06] py-1.5">
       <div class="px-2 pb-1">
         <input
           v-model="filterFieldSearchQuery"
@@ -28,61 +28,47 @@ export default defineComponent({
         >
       </div>
 
-      <button
-        v-for="entry in visibleFilterMenuEntries"
-        :key="entry.id"
-        type="button"
-        class="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] transition"
-        :class="
-          activeFilterEntryId === entry.id
-            ? 'bg-white/[0.08] text-[#f0f1f4]'
-            : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'
-        "
-        @mouseenter="activeFilterEntryId = entry.id"
-        @focus="activeFilterEntryId = entry.id"
-        @click="
-          entry.id === 'shared'
-            ? toggleFilterClause('shared', 'shared', 'Shared')
-            : (activeFilterEntryId = entry.id)
-        "
-      >
-        <span
-          v-if="entry.id === 'shared'"
-          class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
-          :class="
-            isFilterClauseSelected('shared', 'shared')
-              ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
-              : 'border-white/[0.18] text-transparent'
-          "
-        >✓</span>
-        <span v-else class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
-        <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
-        <span v-if="entry.hasSubmenu" class="text-[11px] text-[#777a83]">›</span>
-      </button>
-      <div
-        v-if="visibleFilterMenuEntries.length === 0"
-        class="px-3 py-8 text-center text-[12px] text-[#777a83]"
-      >
-        No matching filters
-      </div>
-    </div>
-
-    <div class="min-w-0 flex-1 py-1.5">
-      <div
-        class="mb-1 flex h-8 items-center justify-between gap-3 border-b border-white/[0.06] px-3 pb-1"
-      >
-        <span class="text-[12px] font-medium text-[#d7d8dc]">Filters</span>
+      <div class="min-h-0 flex-1 overflow-y-auto">
         <button
+          v-for="entry in visibleFilterMenuEntries"
+          :key="entry.id"
           type="button"
-          class="rounded px-1.5 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4] disabled:cursor-not-allowed disabled:opacity-40"
-          :disabled="!hasModifiedFilterOptions"
-          @click="clearCurrentViewFilters"
+          class="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] transition"
+          :class="
+            activeFilterEntryId === entry.id
+              ? 'bg-white/[0.08] text-[#f0f1f4]'
+              : 'text-[#b9bbc3] hover:bg-white/[0.045] hover:text-[#f0f1f4]'
+          "
+          @mouseenter="activeFilterEntryId = entry.id"
+          @focus="activeFilterEntryId = entry.id"
+          @click="
+            entry.id === 'shared'
+              ? toggleFilterClause('shared', 'shared', 'Shared')
+              : (activeFilterEntryId = entry.id)
+          "
         >
-          Reset
+          <span
+            v-if="entry.id === 'shared'"
+            class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[10px] leading-none transition"
+            :class="
+              isFilterClauseSelected('shared', 'shared')
+                ? 'border-[#4dbb83] bg-[#4dbb83] text-[#0d0e10]'
+                : 'border-white/[0.18] text-transparent'
+            "
+          >✓</span>
+          <span v-else class="w-4 shrink-0 text-center text-[#8f9198]">{{ entry.icon }}</span>
+          <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
+          <span v-if="entry.hasSubmenu" class="text-[11px] text-[#777a83]">›</span>
         </button>
+        <div
+          v-if="visibleFilterMenuEntries.length === 0"
+          class="px-3 py-8 text-center text-[12px] text-[#777a83]"
+        >
+          No matching filters
+        </div>
       </div>
 
-      <div v-if="isIssueDisplayView" class="border-b border-white/[0.06] px-3 py-2">
+      <div v-if="isIssueDisplayView" class="border-t border-white/[0.06] px-3 py-2">
         <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">
           Issue inclusion
         </p>
@@ -150,7 +136,7 @@ export default defineComponent({
         </button>
       </div>
 
-      <div v-else-if="isProjectDisplayView" class="border-b border-white/[0.06] px-3 py-2">
+      <div v-else-if="isProjectDisplayView" class="border-t border-white/[0.06] px-3 py-2">
         <p class="mb-2 text-[12px] font-medium text-[#d7d8dc]">
           Project inclusion
         </p>
@@ -166,6 +152,22 @@ export default defineComponent({
             </option>
           </select>
         </label>
+      </div>
+    </div>
+
+    <div class="min-w-0 flex-1 py-1.5">
+      <div
+        class="mb-1 flex h-8 items-center justify-between gap-3 border-b border-white/[0.06] px-3 pb-1"
+      >
+        <span class="text-[12px] font-medium text-[#d7d8dc]">Filters</span>
+        <button
+          type="button"
+          class="rounded px-1.5 py-1 text-[12px] text-[#aeb0b7] hover:bg-white/[0.05] hover:text-[#f0f1f4] disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="!hasModifiedFilterOptions"
+          @click="clearCurrentViewFilters"
+        >
+          Reset
+        </button>
       </div>
 
       <template v-if="activeFilterEntryId === 'dates'">

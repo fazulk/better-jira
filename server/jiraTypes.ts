@@ -8,6 +8,11 @@ export interface JiraAttachment {
   thumbnail?: string
 }
 
+export interface JiraTeamRef {
+  id: string
+  name: string
+}
+
 export interface JiraTicket {
   key: string
   summary: string
@@ -23,6 +28,7 @@ export interface JiraTicket {
   labels: string[]
   spaceKey: string
   spaceName: string
+  team?: JiraTeamRef
   assignee: string
   assigneeAccountId?: string
   reporter?: string

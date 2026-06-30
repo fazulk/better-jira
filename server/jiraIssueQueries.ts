@@ -3,7 +3,7 @@ import { isRecord } from '../shared/jiraAdf'
 import { buildUpdatedSinceSearchQuery } from '../shared/settings'
 import { broadcast } from './events'
 import { jiraFetch } from './jiraClient'
-import { isJiraApiIssue, mapIssue, resolveSprintFieldId } from './jiraIssueMapping'
+import { isJiraApiIssue, mapIssue, resolveSprintFieldId, resolveTeamFieldId } from './jiraIssueMapping'
 import { buildDefaultSearchQuery } from './jiraProjects'
 
 const summaryIssueFields = [
@@ -47,7 +47,10 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
   if (!query) {
     return []
   }
-  const sprintFieldId = await resolveSprintFieldId()
+  const [sprintFieldId, teamFieldId] = await Promise.all([
+    resolveSprintFieldId(),
+    resolveTeamFieldId(),
+  ])
   const issues: unknown[] = []
   let startAt = 0
   let nextPageToken: string | null = null
@@ -56,6 +59,9 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
 
   if (sprintFieldId) {
     fields.push(sprintFieldId)
+  }
+  if (teamFieldId) {
+    fields.push(teamFieldId)
   }
 
   while (true) {
@@ -98,7 +104,7 @@ export async function searchTickets(jql?: string): Promise<JiraTicket[]> {
     startAt += batch.length
   }
 
-  return issues.filter(isJiraApiIssue).map(issue => mapIssue(issue, false, sprintFieldId))
+  return issues.filter(isJiraApiIssue).map(issue => mapIssue(issue, false, sprintFieldId, teamFieldId))
 }
 
 function getIncrementalRefreshQuery(updatedSince?: Date): string | null {
@@ -115,11 +121,17 @@ function getIncrementalRefreshQuery(updatedSince?: Date): string | null {
 }
 
 export async function getTicket(key: string): Promise<JiraTicket> {
-  const sprintFieldId = await resolveSprintFieldId()
+  const [sprintFieldId, teamFieldId] = await Promise.all([
+    resolveSprintFieldId(),
+    resolveTeamFieldId(),
+  ])
   const fields = [...detailIssueFields]
 
   if (sprintFieldId) {
     fields.push(sprintFieldId)
+  }
+  if (teamFieldId) {
+    fields.push(teamFieldId)
   }
 
   const data = await jiraFetch(`/issue/${key}`, {
@@ -127,7 +139,7 @@ export async function getTicket(key: string): Promise<JiraTicket> {
       fields: fields.join(','),
     },
   })
-  return mapIssue(isJiraApiIssue(data) ? data : {}, true, sprintFieldId)
+  return mapIssue(isJiraApiIssue(data) ? data : {}, true, sprintFieldId, teamFieldId)
 }
 
 export async function forceRefreshTickets(updatedSince?: Date): Promise<RefreshTicketsResult> {

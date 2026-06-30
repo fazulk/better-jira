@@ -145,6 +145,7 @@ export const filterMenuEntries: FilterMenuEntry[] = [
   },
   { id: 'dates', label: 'Dates', icon: '□', hasSubmenu: true },
   { id: 'project', label: 'Project', icon: '◇', hasSubmenu: true },
+  { id: 'team', label: 'Team', icon: '◴', hasSubmenu: true },
   {
     id: 'projectProperties',
     label: 'Project properties',

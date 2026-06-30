@@ -6,6 +6,7 @@ import type {
   JiraApiSprint,
   JiraApiUser,
   JiraAttachment,
+  JiraTeamRef,
   JiraTicket,
 } from './jiraTypes'
 import { isRecord } from '../shared/jiraAdf'
@@ -13,6 +14,7 @@ import { jiraFetch } from './jiraClient'
 import { extractDescription, extractDescriptionAdf } from './jiraDescription'
 
 let sprintFieldIdPromise: Promise<string | null> | null = null
+let teamFieldIdPromise: Promise<string | null> | null = null
 
 export function isJiraApiUser(value: unknown): value is Required<JiraApiUser> {
   if (!isRecord(value))
@@ -78,6 +80,75 @@ export async function resolveSprintFieldId(): Promise<string | null> {
   }
 }
 
+async function getTeamFieldId(): Promise<string | null> {
+  if (!teamFieldIdPromise) {
+    teamFieldIdPromise = (async () => {
+      const data = await jiraFetch('/field/search', {
+        params: {
+          query: 'Team',
+          maxResults: '50',
+        },
+      })
+
+      if (!isRecord(data) || !Array.isArray(data.values)) {
+        return null
+      }
+
+      for (const field of data.values) {
+        if (!isRecord(field) || typeof field.id !== 'string') {
+          continue
+        }
+
+        const schema = isRecord(field.schema) ? field.schema : null
+        if (schema?.custom === 'com.atlassian.teams:rm-teams-custom-field-team') {
+          return field.id
+        }
+      }
+
+      return null
+    })().catch((error: unknown) => {
+      teamFieldIdPromise = null
+      throw error
+    })
+  }
+
+  return teamFieldIdPromise
+}
+
+export async function resolveTeamFieldId(): Promise<string | null> {
+  try {
+    return await getTeamFieldId()
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    console.warn('Unable to resolve Jira team field:', message)
+    return null
+  }
+}
+
+function mapTeam(fields: JiraApiIssueFields | undefined, teamFieldId: string | null): JiraTeamRef | undefined {
+  if (!fields || !teamFieldId || !isRecord(fields)) {
+    return undefined
+  }
+
+  const value = fields[teamFieldId]
+  if (typeof value === 'string' && value) {
+    return { id: value, name: value }
+  }
+
+  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) {
+    return undefined
+  }
+
+  const name = typeof value.title === 'string' && value.title
+    ? value.title
+    : typeof value.name === 'string' && value.name
+      ? value.name
+      : value.id
+
+  return { id: value.id, name }
+}
+
 function isTicketInCurrentSprint(fields: JiraApiIssueFields | undefined, sprintFieldId: string | null): boolean {
   if (!fields || !sprintFieldId || !isRecord(fields)) {
     return false
@@ -128,7 +199,7 @@ function mapAttachments(attachments: JiraApiAttachment[] | undefined): JiraAttac
   return mappedAttachments.length ? mappedAttachments : undefined
 }
 
-export function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId: string | null = null): JiraTicket {
+export function mapIssue(issue: JiraApiIssue, includeDescription = false, sprintFieldId: string | null = null, teamFieldId: string | null = null): JiraTicket {
   const fields = issue.fields
   const descriptionAdf = includeDescription ? extractDescriptionAdf(fields?.description) : undefined
   const ticket: JiraTicket = {
@@ -146,6 +217,7 @@ export function mapIssue(issue: JiraApiIssue, includeDescription = false, sprint
     labels: fields?.labels ?? [],
     spaceKey: fields?.project?.key ?? '',
     spaceName: fields?.project?.name ?? fields?.project?.key ?? 'Unknown space',
+    team: mapTeam(fields, teamFieldId),
     assignee: fields?.assignee?.displayName ?? 'Unassigned',
     assigneeAccountId: fields?.assignee?.accountId ?? undefined,
     reporter: fields?.reporter?.displayName ?? undefined,

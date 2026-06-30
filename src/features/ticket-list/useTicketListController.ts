@@ -332,6 +332,7 @@ export function useTicketListController() {
     'updatedDate',
     'completedDate',
     'project',
+    'team',
     'projectStatus',
     'projectPriority',
     'projectLead',
@@ -909,6 +910,8 @@ export function useTicketListController() {
       return 'suggestedLabel'
     if (activeFilterEntryId.value === 'project')
       return 'project'
+    if (activeFilterEntryId.value === 'team')
+      return 'team'
     if (activeFilterEntryId.value === 'initiative')
       return 'initiative'
     if (activeFilterEntryId.value === 'subscribers')
@@ -2409,6 +2412,15 @@ export function useTicketListController() {
         }),
       )
     }
+    if (fieldId === 'team') {
+      return countFilterOptions(
+        baseTickets.map(ticket => ({
+          value: ticket.team?.id ?? 'no-team',
+          label: ticket.team?.name ?? 'No team',
+          icon: '◴',
+        })),
+      )
+    }
     if (fieldId === 'projectStatus') {
       return countFilterOptions(
         baseDisplayedProjectRows.value.map(project => ({
@@ -2538,6 +2550,9 @@ export function useTicketListController() {
           icon: '◇',
         })),
       )
+    }
+    if (fieldId === 'team') {
+      return countFilterOptions(baseProjects.flatMap(project => getProjectTeamFilterEntries(project)))
     }
     if (fieldId === 'initiative') {
       return countFilterOptions(
@@ -2746,6 +2761,8 @@ export function useTicketListController() {
     }
     if (filter.fieldId === 'project')
       return (getProjectKey(ticket) ?? 'no-project') === filter.value
+    if (filter.fieldId === 'team')
+      return (ticket.team?.id ?? 'no-team') === filter.value
     if (
       filter.fieldId === 'projectStatus'
       || filter.fieldId === 'projectPriority'
@@ -2807,6 +2824,8 @@ export function useTicketListController() {
       return normalizeFilterValue(project.health) === filter.value
     if (filter.fieldId === 'project')
       return project.key === filter.value
+    if (filter.fieldId === 'team')
+      return getProjectTeamFilterEntries(project).some(entry => entry.value === filter.value)
     if (filter.fieldId === 'initiative') {
       return project.initiativeKey === filter.value
     }
@@ -3104,6 +3123,23 @@ export function useTicketListController() {
         }),
     )
   }
+  function getProjectTeamFilterEntries(project: ProjectRow): Array<{ value: string, label: string, icon: string }> {
+    const teamEntries = new Map<string, { value: string, label: string, icon: string }>()
+    for (const ticket of enabledTickets.value) {
+      if (getProjectKey(ticket) !== project.key) {
+        continue
+      }
+
+      const value = ticket.team?.id ?? 'no-team'
+      teamEntries.set(value, {
+        value,
+        label: ticket.team?.name ?? 'No team',
+        icon: '◴',
+      })
+    }
+    return [...teamEntries.values()]
+  }
+
   function getProjectKey(ticket: JiraTicket): string | null {
     if (isInitiativeIssue(ticket))
       return null

@@ -68,6 +68,7 @@ export type FilterFieldId
     | 'suggestedLabel'
     | DateFilterFieldId
     | 'project'
+    | 'team'
     | ProjectPropertyFilterFieldId
     | 'initiative'
     | 'subscribers'
@@ -83,6 +84,7 @@ export type FilterEntryId
     | 'suggestedLabel'
     | 'dates'
     | 'project'
+    | 'team'
     | 'projectProperties'
     | 'initiative'
     | 'subscribers'
